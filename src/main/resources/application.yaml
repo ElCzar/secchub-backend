@@ -1,0 +1,14 @@
+spring:
+    application:
+        name: secchub-backend
+    datasource:
+        url: jdbc:mysql://localhost:3306/secchub
+        username: user
+        password: password
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        hikari:
+            connection-timeout: 30000
+            maximum-pool-size: 10
+
+server:
+    port: 8080
