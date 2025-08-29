@@ -9,7 +9,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
+import co.edu.puj.secchub_backend.security.dto.AuthLoginDTO;
+import co.edu.puj.secchub_backend.security.dto.AuthTokenDTO;
+import co.edu.puj.secchub_backend.security.service.AuthenticationService;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
@@ -18,27 +20,24 @@ import java.util.Map;
 @RequestMapping("/auth")
 public class AuthenticationController {
 
-	private final JwtTokenProvider jwtTokenProvider;
+	private final AuthenticationService authenticationService;
 
-	public AuthenticationController(JwtTokenProvider jwtTokenProvider) {
-		this.jwtTokenProvider = jwtTokenProvider;
+	public AuthenticationController(AuthenticationService authenticationService) {
+		this.authenticationService = authenticationService;
 	}
 
+	/**
+	 * Login endpoint for user authentication.
+	 * @param authLoginDTO the login credentials
+	 * @return a Mono containing the authentication token
+	 */
 	@PostMapping("/login")
 	@PreAuthorize("permitAll()")
-	public Mono<ResponseEntity<Map<String, Object>>> login(@RequestBody Map<String, String> credentials) {
-		String email = credentials.get("email");
-		String password = credentials.get("password");
-		System.out.println("Attempting login for user: " + email);
-
-		// Validate credentials (this is just a placeholder, implement your own logic)
-		if ("u".equals(email) && "p".equals(password)) {
-			String token = jwtTokenProvider.generateToken(email, "ROLE_ADMIN");
-			return Mono.just(ResponseEntity.ok(Map.of("message", "Login successful", "token", token)));
-		} else {
-			return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-					.body(Map.of("message", "Invalid credentials")));
-		}
+	public Mono<ResponseEntity<AuthTokenDTO>> login(@RequestBody AuthLoginDTO authLoginDTO) {
+		return Mono.fromCallable(() -> authenticationService.authenticate(authLoginDTO.getEmail(), authLoginDTO.getPassword()))
+				.map(ResponseEntity::ok)
+				.onErrorReturn(ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+						.body(new AuthTokenDTO("Login failed", authLoginDTO.getEmail(), null)));
 	}
 
 	@GetMapping("/example")

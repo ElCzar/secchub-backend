@@ -1,19 +1,107 @@
+# ==============================================================================
+# SECCHUB BACKEND APPLICATION CONFIGURATION
+# ==============================================================================
+# This configuration file contains settings for the SecHub Backend application.
+# Environment variables can be used to override default values for security.
+# ==============================================================================
+
 spring:
     application:
         name: secchub-backend
+    
+    # ==============================================================================
+    # DATABASE CONFIGURATION
+    # ==============================================================================
+    # WARNING: Never commit database credentials to version control!
+    # Use environment variables: DB_USERNAME, DB_PASSWORD
+    # Default credentials are for development only
+    # ==============================================================================
     datasource:
         url: jdbc:mysql://localhost:3306/secchub
-        username: ${DB_USERNAME:user}
-        password: ${DB_PASSWORD:password}
+        username: ${DB_USERNAME:user}  # WARNING: Change default username in production
+        password: ${DB_PASSWORD:password}  # WARNING: Change default password in production
         driver-class-name: com.mysql.cj.jdbc.Driver
         hikari:
-            connection-timeout: 30000
-            maximum-pool-size: 10
+            connection-timeout: 30000  # 30 seconds timeout for database connections
+            maximum-pool-size: 10      # Maximum number of connections in the pool
 
+# ==============================================================================
+# JWT SECURITY CONFIGURATION
+# ==============================================================================
+# CRITICAL: JWT secret must be changed in production environment!
+# Use a cryptographically secure random key of at least 512 bits
+# Environment variables: JWT_SECRET, JWT_EXPIRATION, JWT_ISSUER
+# ==============================================================================
 jwt:
+    # WARNING: This is a default secret key for development only!
+    # MUST be overridden in production using JWT_SECRET environment variable
     secret: ${JWT_SECRET:TXlTZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb25UaGF0SXNBdExlYXN0MzJDaGFyYWN0ZXJzTG9uZ0ZvclNIQTI1Ng==}
+    
+    # Token expiration time in milliseconds (default: 24 hours)
+    # INFO: 86400000ms = 24 hours, adjust based on security requirements
     expiration-ms: ${JWT_EXPIRATION:86400000}
+    
+    # JWT issuer claim - identifies who issued the token
+    # INFO: Should match your domain in production
     issuer: ${JWT_ISSUER:secchub.javeriana.edu.co}
 
+# ==============================================================================
+# SERVER CONFIGURATION
+# ==============================================================================
 server:
-    port: 8080
+    port: 8080  # INFO: Application will run on this port
+
+# ==============================================================================
+# LOGGING CONFIGURATION
+# ==============================================================================
+# INFO: Logging levels configured for development environment
+# WARNING: DEBUG and TRACE levels may expose sensitive information in logs
+# Consider using INFO or WARN levels in production
+# ==============================================================================
+logging:
+  level:
+    # Application-specific logging
+    "[co.edu.puj.secchub_backend]": DEBUG
+    
+    # Spring Security logging - useful for debugging authentication issues
+    "[org.springframework.security]": DEBUG
+
+    # Web request logging
+    "[org.springframework.web]": INFO
+
+    # Database logging
+    "[org.hibernate]": INFO
+    "[org.hibernate.SQL]": DEBUG           # INFO: Shows SQL queries executed
+    "[org.hibernate.type.descriptor.sql.BasicBinder]": TRACE  # WARNING: Shows SQL parameters
+
+  # Console output pattern with colors (development friendly)
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+    
+    # File output pattern (production friendly)
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  
+  # Log file configuration
+  file:
+    name: logs/secchub-backend.log  # INFO: Logs will be written to this file
+
+# ==============================================================================
+# PRODUCTION DEPLOYMENT NOTES
+# ==============================================================================
+# Before deploying to production, ensure:
+# 
+# 1. Set JWT_SECRET environment variable with a secure random key
+# 2. Set DB_USERNAME and DB_PASSWORD environment variables
+# 3. Adjust logging levels (remove DEBUG/TRACE levels)
+# 4. Configure proper SSL/TLS certificates
+# 5. Set up proper backup strategies for the database
+# 6. Configure monitoring and alerting
+# 7. Review and test all security configurations
+# 8. Ensure firewall rules are properly configured
+# 
+# Example production environment variables:
+# export JWT_SECRET="your-super-secure-base64-encoded-secret-key-here"
+# export DB_USERNAME="prod_secchub_user"
+# export DB_PASSWORD="your-secure-database-password"
+# export JWT_EXPIRATION="3600000"  # 1 hour for better security
+# ==============================================================================
