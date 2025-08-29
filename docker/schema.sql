@@ -56,7 +56,7 @@ CREATE TABLE `users` (
   `faculty` VARCHAR(150) NULL,
   `name` VARCHAR(150) NOT NULL,
   `last_name` VARCHAR(150) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL UNIQUE,
   `status_id` BIGINT UNSIGNED NULL,
   `last_access` DATETIME NULL,
   `role_id` BIGINT UNSIGNED NULL,
