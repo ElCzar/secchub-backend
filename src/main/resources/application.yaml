@@ -61,10 +61,10 @@ server:
 logging:
   level:
     # Application-specific logging
-    "[co.edu.puj.secchub_backend]": DEBUG
+    "[co.edu.puj.secchub_backend]": INFO
     
     # Spring Security logging - useful for debugging authentication issues
-    "[org.springframework.security]": DEBUG
+    "[org.springframework.security]": INFO
 
     # Web request logging
     "[org.springframework.web]": INFO
