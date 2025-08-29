@@ -3,12 +3,17 @@ spring:
         name: secchub-backend
     datasource:
         url: jdbc:mysql://localhost:3306/secchub
-        username: user
-        password: password
+        username: ${DB_USERNAME:user}
+        password: ${DB_PASSWORD:password}
         driver-class-name: com.mysql.cj.jdbc.Driver
         hikari:
             connection-timeout: 30000
             maximum-pool-size: 10
+
+jwt:
+    secret: ${JWT_SECRET:TXlTZWNyZXRLZXlGb3JKV1RUb2tlbkdlbmVyYXRpb25UaGF0SXNBdExlYXN0MzJDaGFyYWN0ZXJzTG9uZ0ZvclNIQTI1Ng==}
+    expiration-ms: ${JWT_EXPIRATION:86400000}
+    issuer: ${JWT_ISSUER:secchub.javeriana.edu.co}
 
 server:
     port: 8080
