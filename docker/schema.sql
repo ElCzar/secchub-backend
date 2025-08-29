@@ -118,7 +118,7 @@ CREATE TABLE `course` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_course_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `semester` (
@@ -141,7 +141,7 @@ CREATE TABLE `classroom` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_classroom_classroom_type`
     FOREIGN KEY (`classroom_type_id`) REFERENCES `classroom_type` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `student` (
@@ -173,7 +173,7 @@ CREATE TABLE `student` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_student_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `academic_request` (
@@ -192,7 +192,7 @@ CREATE TABLE `academic_request` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_academic_request_semester`
     FOREIGN KEY (`semester_id`) REFERENCES `semester` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `request_schedule` (
@@ -208,7 +208,7 @@ CREATE TABLE `request_schedule` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_request_schedule_classroom_type`
     FOREIGN KEY (`classroom_type_id`) REFERENCES `classroom_type` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `class` (
@@ -229,7 +229,7 @@ CREATE TABLE `class` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_class_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `class_schedule` (
@@ -250,7 +250,7 @@ CREATE TABLE `class_schedule` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_class_schedule_modality`
     FOREIGN KEY (`modality_id`) REFERENCES `modality` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `teaching_assistant` (
@@ -266,7 +266,7 @@ CREATE TABLE `teaching_assistant` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_teaching_assistant_student`
     FOREIGN KEY (`student_id`) REFERENCES `student` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `teacher_class` (
@@ -288,7 +288,7 @@ CREATE TABLE `teacher_class` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_teacher_class_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `student_schedule` (

@@ -49,5 +49,4 @@ INSERT INTO classroom_type (name) VALUES
 
 -- Sample user with password hashed --
 INSERT INTO users (username, password, name, last_name, email, status_id, role_id, document_type_id, document_number)
-VALUES ('admin', '$2a$10$aBcdEfghIjkLmnOPqrsTuOvwxyz1234567890AabcdefgHiJklMno', 'Admin', 'User', 'admin@secchub.com', 1, 1, 1, '12345678'),
-VALUES ('u', 'p', 'Admin', 'User', 'u', 1, 1, 1, '12345678');
+VALUES ('admin', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Admin', 'User', 'admin@secchub.com', 1, 1, 1, '12345678');
