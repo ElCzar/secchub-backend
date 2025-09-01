@@ -16,7 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.AuthenticationWebFilter;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
-import org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
@@ -38,9 +37,6 @@ public class SecurityConfig {
         // JWT Authentication Filter - only apply to authenticated endpoints
         AuthenticationWebFilter authenticationFilter = new AuthenticationWebFilter(jwtAuthenticationManager);
         authenticationFilter.setServerAuthenticationConverter(jwtAuthenticationConverter);
-        authenticationFilter.setRequiresAuthenticationMatcher(
-                ServerWebExchangeMatchers.pathMatchers("/auth/example", "/admin/**")
-        );
 
         return http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -61,7 +57,6 @@ public class SecurityConfig {
                 .authorizeExchange(auth -> auth
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
                         .pathMatchers("/auth/login").permitAll()
-                        .pathMatchers("/auth/example").authenticated()
                         .anyExchange().authenticated()
                 )
                 .addFilterAt(authenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)
