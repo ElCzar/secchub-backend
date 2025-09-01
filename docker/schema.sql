@@ -326,3 +326,35 @@ ALTER TABLE request_schedule
   ADD CONSTRAINT fk_request_schedule_modality
     FOREIGN KEY (modality_id) REFERENCES modality(id)
     ON DELETE SET NULL ON UPDATE CASCADE;
+
+CREATE TABLE monitor_request (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  student_id BIGINT UNSIGNED NOT NULL,
+  semester_id BIGINT UNSIGNED NOT NULL,
+  type ENUM('ACADEMIC','ADMINISTRATIVE') NOT NULL,
+  course_id BIGINT UNSIGNED NULL,       -- solo si es académico
+  section_id BIGINT UNSIGNED NULL,      -- solo si es administrativo
+  grade DECIMAL(3,1) NULL,              -- nota en la materia (académico)
+  professor_name VARCHAR(150) NULL,     -- profe con quien tomó la materia
+  status_id BIGINT UNSIGNED NULL,       -- pendiente, aprobado, rechazado
+  request_date DATE,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_monitor_request_student FOREIGN KEY (student_id) REFERENCES student(id),
+  CONSTRAINT fk_monitor_request_semester FOREIGN KEY (semester_id) REFERENCES semester(id),
+  CONSTRAINT fk_monitor_request_course FOREIGN KEY (course_id) REFERENCES course(id),
+  CONSTRAINT fk_monitor_request_section FOREIGN KEY (section_id) REFERENCES section(id),
+  CONSTRAINT fk_monitor_request_status FOREIGN KEY (status_id) REFERENCES status(id)
+);
+
+CREATE TABLE monitor_availability (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  monitor_request_id BIGINT UNSIGNED NOT NULL,
+  day VARCHAR(20) NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  total_hours INT NOT NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_monitor_availability_request
+    FOREIGN KEY (monitor_request_id) REFERENCES monitor_request(id)
+    ON DELETE CASCADE
+);

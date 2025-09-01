@@ -81,8 +81,8 @@ public class AcademicRequestService {
                     RequestSchedule sch = RequestSchedule.builder()
                             .academicRequestId(saved.getId())
                             .day(s.getDay())
-                            .startTime(toIntHHmm(s.getStartTime()))
-                            .endTime(toIntHHmm(s.getEndTime()))
+                            .startTime(java.sql.Time.valueOf(String.format("%02d:%02d:00", toIntHHmm(s.getStartTime()) / 100, toIntHHmm(s.getStartTime()) % 100)))
+                            .endTime(java.sql.Time.valueOf(String.format("%02d:%02d:00", toIntHHmm(s.getEndTime()) / 100, toIntHHmm(s.getEndTime()) % 100)))
                             .classroomTypeId(s.getClassroomTypeId())
                             .modalityId(s.getModalityId())
                             .disability(s.getDisability())
@@ -146,7 +146,7 @@ public class AcademicRequestService {
     @Transactional
     public RequestScheduleDTO addSchedule(Long requestId, RequestScheduleDTO dto) {
         AcademicRequest request = requestRepo.findById(requestId)
-        .orElseThrow(() -> new IllegalArgumentException("AcademicRequest not found: " + requestId));
+            .orElseThrow(() -> new IllegalArgumentException("AcademicRequest not found: " + requestId));
 
         // convierte "HH:mm:ss" a int HHmm → ej. "14:30:00" → 1430
         int startInt = toIntHHmm(dto.getStartTime());
@@ -155,8 +155,8 @@ public class AcademicRequestService {
         RequestSchedule schedule = RequestSchedule.builder()
                 .academicRequestId(request.getId())
                 .day(dto.getDay())
-                .startTime(startInt)   // usa tu builder custom
-                .endTime(endInt)       // usa tu builder custom
+                .startTime(java.sql.Time.valueOf(String.format("%02d:%02d:00", startInt / 100, startInt % 100)))
+                .endTime(java.sql.Time.valueOf(String.format("%02d:%02d:00", endInt / 100, endInt % 100)))
                 .classroomTypeId(dto.getClassroomTypeId())
                 .modalityId(dto.getModalityId())
                 .disability(dto.getDisability())
