@@ -5,43 +5,43 @@
 
 CREATE TABLE `status` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `role` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `document_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `employment_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `modality` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `session` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `classroom_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -56,7 +56,7 @@ CREATE TABLE `users` (
   `faculty` VARCHAR(150) NULL,
   `name` VARCHAR(150) NOT NULL,
   `last_name` VARCHAR(150) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL UNIQUE,
   `status_id` BIGINT UNSIGNED NULL,
   `last_access` DATETIME NULL,
   `role_id` BIGINT UNSIGNED NULL,
@@ -181,6 +181,9 @@ CREATE TABLE `academic_request` (
   `user_id` BIGINT UNSIGNED NULL,
   `course_id` BIGINT UNSIGNED NULL,
   `semester_id` BIGINT UNSIGNED NULL,
+  `start_date` DATE NULL,
+  `end_date` DATE NULL,
+  `capacity` INT NULL,
   `request_date` DATE NULL,
   `observation` TEXT NULL,
   PRIMARY KEY (`id`),
@@ -202,6 +205,8 @@ CREATE TABLE `request_schedule` (
   `start_time` TIME NULL,
   `end_time` TIME NULL,
   `day` VARCHAR(20) NULL,
+  `modality_id` BIGINT UNSIGNED NULL,
+  `disability` BOOLEAN NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_request_schedule_academic_request`
     FOREIGN KEY (`academic_request_id`) REFERENCES `academic_request` (`id`)
@@ -302,59 +307,3 @@ CREATE TABLE `student_schedule` (
     FOREIGN KEY (`student_id`) REFERENCES `student` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
-ALTER TABLE academic_request
-  ADD COLUMN section VARCHAR(50) NULL,
-  ADD COLUMN classroom_type_id BIGINT UNSIGNED NULL,
-  ADD COLUMN requested_quota INT NULL,
-  ADD COLUMN start_date DATE NULL,
-  ADD COLUMN end_date DATE NULL,
-  ADD COLUMN weeks INT NULL,
-  ADD CONSTRAINT fk_academic_request_classroom_type
-    FOREIGN KEY (classroom_type_id) REFERENCES classroom_type(id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
-
--- Índices útiles para filtros de la vista del Jefe de Sección
-CREATE INDEX ix_ar_semester ON academic_request(semester_id);
-CREATE INDEX ix_ar_course ON academic_request(course_id);
-CREATE INDEX ix_ar_section ON academic_request(section);
-
--- ========== HU01: por horario (detalle) ==========
-ALTER TABLE request_schedule
-  ADD COLUMN modality_id BIGINT UNSIGNED NULL,
-  ADD COLUMN disability BOOLEAN NULL,
-  ADD CONSTRAINT fk_request_schedule_modality
-    FOREIGN KEY (modality_id) REFERENCES modality(id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
-
-CREATE TABLE monitor_request (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  student_id BIGINT UNSIGNED NOT NULL,
-  semester_id BIGINT UNSIGNED NOT NULL,
-  type ENUM('ACADEMIC','ADMINISTRATIVE') NOT NULL,
-  course_id BIGINT UNSIGNED NULL,       -- solo si es académico
-  section_id BIGINT UNSIGNED NULL,      -- solo si es administrativo
-  grade DECIMAL(3,1) NULL,              -- nota en la materia (académico)
-  professor_name VARCHAR(150) NULL,     -- profe con quien tomó la materia
-  status_id BIGINT UNSIGNED NULL,       -- pendiente, aprobado, rechazado
-  request_date DATE,
-  PRIMARY KEY (id),
-  CONSTRAINT fk_monitor_request_student FOREIGN KEY (student_id) REFERENCES student(id),
-  CONSTRAINT fk_monitor_request_semester FOREIGN KEY (semester_id) REFERENCES semester(id),
-  CONSTRAINT fk_monitor_request_course FOREIGN KEY (course_id) REFERENCES course(id),
-  CONSTRAINT fk_monitor_request_section FOREIGN KEY (section_id) REFERENCES section(id),
-  CONSTRAINT fk_monitor_request_status FOREIGN KEY (status_id) REFERENCES status(id)
-);
-
-CREATE TABLE monitor_availability (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  monitor_request_id BIGINT UNSIGNED NOT NULL,
-  day VARCHAR(20) NOT NULL,
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
-  total_hours INT NOT NULL,
-  PRIMARY KEY (id),
-  CONSTRAINT fk_monitor_availability_request
-    FOREIGN KEY (monitor_request_id) REFERENCES monitor_request(id)
-    ON DELETE CASCADE
-);

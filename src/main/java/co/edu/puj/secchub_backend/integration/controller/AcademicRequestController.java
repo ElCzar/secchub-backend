@@ -9,25 +9,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import java.util.List;
 import java.util.Map;
 
 /**
  * Controlador REST para gestionar solicitudes académicas y sus horarios asociados.
- * Proporciona endpoints para crear, actualizar, eliminar y consultar solicitudes y horarios.
+ * Proporciona endpoints para crear, consultar, actualizar y eliminar solicitudes y horarios.
  */
 @RestController
 @RequestMapping("/api/academic-requests")
 @RequiredArgsConstructor
 public class AcademicRequestController {
 
-    /**
-     * Servicio para la lógica de negocio de solicitudes académicas.
-     */
+    /** Servicio para la lógica de negocio de solicitudes académicas. */
     private final AcademicRequestService academicRequestService;
 
     /**
-     * Crea un lote de solicitudes académicas.
+     * Crea un lote de solicitudes académicas con horarios.
      * @param payload DTO con la información del lote de solicitudes
      * @return Lista de solicitudes académicas creadas
      */
@@ -45,17 +44,6 @@ public class AcademicRequestController {
     @DeleteMapping("/{requestId}")
     public ResponseEntity<Void> deleteRequest(@PathVariable Long requestId) {
         academicRequestService.deleteRequest(requestId);
-        return ResponseEntity.noContent().build();
-    }
-
-    /**
-     * Elimina un horario por su ID.
-     * @param scheduleId ID del horario a eliminar
-     * @return Respuesta sin contenido
-     */
-    @DeleteMapping("/schedules/{scheduleId}")
-    public ResponseEntity<Void> deleteSchedule(@PathVariable Long scheduleId) {
-        academicRequestService.deleteSchedule(scheduleId);
         return ResponseEntity.noContent().build();
     }
 
@@ -149,7 +137,7 @@ public class AcademicRequestController {
     }
 
     /**
-     * Actualiza parcialmente un horario específico de una solicitud académica.
+     * Actualiza parcialmente un horario de una solicitud académica.
      * @param requestId ID de la solicitud
      * @param scheduleId ID del horario
      * @param updates Mapa con los campos a actualizar
@@ -163,5 +151,4 @@ public class AcademicRequestController {
         RequestScheduleDTO updated = academicRequestService.patchSchedule(scheduleId, updates);
         return ResponseEntity.ok(updated);
     }
-
 }
