@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import co.edu.puj.secchub_backend.security.domain.User;
 import co.edu.puj.secchub_backend.security.dto.AuthTokenDTO;
+import co.edu.puj.secchub_backend.security.dto.RefreshTokenRequestDTO;
 import co.edu.puj.secchub_backend.security.exception.JwtAuthenticationException;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
@@ -44,13 +45,41 @@ public class AuthenticationService {
             throw new JwtAuthenticationException("Invalid email or password");
         }
 
-        // Update last access time
         userRepository.updateLastAccess(user.getEmail());
 
-        // Generate JWT token
         String token = jwtTokenProvider.generateToken(user.getEmail(), user.getRole().getName());
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
         log.info("Authentication successful for email: {}", email);
-        
-        return new AuthTokenDTO("Login successful", email, token);
+
+        return new AuthTokenDTO("Login successful", System.currentTimeMillis(), token, refreshToken, JwtTokenProvider.BEARER_PREFIX);
+    }
+
+    /**
+     * Refreshes the authentication token using the provided refresh token.
+     * @param refreshToken the refresh token request DTO containing the refresh token
+     * @return a new AuthTokenDTO containing the refreshed authentication token
+     */
+    public AuthTokenDTO refreshToken(RefreshTokenRequestDTO refreshToken) throws JwtAuthenticationException {
+        log.info("Attempting to refresh token using refresh token: {}", refreshToken);
+        String email = jwtTokenProvider.getEmailFromToken(refreshToken.getRefreshToken());
+
+        if (email == null || !jwtTokenProvider.validateRefreshToken(refreshToken.getRefreshToken())) {
+            log.warn("Refresh token is invalid");
+            throw new JwtAuthenticationException("Invalid refresh token");
+        }
+
+        Optional<User> userOptional = userRepository.findByEmail(email);
+
+        if (userOptional.isEmpty()) {
+            log.warn("Refresh token is invalid: User not found for email: {}", email);
+            throw new JwtAuthenticationException("Invalid refresh token");
+        }
+
+        User user = userOptional.get();
+        String newToken = jwtTokenProvider.generateToken(email, user.getRole().getName());
+        String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
+        log.info("Token refreshed successfully for email: {}", email);
+
+        return new AuthTokenDTO("Token refreshed successfully", System.currentTimeMillis(), newToken, newRefreshToken, JwtTokenProvider.BEARER_PREFIX);
     }
 }

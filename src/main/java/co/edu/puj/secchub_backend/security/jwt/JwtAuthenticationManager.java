@@ -16,6 +16,11 @@ public class JwtAuthenticationManager implements ReactiveAuthenticationManager {
     private final JwtTokenProvider tokenProvider;
     private final ReactiveUserDetailsServiceImpl userDetailsService;
 
+    /**
+     * Authenticates the user based on the provided JWT token.
+     * @param authentication the authentication object containing the JWT token
+     * @return a Mono emitting the authenticated user, or empty if authentication fails
+     */
     @Override
     public Mono<Authentication> authenticate(Authentication authentication) {
         String token = (String) authentication.getCredentials();
@@ -25,6 +30,12 @@ public class JwtAuthenticationManager implements ReactiveAuthenticationManager {
                 .map(userDetails -> createAuthenticationToken(userDetails, token));
     }
 
+    /**
+     * Creates an authentication token for the user.
+     * @param userDetails
+     * @param token
+     * @return an Authentication object
+     */
     private Authentication createAuthenticationToken(Authentication userDetails, String token) {
         return new UsernamePasswordAuthenticationToken(
                 userDetails.getPrincipal(),

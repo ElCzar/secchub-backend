@@ -1,13 +1,22 @@
-{"properties": [{
-  "name": "jwt.secret",
-  "type": "java.lang.String",
-  "description": "Base64-encoded secret key used for JWT token signing and verification. Must be at least 256 bits (32 bytes) when decoded for HS256 algorithm. Can be overridden with JWT_SECRET environment variable."
-}, {
-  "name": "jwt.expiration-ms",
-  "type": "java.lang.Long",
-  "description": "JWT token expiration time in milliseconds. Default is 86400000ms (24 hours). Can be overridden with JWT_EXPIRATION environment variable."
-}, {
-  "name": "jwt.issuer",
-  "type": "java.lang.String",
-  "description": "JWT token issuer claim (iss) that identifies the principal that issued the JWT. Can be overridden with JWT_ISSUER environment variable."
-}]}
+{"properties": [
+  {
+    "name": "jwt.secret",
+    "type": "java.lang.String",
+    "description": "Base64-encoded secret key used for JWT token signing and verification. Must be at least 256 bits (32 bytes) when decoded for HS256 algorithm. Can be overridden with JWT_SECRET environment variable."
+  },
+  {
+    "name": "jwt.expiration-ms",
+    "type": "java.lang.Long",
+    "description": "JWT token expiration time in milliseconds. Default is 86400000ms (24 hours). Can be overridden with JWT_EXPIRATION environment variable."
+  },
+  {
+    "name": "jwt.issuer",
+    "type": "java.lang.String",
+    "description": "JWT token issuer claim (iss) that identifies the principal that issued the JWT. Can be overridden with JWT_ISSUER environment variable."
+  },
+  {
+    "name": "jwt.refresh-expiration-ms",
+    "type": "java.lang.String",
+    "description": "JWT refresh token expiration time in milliseconds. Default is 604800000ms (7 days). Can be overridden with JWT_REFRESH_EXPIRATION environment variable" 
+  }
+]}

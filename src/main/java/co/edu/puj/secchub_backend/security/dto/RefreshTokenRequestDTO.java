@@ -7,10 +7,6 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class AuthTokenDTO {
-    private String message;
-    private long issuedAt;
-    private String accessToken;
+public class RefreshTokenRequestDTO {
     private String refreshToken;
-    private String tokenType;
 }

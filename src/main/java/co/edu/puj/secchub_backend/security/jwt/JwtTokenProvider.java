@@ -21,19 +21,19 @@ import org.springframework.security.core.userdetails.UserDetails;
 @Slf4j
 @Component
 public class JwtTokenProvider {
+    private static final String ACCESS_TOKEN_TYPE = "access";
+    private static final String REFRESH_TOKEN_TYPE = "refresh";
+    public static final String BEARER_PREFIX = "Bearer ";
 
     private final SecretKey key;
     private final long jwtExpirationMs;
+    private final long jwtRefreshExpirationMs;
     private final String jwtIssuer;
-    
-    @Value("${jwt.secret}")
-    private String secretKey;
-    
-    private static final long TOKEN_VALIDITY = 86400000; // 24 hours
 
     public JwtTokenProvider(@Value("${jwt.secret}") String jwtSecret,
-                           @Value("${jwt.expiration-ms}") long jwtExpirationMs,
-                           @Value("${jwt.issuer:secchub.javeriana.edu.co}") String jwtIssuer) {
+                            @Value("${jwt.expiration-ms}") long jwtExpirationMs,
+                            @Value("${jwt.refresh-expiration-ms}") long jwtRefreshExpirationMs,
+                            @Value("${jwt.issuer:secchub.javeriana.edu.co}") String jwtIssuer) {
         // Decode the Base64 secret
         byte[] keyBytes = Base64.getDecoder().decode(jwtSecret.getBytes(StandardCharsets.UTF_8));
         if (keyBytes.length < 32) {
@@ -41,9 +41,16 @@ public class JwtTokenProvider {
         }
         this.key = new SecretKeySpec(keyBytes, "HmacSHA256");
         this.jwtExpirationMs = jwtExpirationMs;
+        this.jwtRefreshExpirationMs = jwtRefreshExpirationMs;
         this.jwtIssuer = jwtIssuer;
     }
 
+    /**
+     * Generates a JWT token for the given email and role.
+     * @param email
+     * @param role
+     * @return A JWT token for authentication
+     */
     public String generateToken(String email, String role) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
@@ -52,6 +59,7 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(email)
                 .claim("role", role)
+                .claim("type", ACCESS_TOKEN_TYPE)
                 .issuer(jwtIssuer)
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -59,39 +67,127 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String generateToken(UserDetails userDetails) {
+    /**
+     * Generates a JWT refresh token for the given user email.
+     * @param email
+     * @return A JWT refresh token for authentication
+     */
+    public String generateRefreshToken(String email) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationMs);
+        log.debug("Generating refresh token for email: {}", email);
+
         return Jwts.builder()
-                .subject(userDetails.getUsername())
-                .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + TOKEN_VALIDITY))
-                .signWith(getSignInKey())
+                .subject(email)
+                .claim("type", REFRESH_TOKEN_TYPE)
+                .issuer(jwtIssuer)
+                .issuedAt(now)
+                .expiration(expiryDate)
+                .signWith(key)
                 .compact();
     }
 
+    /**
+     * Generates a JWT token for the given user details.
+     * @param userDetails the user details
+     * @return A JWT token for authentication
+     */
+    public String generateToken(UserDetails userDetails) {
+        return Jwts.builder()
+                .subject(userDetails.getUsername())
+                .claim("type", ACCESS_TOKEN_TYPE)
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
+                .signWith(key)
+                .compact();
+    }
+
+    /**
+     * Extracts the claims from the JWT token.
+     * @param token
+     * @return The claims contained in the JWT token.
+     */
     public Claims getClaims(String token) {
         return extractAllClaims(token);
     }
 
+    /**
+     * Extracts all claims from the JWT token.
+     * @param token
+     * @return The claims contained in the JWT token.
+     */
     private Claims extractAllClaims(String token) {
         return Jwts.parser()
-                .verifyWith(getSignInKey())
+                .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
     }
 
+    /**
+     * Extracts the email from the JWT token.
+     * @param token
+     * @return The email contained in the JWT token.
+     */
     public String getEmailFromToken(String token) {
         return getClaims(token).getSubject();
     }
 
+    /**
+     * Extracts the role from the JWT token.
+     * @param token
+     * @return The role contained in the JWT token.
+     */
     public String getRoleFromToken(String token) {
         return getClaims(token).get("role", String.class);
     }
 
+    /**
+     * Obtains the token type from the JWT token.
+     * @param token
+     * @return The token type contained in the JWT token.
+     */
+    public String getTokenTypeFromToken(String token) {
+        return getClaims(token).get("type", String.class);
+    }
+
+    /**
+     * Checks if token is an access token
+     * @param token
+     * @return true if the token is an access token, false otherwise.
+     */
+    public boolean isAccessToken(String token) {
+        try {
+            return ACCESS_TOKEN_TYPE.equals(getTokenTypeFromToken(token));
+        } catch (Exception e) {
+            log.error("Error checking if token is access token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Checks if token is a refresh token
+     * @param token
+     * @return true if the token is a refresh token, false otherwise.
+     */
+    public boolean isRefreshToken(String token) {
+        try {
+            return REFRESH_TOKEN_TYPE.equals(getTokenTypeFromToken(token));
+        } catch (Exception e) {
+            log.error("Error checking if token is refresh token: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Validates the JWT token.
+     * @param token
+     * @return true if the token is valid, false otherwise.
+     */
     public boolean validateToken(String token) {
         try {
             Jws<Claims> claims = Jwts.parser()
-                    .verifyWith(getSignInKey())
+                    .verifyWith(key)
                     .requireIssuer(jwtIssuer)
                     .build()
                     .parseSignedClaims(token);
@@ -107,18 +203,40 @@ public class JwtTokenProvider {
         } catch (UnsupportedJwtException ex) {
             log.error("Unsupported JWT token");
         } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty" + ex.getMessage());
+            log.error("JWT claims string is empty: {}", ex.getMessage());
         }
         return false;
     }
 
-    public long getExpirationTime() {
+    /**
+     * Validate an access token.
+     * @param token
+     * @return true if the token is a valid access token, false otherwise.
+     */
+    public boolean validateAccessToken(String token) {
+        return validateToken(token) && isAccessToken(token);
+    }
+
+    /**
+     * Validates a refresh token.
+     * @param token
+     * @return true if the token is a valid refresh token, false otherwise.
+     */
+    public boolean validateRefreshToken(String token) {
+        return validateToken(token) && isRefreshToken(token);
+    }
+
+    /**
+     * @return The expiration time of the JWT token.
+     */
+    public long getJwtExpirationMs() {
         return jwtExpirationMs;
     }
 
-    private SecretKey getSignInKey() {
-        byte[] bytes = Base64.getDecoder()
-                .decode(secretKey.getBytes(StandardCharsets.UTF_8));
-        return new SecretKeySpec(bytes, "HmacSHA256");
+    /**
+     * @return The expiration time of the JWT refresh token.
+     */
+    public long getJwtRefreshExpirationMs() {
+        return jwtRefreshExpirationMs;
     }
 }
