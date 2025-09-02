@@ -5,43 +5,43 @@
 
 CREATE TABLE `status` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `role` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `document_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `employment_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `modality` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `session` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `classroom_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL,
+  `name` VARCHAR(100) NOT NULL UNIQUE,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -56,7 +56,7 @@ CREATE TABLE `users` (
   `faculty` VARCHAR(150) NULL,
   `name` VARCHAR(150) NOT NULL,
   `last_name` VARCHAR(150) NOT NULL,
-  `email` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL UNIQUE,
   `status_id` BIGINT UNSIGNED NULL,
   `last_access` DATETIME NULL,
   `role_id` BIGINT UNSIGNED NULL,
@@ -118,7 +118,7 @@ CREATE TABLE `course` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_course_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `semester` (
@@ -141,7 +141,7 @@ CREATE TABLE `classroom` (
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_classroom_classroom_type`
     FOREIGN KEY (`classroom_type_id`) REFERENCES `classroom_type` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `student` (
@@ -173,7 +173,7 @@ CREATE TABLE `student` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_student_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `academic_request` (
@@ -181,6 +181,9 @@ CREATE TABLE `academic_request` (
   `user_id` BIGINT UNSIGNED NULL,
   `course_id` BIGINT UNSIGNED NULL,
   `semester_id` BIGINT UNSIGNED NULL,
+  `start_date` DATE NULL,
+  `end_date` DATE NULL,
+  `capacity` INT NULL,
   `request_date` DATE NULL,
   `observation` TEXT NULL,
   PRIMARY KEY (`id`),
@@ -192,7 +195,7 @@ CREATE TABLE `academic_request` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_academic_request_semester`
     FOREIGN KEY (`semester_id`) REFERENCES `semester` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `request_schedule` (
@@ -202,13 +205,15 @@ CREATE TABLE `request_schedule` (
   `start_time` TIME NULL,
   `end_time` TIME NULL,
   `day` VARCHAR(20) NULL,
+  `modality_id` BIGINT UNSIGNED NULL,
+  `disability` BOOLEAN NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_request_schedule_academic_request`
     FOREIGN KEY (`academic_request_id`) REFERENCES `academic_request` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_request_schedule_classroom_type`
     FOREIGN KEY (`classroom_type_id`) REFERENCES `classroom_type` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `class` (
@@ -229,7 +234,7 @@ CREATE TABLE `class` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_class_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `class_schedule` (
@@ -250,7 +255,7 @@ CREATE TABLE `class_schedule` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_class_schedule_modality`
     FOREIGN KEY (`modality_id`) REFERENCES `modality` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `teaching_assistant` (
@@ -266,7 +271,7 @@ CREATE TABLE `teaching_assistant` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_teaching_assistant_student`
     FOREIGN KEY (`student_id`) REFERENCES `student` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `teacher_class` (
@@ -288,7 +293,7 @@ CREATE TABLE `teacher_class` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_teacher_class_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE `student_schedule` (
