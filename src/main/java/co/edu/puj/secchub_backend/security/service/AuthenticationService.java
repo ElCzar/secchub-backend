@@ -60,7 +60,7 @@ public class AuthenticationService {
      * @return a new AuthTokenDTO containing the refreshed authentication token
      */
     public AuthTokenDTO refreshToken(RefreshTokenRequestDTO refreshToken) throws JwtAuthenticationException {
-        log.info("Attempting to refresh token using refresh token: {}", refreshToken);
+        log.info("Attempting to refresh token");
         String email = jwtTokenProvider.getEmailFromToken(refreshToken.getRefreshToken());
 
         if (email == null || !jwtTokenProvider.validateRefreshToken(refreshToken.getRefreshToken())) {
