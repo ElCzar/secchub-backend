@@ -33,7 +33,7 @@ public class AuthenticationController {
 	public Mono<ResponseEntity<AuthTokenDTO>> login(@RequestBody LoginRequestDTO loginRequestDTO) {
 		return Mono.fromCallable(() -> authenticationService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()))
 				.map(ResponseEntity::ok)
-				.onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthTokenDTO("Authentication failed: " + e.getMessage(), System.currentTimeMillis(), null, null, null))));
+				.onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthTokenDTO("Authentication failed", System.currentTimeMillis(), null, null, null))));
 	}
 
 	/**
@@ -46,6 +46,6 @@ public class AuthenticationController {
 	public Mono<ResponseEntity<AuthTokenDTO>> refresh(@RequestBody RefreshTokenRequestDTO refreshToken) {
 		return Mono.fromCallable(() -> authenticationService.refreshToken(refreshToken))
 				.map(ResponseEntity::ok)
-				.onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthTokenDTO("Token refresh failed: " + e.getMessage(), System.currentTimeMillis(), null, null, null))));
+				.onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthTokenDTO("Token refresh failed", System.currentTimeMillis(), null, null, null))));
 	}
 }
