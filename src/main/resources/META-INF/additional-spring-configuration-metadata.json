@@ -17,6 +17,6 @@
   {
     "name": "jwt.refresh-expiration-ms",
     "type": "java.lang.Long",
-    "description": "JWT refresh token expiration time in milliseconds. Default is 604800000ms (7 days). Can be overridden with JWT_REFRESH_EXPIRATION environment variable" 
+    "description": "JWT refresh token expiration time in milliseconds. Default is 604800000ms (7 days). Can be overridden with JWT_REFRESH_EXPIRATION environment variable." 
   }
 ]}
