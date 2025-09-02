@@ -61,9 +61,17 @@ public class AuthenticationService {
      */
     public AuthTokenDTO refreshToken(RefreshTokenRequestDTO refreshToken) throws JwtAuthenticationException {
         log.info("Attempting to refresh token");
-        String email = jwtTokenProvider.getEmailFromToken(refreshToken.getRefreshToken());
+        String email;
+        
+        try {
+            jwtTokenProvider.validateRefreshToken(refreshToken.getRefreshToken());
+            email = jwtTokenProvider.getEmailFromToken(refreshToken.getRefreshToken());
+        } catch (Exception e) {
+            log.warn("Refresh token validation failed: {}", e.getMessage());
+            throw new JwtAuthenticationException("Invalid refresh token");
+        }
 
-        if (email == null || !jwtTokenProvider.validateRefreshToken(refreshToken.getRefreshToken())) {
+        if (email == null) {
             log.warn("Refresh token is invalid");
             throw new JwtAuthenticationException("Invalid refresh token");
         }

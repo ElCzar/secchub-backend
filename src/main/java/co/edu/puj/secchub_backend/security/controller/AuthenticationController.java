@@ -1,6 +1,5 @@
 package co.edu.puj.secchub_backend.security.controller;
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -32,8 +31,7 @@ public class AuthenticationController {
 	@PostMapping("/login")
 	public Mono<ResponseEntity<AuthTokenDTO>> login(@RequestBody LoginRequestDTO loginRequestDTO) {
 		return Mono.fromCallable(() -> authenticationService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()))
-				.map(ResponseEntity::ok)
-				.onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthTokenDTO("Authentication failed", System.currentTimeMillis(), null, null, null))));
+				.map(ResponseEntity::ok);
 	}
 
 	/**
@@ -45,7 +43,6 @@ public class AuthenticationController {
 	@PostMapping("/refresh")
 	public Mono<ResponseEntity<AuthTokenDTO>> refresh(@RequestBody RefreshTokenRequestDTO refreshToken) {
 		return Mono.fromCallable(() -> authenticationService.refreshToken(refreshToken))
-				.map(ResponseEntity::ok)
-				.onErrorResume(e -> Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new AuthTokenDTO("Token refresh failed", System.currentTimeMillis(), null, null, null))));
+				.map(ResponseEntity::ok);
 	}
 }
