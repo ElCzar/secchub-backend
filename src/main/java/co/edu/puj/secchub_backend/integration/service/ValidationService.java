@@ -25,8 +25,8 @@ public class ValidationService {
      * - schedules have start<end and no overlaps per day
      */
     public void validateItem(AcademicRequestItemDTO item) {
-        if (item.getRequestedQuota() == null || item.getRequestedQuota() < 1) {
-            throw new BusinessException("requestedQuota must be >= 1");
+        if (item.getCapacity() == null || item.getCapacity() < 1) {
+            throw new BusinessException("capacity must be >= 1");
         }
         if (item.getStartDate() == null || item.getEndDate() == null
                 || item.getStartDate().isAfter(item.getEndDate())) {
