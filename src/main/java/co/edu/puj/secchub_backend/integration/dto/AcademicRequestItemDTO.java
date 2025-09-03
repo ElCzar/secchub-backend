@@ -28,9 +28,9 @@ public class AcademicRequestItemDTO {
      */
     private Long classroomTypeId;   // requested type at course level
     /**
-     * Cupo solicitado para el curso.
+     * Capacidad solicitada para el curso.
      */
-    private Integer requestedQuota;
+    private Integer capacity;
     /**
      * Fecha de inicio de la solicitud.
      */
