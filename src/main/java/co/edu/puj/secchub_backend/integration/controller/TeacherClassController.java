@@ -4,6 +4,7 @@ import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.service.TeacherClassService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import reactor.core.publisher.Flux;
@@ -29,6 +30,7 @@ public class TeacherClassController {
      * @return Stream of classes assigned to the teacher
      */
     @GetMapping("/{teacherId}/classes")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public ResponseEntity<Flux<TeacherClass>> getAllClasses(@PathVariable Long teacherId) {
         return ResponseEntity.ok(service.listAllTeacherClassByTeacher(teacherId));
     }
@@ -41,6 +43,7 @@ public class TeacherClassController {
      * @return Stream of classes assigned to the teacher with the given status
      */
     @GetMapping("/{teacherId}/classes/status/{statusId}")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public ResponseEntity<Flux<TeacherClass>> getClassesByStatus(
             @PathVariable Long teacherId,
             @PathVariable Long statusId) {
@@ -54,6 +57,7 @@ public class TeacherClassController {
      * @return Updated class assignment
      */
     @PatchMapping("/classes/{teacherClassId}/accept")
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
     public Mono<ResponseEntity<TeacherClass>> acceptClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
@@ -69,6 +73,7 @@ public class TeacherClassController {
      * @return Updated class assignment
      */
     @PatchMapping("/classes/{teacherClassId}/reject")
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
     public Mono<ResponseEntity<TeacherClass>> rejectClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {

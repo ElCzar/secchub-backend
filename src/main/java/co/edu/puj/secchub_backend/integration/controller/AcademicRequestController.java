@@ -8,6 +8,7 @@ import co.edu.puj.secchub_backend.integration.service.AcademicRequestService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
@@ -32,6 +33,7 @@ public class AcademicRequestController {
      * @return Stream of created academic requests
      */
     @PostMapping
+    @PreAuthorize("hasRole('ROLE_PROGRAM')")
     public ResponseEntity<Flux<AcademicRequest>> createBatch(@RequestBody AcademicRequestBatchDTO academicRequestBatchDTO) {
         return ResponseEntity.status(HttpStatus.CREATED).body(academicRequestService.createAcademicRequestBatch(academicRequestBatchDTO));
     }
@@ -42,6 +44,7 @@ public class AcademicRequestController {
      * @return Empty response with no content code 204
      */
     @DeleteMapping("/{requestId}")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<Void>> deleteRequest(@PathVariable Long requestId) {
         return academicRequestService.deleteAcademicRequest(requestId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
@@ -53,6 +56,7 @@ public class AcademicRequestController {
      * 
      */
     @GetMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public ResponseEntity<Flux<AcademicRequest>> getAllRequests() {
         return ResponseEntity.ok(academicRequestService.findAllAcademicRequests());
     }
@@ -63,6 +67,7 @@ public class AcademicRequestController {
      * @return Academic request found
      */
     @GetMapping("/{requestId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<AcademicRequest>> getRequestById(@PathVariable Long requestId) {
         return academicRequestService.findAcademicRequestById(requestId)
                 .map(ResponseEntity::ok);
@@ -75,6 +80,7 @@ public class AcademicRequestController {
      * @return Updated academic request
      */
     @PutMapping("/{requestId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<AcademicRequest>> updateRequest(
             @PathVariable Long requestId,
             @RequestBody AcademicRequestDTO academicRequestDTO) {
@@ -89,6 +95,7 @@ public class AcademicRequestController {
      * @return Created schedule
      */
     @PostMapping("/{requestId}/schedules")
+    @PreAuthorize("hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<RequestScheduleDTO>> addSchedule(
             @PathVariable Long requestId,
             @RequestBody RequestScheduleDTO requestScheduleDTO) {
@@ -102,6 +109,7 @@ public class AcademicRequestController {
      * @return Stream of schedules
      */
     @GetMapping("/{requestId}/schedules")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public ResponseEntity<Flux<RequestScheduleDTO>> getSchedules(@PathVariable Long requestId) {
         return ResponseEntity.ok(academicRequestService.findRequestSchedulesByAcademicRequestId(requestId));
     }
@@ -113,6 +121,7 @@ public class AcademicRequestController {
      * @return Response with no content
      */
     @DeleteMapping("/{requestId}/schedules/{scheduleId}")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<Void>> deleteSchedule(
             @PathVariable Long requestId,
             @PathVariable Long scheduleId) {
@@ -128,6 +137,7 @@ public class AcademicRequestController {
      * @return Updated schedule
      */
     @PutMapping("/{requestId}/schedules/{scheduleId}")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<RequestScheduleDTO>> updateSchedule(
             @PathVariable Long requestId,
             @PathVariable Long scheduleId,
@@ -144,6 +154,7 @@ public class AcademicRequestController {
      * @return Partially updated schedule
      */
     @PatchMapping("/{requestId}/schedules/{scheduleId}")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<RequestScheduleDTO>> patchSchedule(
             @PathVariable Long requestId,
             @PathVariable Long scheduleId,

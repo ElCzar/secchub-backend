@@ -6,6 +6,7 @@ import co.edu.puj.secchub_backend.integration.service.StudentApplicationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import reactor.core.publisher.Flux;
@@ -30,6 +31,7 @@ public class StudentApplicationController {
      * @return Student with the created request
      */
     @PostMapping
+    @PreAuthorize("hasRole('ROLE_STUDENT')")
     public Mono<ResponseEntity<Student>> createRequest(@RequestBody StudentApplicationDTO studentApplicationDTO) {
         return service.createStudentApplication(studentApplicationDTO)
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
@@ -40,6 +42,7 @@ public class StudentApplicationController {
      * @return Stream of students with requests
      */
     @GetMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public ResponseEntity<Flux<Student>> getAllRequests() {
         return ResponseEntity.ok(service.listAllStudentApplication());
     }
@@ -50,6 +53,7 @@ public class StudentApplicationController {
      * @return Student with the found request
      */
     @GetMapping("/{studentApplicationId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_STUDENT')")
     public Mono<ResponseEntity<Student>> getRequestById(@PathVariable Long studentApplicationId) {
         return service.findStudentApplicationById(studentApplicationId)
                 .map(ResponseEntity::ok);
@@ -62,6 +66,7 @@ public class StudentApplicationController {
      * @return Response with ok status
      */
     @PatchMapping("/{studentApplicationId}/approve")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> approveRequest(@PathVariable Long studentApplicationId, @RequestParam Long statusId) {
         return service.approveStudentApplication(studentApplicationId, statusId)
                 .then(Mono.just(ResponseEntity.ok().<Void>build()));
@@ -74,6 +79,7 @@ public class StudentApplicationController {
      * @return Response with ok status
      */
     @PatchMapping("/{studentApplicationId}/reject")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> rejectRequest(@PathVariable Long studentApplicationId, @RequestParam Long statusId) {
         return service.rejectStudentApplication(studentApplicationId, statusId)
                 .then(Mono.just(ResponseEntity.ok().<Void>build()));
@@ -85,6 +91,7 @@ public class StudentApplicationController {
      * @return Stream of students with requests in that status
      */
     @GetMapping("/status/{statusId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public ResponseEntity<Flux<Student>> getRequestsByStatus(@PathVariable Long statusId) {
         return ResponseEntity.ok(service.listStudentApplicationsByStatus(statusId));
     }
@@ -95,6 +102,7 @@ public class StudentApplicationController {
      * @return Stream of students with requests in that section
      */
     @GetMapping("/section/{sectionId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public ResponseEntity<Flux<Student>> getRequestsForSection(@PathVariable Long sectionId) {
         return ResponseEntity.ok(service.listStudentApplicationsForSection(sectionId));
     }
