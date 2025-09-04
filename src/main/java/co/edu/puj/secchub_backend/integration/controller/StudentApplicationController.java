@@ -1,0 +1,101 @@
+package co.edu.puj.secchub_backend.integration.controller;
+
+import co.edu.puj.secchub_backend.integration.dto.StudentApplicationDTO;
+import co.edu.puj.secchub_backend.integration.model.Student;
+import co.edu.puj.secchub_backend.integration.service.StudentApplicationService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
+
+/**
+ * REST controller for managing student monitoring applications.
+ * Provides endpoints to create, query, approve and reject monitoring applications.
+ */
+@RestController
+@RequestMapping("/students-applications")
+@RequiredArgsConstructor
+public class StudentApplicationController {
+
+    /** Service for student application business logic. */
+    private final StudentApplicationService service;
+
+    /**
+     * Creates a new monitoring request.
+     * @param studentApplicationDTO DTO with request data
+     * @return Student with the created request
+     */
+    @PostMapping
+    public Mono<ResponseEntity<Student>> createRequest(@RequestBody StudentApplicationDTO studentApplicationDTO) {
+        return service.createStudentApplication(studentApplicationDTO)
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+    }
+
+    /**
+     * Gets all monitoring requests.
+     * @return Stream of students with requests
+     */
+    @GetMapping
+    public ResponseEntity<Flux<Student>> getAllRequests() {
+        return ResponseEntity.ok(service.listAllStudentApplication());
+    }
+
+    /**
+     * Gets a student application by its ID.
+     * @param studentApplicationId Application ID
+     * @return Student with the found request
+     */
+    @GetMapping("/{studentApplicationId}")
+    public Mono<ResponseEntity<Student>> getRequestById(@PathVariable Long studentApplicationId) {
+        return service.findStudentApplicationById(studentApplicationId)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Approves a monitoring request.
+     * @param studentApplicationId Application ID
+     * @param statusId Approval status ID
+     * @return Response with ok status
+     */
+    @PatchMapping("/{studentApplicationId}/approve")
+    public Mono<ResponseEntity<Void>> approveRequest(@PathVariable Long studentApplicationId, @RequestParam Long statusId) {
+        return service.approveStudentApplication(studentApplicationId, statusId)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    /**
+     * Rejects a monitoring request.
+     * @param studentApplicationId Application ID
+     * @param statusId Rejection status ID
+     * @return Response with ok status
+     */
+    @PatchMapping("/{studentApplicationId}/reject")
+    public Mono<ResponseEntity<Void>> rejectRequest(@PathVariable Long studentApplicationId, @RequestParam Long statusId) {
+        return service.rejectStudentApplication(studentApplicationId, statusId)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    /**
+     * Gets monitoring requests by status.
+     * @param statusId Status ID
+     * @return Stream of students with requests in that status
+     */
+    @GetMapping("/status/{statusId}")
+    public ResponseEntity<Flux<Student>> getRequestsByStatus(@PathVariable Long statusId) {
+        return ResponseEntity.ok(service.listStudentApplicationsByStatus(statusId));
+    }
+
+    /**
+     * Gets monitoring requests for a specific section.
+     * @param sectionId Section ID
+     * @return Stream of students with requests in that section
+     */
+    @GetMapping("/section/{sectionId}")
+    public ResponseEntity<Flux<Student>> getRequestsForSection(@PathVariable Long sectionId) {
+        return ResponseEntity.ok(service.listStudentApplicationsForSection(sectionId));
+    }
+}

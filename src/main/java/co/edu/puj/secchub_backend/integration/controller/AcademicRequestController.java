@@ -1,0 +1,154 @@
+package co.edu.puj.secchub_backend.integration.controller;
+
+import co.edu.puj.secchub_backend.integration.dto.RequestScheduleDTO;
+import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchDTO;
+import co.edu.puj.secchub_backend.integration.dto.AcademicRequestDTO;
+import co.edu.puj.secchub_backend.integration.model.AcademicRequest;
+import co.edu.puj.secchub_backend.integration.service.AcademicRequestService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+
+import java.util.Map;
+
+/**
+ * REST controller for managing academic requests and their associated schedules.
+ * Provides endpoints to create, query, update and delete requests and schedules.
+ */
+@RestController
+@RequestMapping("/academic-requests")
+@RequiredArgsConstructor
+public class AcademicRequestController {
+
+    /** Service for academic request business logic. */
+    private final AcademicRequestService academicRequestService;
+
+    /**
+     * Creates a batch of academic requests with schedules.
+     * @param academicRequestBatchDTO with batch request information
+     * @return Stream of created academic requests
+     */
+    @PostMapping
+    public ResponseEntity<Flux<AcademicRequest>> createBatch(@RequestBody AcademicRequestBatchDTO academicRequestBatchDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(academicRequestService.createAcademicRequestBatch(academicRequestBatchDTO));
+    }
+
+    /**
+     * Deletes an academic request by its ID.
+     * @param requestId ID of the request to delete
+     * @return Empty response with no content code 204
+     */
+    @DeleteMapping("/{requestId}")
+    public Mono<ResponseEntity<Void>> deleteRequest(@PathVariable Long requestId) {
+        return academicRequestService.deleteAcademicRequest(requestId)
+                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+    }
+
+    /**
+     * Gets all academic requests.
+     * @return Stream of academic requests
+     * 
+     */
+    @GetMapping
+    public ResponseEntity<Flux<AcademicRequest>> getAllRequests() {
+        return ResponseEntity.ok(academicRequestService.findAllAcademicRequests());
+    }
+
+    /**
+     * Gets an academic request by its ID.
+     * @param requestId Request ID
+     * @return Academic request found
+     */
+    @GetMapping("/{requestId}")
+    public Mono<ResponseEntity<AcademicRequest>> getRequestById(@PathVariable Long requestId) {
+        return academicRequestService.findAcademicRequestById(requestId)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Updates an academic request by its ID.
+     * @param requestId Request ID
+     * @param academicRequestDTO with updated data
+     * @return Updated academic request
+     */
+    @PutMapping("/{requestId}")
+    public Mono<ResponseEntity<AcademicRequest>> updateRequest(
+            @PathVariable Long requestId,
+            @RequestBody AcademicRequestDTO academicRequestDTO) {
+        return academicRequestService.updateAcademicRequest(requestId, academicRequestDTO)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Adds a schedule to an academic request.
+     * @param requestId Request ID
+     * @param requestScheduleDTO DTO with schedule data
+     * @return Created schedule
+     */
+    @PostMapping("/{requestId}/schedules")
+    public Mono<ResponseEntity<RequestScheduleDTO>> addSchedule(
+            @PathVariable Long requestId,
+            @RequestBody RequestScheduleDTO requestScheduleDTO) {
+        return academicRequestService.addRequestSchedule(requestId, requestScheduleDTO)
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+    }
+
+    /**
+     * Gets schedules associated with an academic request.
+     * @param requestId Request ID
+     * @return Stream of schedules
+     */
+    @GetMapping("/{requestId}/schedules")
+    public ResponseEntity<Flux<RequestScheduleDTO>> getSchedules(@PathVariable Long requestId) {
+        return ResponseEntity.ok(academicRequestService.findRequestSchedulesByAcademicRequestId(requestId));
+    }
+
+    /**
+     * Deletes a specific schedule from an academic request.
+     * @param requestId Request ID
+     * @param scheduleId Schedule ID
+     * @return Response with no content
+     */
+    @DeleteMapping("/{requestId}/schedules/{scheduleId}")
+    public Mono<ResponseEntity<Void>> deleteSchedule(
+            @PathVariable Long requestId,
+            @PathVariable Long scheduleId) {
+        return academicRequestService.deleteRequestSchedule(scheduleId)
+                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+    }
+
+    /**
+     * Updates a specific schedule of an academic request.
+     * @param requestId Request ID
+     * @param scheduleId Schedule ID
+     * @param requestScheduleDTO with updated data
+     * @return Updated schedule
+     */
+    @PutMapping("/{requestId}/schedules/{scheduleId}")
+    public Mono<ResponseEntity<RequestScheduleDTO>> updateSchedule(
+            @PathVariable Long requestId,
+            @PathVariable Long scheduleId,
+            @RequestBody RequestScheduleDTO requestScheduleDTO) {
+        return academicRequestService.updateRequestSchedule(scheduleId, requestScheduleDTO)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Partially updates a schedule of an academic request.
+     * @param requestId Request ID
+     * @param scheduleId Schedule ID
+     * @param updates Map with fields to update
+     * @return Partially updated schedule
+     */
+    @PatchMapping("/{requestId}/schedules/{scheduleId}")
+    public Mono<ResponseEntity<RequestScheduleDTO>> patchSchedule(
+            @PathVariable Long requestId,
+            @PathVariable Long scheduleId,
+            @RequestBody Map<String, Object> updates) {
+        return academicRequestService.patchRequestSchedule(scheduleId, updates)
+                .map(ResponseEntity::ok);
+    }
+}

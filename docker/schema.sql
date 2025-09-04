@@ -213,6 +213,9 @@ CREATE TABLE `request_schedule` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_request_schedule_classroom_type`
     FOREIGN KEY (`classroom_type_id`) REFERENCES `classroom_type` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_request_schedule_modality`
+    FOREIGN KEY (`modality_id`) REFERENCES `modality` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

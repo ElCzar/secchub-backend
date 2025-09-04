@@ -8,7 +8,7 @@
 spring:
     application:
         name: secchub-backend
-    
+
     # ==============================================================================
     # DATABASE CONFIGURATION
     # ==============================================================================
@@ -61,6 +61,8 @@ jwt:
 # ==============================================================================
 server:
     port: 8080  # INFO: Application will run on this port
+    servlet:
+        context-path: /v1  # INFO: Base path for all API endpoints
 
 # ==============================================================================
 # LOGGING CONFIGURATION
