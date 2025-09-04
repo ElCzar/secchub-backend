@@ -1,95 +1,92 @@
 package co.edu.puj.secchub_backend.integration.service;
 
 import co.edu.puj.secchub_backend.integration.dto.CourseDTO;
+import co.edu.puj.secchub_backend.integration.exception.CourseNotFoundException;
 import co.edu.puj.secchub_backend.integration.model.Course;
 import co.edu.puj.secchub_backend.integration.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
-import java.util.List;
+import org.modelmapper.ModelMapper;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
+
 import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Service layer for managing courses (HU04).
- * Provides CRUD operations for asignaturas.
- */
 @Service
 @RequiredArgsConstructor
 public class CourseService {
+    private final ModelMapper modelMapper;
 
     private final CourseRepository courseRepository;
 
-    public CourseDTO create(CourseDTO dto) {
-        Course course = Course.builder()
-                .name(dto.getName())
-                .credits(dto.getCredits())
-                .description(dto.getDescription())
-                .isValid(dto.getIsValid())
-                .sectionId(dto.getSectionId())
-                .build();
-        Course saved = courseRepository.save(course);
-        return toDTO(saved);
+    /**
+     * Creates a new course.
+     * @param courseDTO dto with course data
+     * @return Created course
+     */
+    public Mono<CourseDTO> createCourse(CourseDTO courseDTO) {
+        return Mono.fromCallable(() -> {
+            Course course = modelMapper.map(courseDTO, Course.class);
+            Course saved = courseRepository.save(course);
+            return modelMapper.map(saved, CourseDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
-    public List<CourseDTO> findAll() {
-        return courseRepository.findAll().stream().map(this::toDTO).toList();
+    /**
+     * Lists all existing courses.
+     * @return Stream of courses
+     */
+    public Flux<CourseDTO> findAllCourses() {
+        return Mono.fromCallable(courseRepository::findAll)
+                .flatMapMany(Flux::fromIterable)
+                .map(course -> modelMapper.map(course, CourseDTO.class))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
-    public CourseDTO findById(Long id) {
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found with id=" + id));
-        return toDTO(course);
+    /**
+     * Get a course by its ID.
+     * @param courseId Course ID
+     * @return Course with the given ID
+     */
+    public Mono<CourseDTO> findCourseById(Long courseId) {
+        return Mono.fromCallable(() -> {
+            Course course = courseRepository.findById(courseId)
+                    .orElseThrow(() -> new CourseNotFoundException("Course not found for consult: " + courseId));
+            return modelMapper.map(course, CourseDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
-    public CourseDTO update(Long id, CourseDTO dto) {
-    Course course = courseRepository.findById(id)
-            .orElseThrow(() -> new IllegalArgumentException("Course not found with id=" + id));
+    /**
+     * Updates a course by its ID.
+     * @param courseId Course ID
+     * @param courseDTO with updated data
+     * @return Updated course
+     */
+    public Mono<CourseDTO> updateCourse(Long courseId, CourseDTO courseDTO) {
+        return Mono.fromCallable(() -> {
+            Course course = courseRepository.findById(courseId)
+                    .orElseThrow(() -> new CourseNotFoundException("Course not found for update: " + courseId));
 
-    if (dto.getName() != null) course.setName(dto.getName());
-    if (dto.getCredits() != null) course.setCredits(dto.getCredits());
-    if (dto.getDescription() != null) course.setDescription(dto.getDescription());
-    if (dto.getIsValid() != null) course.setIsValid(dto.getIsValid());
-    if (dto.getSectionId() != null) course.setSectionId(dto.getSectionId());
+            modelMapper.getConfiguration().setPropertyCondition(context ->
+                    context.getSource() != null);
+            modelMapper.map(courseDTO, course);
 
-    return toDTO(courseRepository.save(course));
-}
+            return modelMapper.map(courseRepository.save(course), CourseDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
 
     @Transactional
-    public CourseDTO patch(Long id, Map<String, Object> updates) {
-        Course course = courseRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Course not found with id=" + id));
+    public Mono<CourseDTO> patchCourse(Long id, Map<String, Object> updates) {
+        return Mono.fromCallable(() -> {
+            Course course = courseRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Course not found with id=" + id));
 
-        if (updates.containsKey("name")) {
-            course.setName((String) updates.get("name"));
-        }
-        if (updates.containsKey("credits")) {
-            course.setCredits((Integer) updates.get("credits"));
-        }
-        if (updates.containsKey("description")) {
-            course.setDescription((String) updates.get("description"));
-        }
-        if (updates.containsKey("isValid")) {
-            course.setIsValid((Boolean) updates.get("isValid"));
-        }
-        if (updates.containsKey("sectionId")) {
-            // Jackson puede mapear números como Integer o LinkedHashMap, mejor hacer cast largo
-            Number sectionId = (Number) updates.get("sectionId");
-            course.setSectionId(sectionId.longValue());
-        }
+            modelMapper.map(updates, course);
 
-        return toDTO(courseRepository.save(course));
-    }
-
-
-    private CourseDTO toDTO(Course c) {
-        return CourseDTO.builder()
-                .id(c.getId())
-                .name(c.getName())
-                .credits(c.getCredits())
-                .description(c.getDescription())
-                .isValid(c.getIsValid())
-                .sectionId(c.getSectionId())
-                .build();
+            return modelMapper.map(courseRepository.save(course), CourseDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 }

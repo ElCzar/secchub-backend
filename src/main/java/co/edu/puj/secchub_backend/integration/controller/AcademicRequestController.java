@@ -9,146 +9,146 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
-import java.util.List;
 import java.util.Map;
 
 /**
- * Controlador REST para gestionar solicitudes académicas y sus horarios asociados.
- * Proporciona endpoints para crear, consultar, actualizar y eliminar solicitudes y horarios.
+ * REST controller for managing academic requests and their associated schedules.
+ * Provides endpoints to create, query, update and delete requests and schedules.
  */
 @RestController
-@RequestMapping("/api/academic-requests")
+@RequestMapping("/academic-requests")
 @RequiredArgsConstructor
 public class AcademicRequestController {
 
-    /** Servicio para la lógica de negocio de solicitudes académicas. */
+    /** Service for academic request business logic. */
     private final AcademicRequestService academicRequestService;
 
     /**
-     * Crea un lote de solicitudes académicas con horarios.
-     * @param payload DTO con la información del lote de solicitudes
-     * @return Lista de solicitudes académicas creadas
+     * Creates a batch of academic requests with schedules.
+     * @param academicRequestBatchDTO with batch request information
+     * @return Stream of created academic requests
      */
     @PostMapping
-    public ResponseEntity<List<AcademicRequest>> createBatch(@RequestBody AcademicRequestBatchDTO payload) {
-        List<AcademicRequest> saved = academicRequestService.createBatch(payload);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    public ResponseEntity<Flux<AcademicRequest>> createBatch(@RequestBody AcademicRequestBatchDTO academicRequestBatchDTO) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(academicRequestService.createAcademicRequestBatch(academicRequestBatchDTO));
     }
 
     /**
-     * Elimina una solicitud académica por su ID.
-     * @param requestId ID de la solicitud a eliminar
-     * @return Respuesta sin contenido
+     * Deletes an academic request by its ID.
+     * @param requestId ID of the request to delete
+     * @return Empty response with no content code 204
      */
     @DeleteMapping("/{requestId}")
-    public ResponseEntity<Void> deleteRequest(@PathVariable Long requestId) {
-        academicRequestService.deleteRequest(requestId);
-        return ResponseEntity.noContent().build();
+    public Mono<ResponseEntity<Void>> deleteRequest(@PathVariable Long requestId) {
+        return academicRequestService.deleteAcademicRequest(requestId)
+                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 
     /**
-     * Obtiene todas las solicitudes académicas.
-     * @return Lista de solicitudes académicas
+     * Gets all academic requests.
+     * @return Stream of academic requests
+     * 
      */
     @GetMapping
-    public ResponseEntity<List<AcademicRequest>> getAllRequests() {
-        return ResponseEntity.ok(academicRequestService.findAll());
+    public ResponseEntity<Flux<AcademicRequest>> getAllRequests() {
+        return ResponseEntity.ok(academicRequestService.findAllAcademicRequests());
     }
 
     /**
-     * Obtiene una solicitud académica por su ID.
-     * @param id ID de la solicitud
-     * @return Solicitud académica encontrada
+     * Gets an academic request by its ID.
+     * @param requestId Request ID
+     * @return Academic request found
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<AcademicRequest> getRequestById(@PathVariable Long id) {
-        AcademicRequest request = academicRequestService.findById(id);
-        return ResponseEntity.ok(request);
+    @GetMapping("/{requestId}")
+    public Mono<ResponseEntity<AcademicRequest>> getRequestById(@PathVariable Long requestId) {
+        return academicRequestService.findAcademicRequestById(requestId)
+                .map(ResponseEntity::ok);
     }
 
     /**
-     * Actualiza una solicitud académica por su ID.
-     * @param id ID de la solicitud
-     * @param dto DTO con los datos actualizados
-     * @return Solicitud académica actualizada
+     * Updates an academic request by its ID.
+     * @param requestId Request ID
+     * @param academicRequestDTO with updated data
+     * @return Updated academic request
      */
-    @PutMapping("/{id}")
-    public ResponseEntity<AcademicRequest> updateRequest(
-            @PathVariable Long id,
-            @RequestBody AcademicRequestDTO dto) {
-        AcademicRequest updated = academicRequestService.updateRequest(id, dto);
-        return ResponseEntity.ok(updated);
+    @PutMapping("/{requestId}")
+    public Mono<ResponseEntity<AcademicRequest>> updateRequest(
+            @PathVariable Long requestId,
+            @RequestBody AcademicRequestDTO academicRequestDTO) {
+        return academicRequestService.updateAcademicRequest(requestId, academicRequestDTO)
+                .map(ResponseEntity::ok);
     }
 
     /**
-     * Agrega un horario a una solicitud académica.
-     * @param requestId ID de la solicitud
-     * @param dto DTO con los datos del horario
-     * @return Horario creado
+     * Adds a schedule to an academic request.
+     * @param requestId Request ID
+     * @param requestScheduleDTO DTO with schedule data
+     * @return Created schedule
      */
     @PostMapping("/{requestId}/schedules")
-    public ResponseEntity<RequestScheduleDTO> addSchedule(
+    public Mono<ResponseEntity<RequestScheduleDTO>> addSchedule(
             @PathVariable Long requestId,
-            @RequestBody RequestScheduleDTO dto) {
-        RequestScheduleDTO saved = academicRequestService.addSchedule(requestId, dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+            @RequestBody RequestScheduleDTO requestScheduleDTO) {
+        return academicRequestService.addRequestSchedule(requestId, requestScheduleDTO)
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
 
     /**
-     * Obtiene los horarios asociados a una solicitud académica.
-     * @param requestId ID de la solicitud
-     * @return Lista de horarios
+     * Gets schedules associated with an academic request.
+     * @param requestId Request ID
+     * @return Stream of schedules
      */
     @GetMapping("/{requestId}/schedules")
-    public ResponseEntity<List<RequestScheduleDTO>> getSchedules(@PathVariable Long requestId) {
-        List<RequestScheduleDTO> schedules = academicRequestService.findSchedulesByRequest(requestId);
-        return ResponseEntity.ok(schedules);
+    public ResponseEntity<Flux<RequestScheduleDTO>> getSchedules(@PathVariable Long requestId) {
+        return ResponseEntity.ok(academicRequestService.findRequestSchedulesByAcademicRequestId(requestId));
     }
 
     /**
-     * Elimina un horario específico de una solicitud académica.
-     * @param requestId ID de la solicitud
-     * @param scheduleId ID del horario
-     * @return Respuesta sin contenido
+     * Deletes a specific schedule from an academic request.
+     * @param requestId Request ID
+     * @param scheduleId Schedule ID
+     * @return Response with no content
      */
     @DeleteMapping("/{requestId}/schedules/{scheduleId}")
-    public ResponseEntity<Void> deleteSchedule(
+    public Mono<ResponseEntity<Void>> deleteSchedule(
             @PathVariable Long requestId,
             @PathVariable Long scheduleId) {
-        academicRequestService.deleteSchedule(scheduleId);
-        return ResponseEntity.noContent().build();
+        return academicRequestService.deleteRequestSchedule(scheduleId)
+                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
 
     /**
-     * Actualiza un horario específico de una solicitud académica.
-     * @param requestId ID de la solicitud
-     * @param scheduleId ID del horario
-     * @param dto DTO con los datos actualizados
-     * @return Horario actualizado
+     * Updates a specific schedule of an academic request.
+     * @param requestId Request ID
+     * @param scheduleId Schedule ID
+     * @param requestScheduleDTO with updated data
+     * @return Updated schedule
      */
     @PutMapping("/{requestId}/schedules/{scheduleId}")
-    public ResponseEntity<RequestScheduleDTO> updateSchedule(
+    public Mono<ResponseEntity<RequestScheduleDTO>> updateSchedule(
             @PathVariable Long requestId,
             @PathVariable Long scheduleId,
-            @RequestBody RequestScheduleDTO dto) {
-        RequestScheduleDTO updated = academicRequestService.updateSchedule(scheduleId, dto);
-        return ResponseEntity.ok(updated);
+            @RequestBody RequestScheduleDTO requestScheduleDTO) {
+        return academicRequestService.updateRequestSchedule(scheduleId, requestScheduleDTO)
+                .map(ResponseEntity::ok);
     }
 
     /**
-     * Actualiza parcialmente un horario de una solicitud académica.
-     * @param requestId ID de la solicitud
-     * @param scheduleId ID del horario
-     * @param updates Mapa con los campos a actualizar
-     * @return Horario actualizado parcialmente
+     * Partially updates a schedule of an academic request.
+     * @param requestId Request ID
+     * @param scheduleId Schedule ID
+     * @param updates Map with fields to update
+     * @return Partially updated schedule
      */
     @PatchMapping("/{requestId}/schedules/{scheduleId}")
-    public ResponseEntity<RequestScheduleDTO> patchSchedule(
+    public Mono<ResponseEntity<RequestScheduleDTO>> patchSchedule(
             @PathVariable Long requestId,
             @PathVariable Long scheduleId,
             @RequestBody Map<String, Object> updates) {
-        RequestScheduleDTO updated = academicRequestService.patchSchedule(scheduleId, updates);
-        return ResponseEntity.ok(updated);
+        return academicRequestService.patchRequestSchedule(scheduleId, updates)
+                .map(ResponseEntity::ok);
     }
 }

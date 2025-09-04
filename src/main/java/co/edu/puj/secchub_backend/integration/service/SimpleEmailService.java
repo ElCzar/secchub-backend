@@ -1,6 +1,5 @@
 package co.edu.puj.secchub_backend.integration.service;
 
-import co.edu.puj.secchub_backend.integration.dto.AcademicRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

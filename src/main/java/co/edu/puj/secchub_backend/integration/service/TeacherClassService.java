@@ -1,12 +1,14 @@
 package co.edu.puj.secchub_backend.integration.service;
 
+import co.edu.puj.secchub_backend.integration.exception.TeacherClassNotFoundException;
 import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.repository.TeacherClassRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Service handling business logic for HU17 (Professor availability).
@@ -21,38 +23,42 @@ public class TeacherClassService {
     /**
      * Lists all classes (accepted, pending, rejected) assigned to a teacher.
      * @param teacherId teacher id
-     * @return list of TeacherClass
+     * @return Stream of TeacherClass
      */
-    @Transactional(readOnly = true)
-    public List<TeacherClass> listAllByTeacher(Long teacherId) {
-        return repository.findByTeacherId(teacherId);
+    public Flux<TeacherClass> listAllTeacherClassByTeacher(Long teacherId) {
+        return Mono.fromCallable(() -> repository.findByTeacherId(teacherId))
+                .flatMapMany(Flux::fromIterable)
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
      * Lists only classes filtered by status.
      * @param teacherId teacher id
      * @param statusId status (1=pending, 2=accepted, 3=rejected)
-     * @return list of TeacherClass
+     * @return flux of TeacherClass
      */
-    @Transactional(readOnly = true)
-    public List<TeacherClass> listByStatus(Long teacherId, Long statusId) {
-        return repository.findByTeacherIdAndStatusId(teacherId, statusId);
+    public Flux<TeacherClass> listTeacherClassByStatus(Long teacherId, Long statusId) {
+        return Mono.fromCallable(() -> repository.findByTeacherIdAndStatusId(teacherId, statusId))
+                .flatMapMany(Flux::fromIterable)
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
-        /**
+    /**
      * Accepts a class (set decision true and status=2).
      * @param teacherClassId relation id
      * @param observation optional comment from the teacher
      * @return updated TeacherClass
      */
     @Transactional
-    public TeacherClass acceptClass(Long teacherClassId, String observation) {
-        TeacherClass tc = repository.findById(teacherClassId)
-                .orElseThrow(() -> new IllegalArgumentException("TeacherClass not found"));
-        tc.setDecision(true);
-        tc.setStatusId(2L);
-        tc.setObservation(observation);
-        return repository.save(tc);
+    public Mono<TeacherClass> acceptTeacherClass(Long teacherClassId, String observation) {
+        return Mono.fromCallable(() -> {
+            TeacherClass tc = repository.findById(teacherClassId)
+                    .orElseThrow(() -> new TeacherClassNotFoundException("TeacherClass not found for acceptance: " + teacherClassId));
+            tc.setDecision(true);
+            tc.setStatusId(2L);
+            tc.setObservation(observation);
+            return repository.save(tc);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -62,13 +68,15 @@ public class TeacherClassService {
      * @return updated TeacherClass
      */
     @Transactional
-    public TeacherClass rejectClass(Long teacherClassId, String observation) {
-        TeacherClass tc = repository.findById(teacherClassId)
-                .orElseThrow(() -> new IllegalArgumentException("TeacherClass not found"));
-        tc.setDecision(false);
-        tc.setStatusId(3L);
-        tc.setObservation(observation);
-        return repository.save(tc);
+    public Mono<TeacherClass> rejectTeacherClass(Long teacherClassId, String observation) {
+        return Mono.fromCallable(() -> {
+            TeacherClass tc = repository.findById(teacherClassId)
+                    .orElseThrow(() -> new TeacherClassNotFoundException("TeacherClass not found for rejection: " + teacherClassId));
+            tc.setDecision(false);
+            tc.setStatusId(3L);
+            tc.setObservation(observation);
+            return repository.save(tc);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
 }

@@ -8,91 +8,94 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+
 
 /**
- * Controlador REST para gestionar las solicitudes de monitoría de estudiantes.
- * Proporciona endpoints para crear, consultar, aprobar y rechazar solicitudes de monitoría.
+ * REST controller for managing student monitoring applications.
+ * Provides endpoints to create, query, approve and reject monitoring applications.
  */
 @RestController
-@RequestMapping("/api/monitors/requests")
+@RequestMapping("/students-applications")
 @RequiredArgsConstructor
 public class StudentApplicationController {
 
-    /** Servicio para la lógica de negocio de solicitudes de monitoría. */
+    /** Service for student application business logic. */
     private final StudentApplicationService service;
 
     /**
-     * Crea una nueva solicitud de monitoría.
-     * @param dto DTO con los datos de la solicitud
-     * @return Estudiante con la solicitud creada
+     * Creates a new monitoring request.
+     * @param studentApplicationDTO DTO with request data
+     * @return Student with the created request
      */
     @PostMapping
-    public ResponseEntity<Student> createRequest(@RequestBody StudentApplicationDTO dto) {
-        Student saved = service.createRequest(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+    public Mono<ResponseEntity<Student>> createRequest(@RequestBody StudentApplicationDTO studentApplicationDTO) {
+        return service.createStudentApplication(studentApplicationDTO)
+                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
 
     /**
-     * Obtiene todas las solicitudes de monitoría.
-     * @return Lista de estudiantes con solicitudes
+     * Gets all monitoring requests.
+     * @return Stream of students with requests
      */
     @GetMapping
-    public ResponseEntity<List<Student>> getAllRequests() {
-        return ResponseEntity.ok(service.listAll());
+    public ResponseEntity<Flux<Student>> getAllRequests() {
+        return ResponseEntity.ok(service.listAllStudentApplication());
     }
 
     /**
-     * Obtiene una solicitud de monitoría por su ID.
-     * @param id ID de la solicitud
-     * @return Estudiante con la solicitud encontrada
+     * Gets a student application by its ID.
+     * @param studentApplicationId Application ID
+     * @return Student with the found request
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<Student> getRequestById(@PathVariable Long id) {
-        return ResponseEntity.ok(service.findById(id));
+    @GetMapping("/{studentApplicationId}")
+    public Mono<ResponseEntity<Student>> getRequestById(@PathVariable Long studentApplicationId) {
+        return service.findStudentApplicationById(studentApplicationId)
+                .map(ResponseEntity::ok);
     }
 
     /**
-     * Aprueba una solicitud de monitoría.
-     * @param id ID de la solicitud
-     * @param statusId ID del estado de aprobación
-     * @return Respuesta sin contenido
+     * Approves a monitoring request.
+     * @param studentApplicationId Application ID
+     * @param statusId Approval status ID
+     * @return Response with ok status
      */
-    @PatchMapping("/{id}/approve")
-    public ResponseEntity<Void> approveRequest(@PathVariable Long id, @RequestParam Long statusId) {
-        service.approveRequest(id, statusId);
-        return ResponseEntity.noContent().build();
+    @PatchMapping("/{studentApplicationId}/approve")
+    public Mono<ResponseEntity<Void>> approveRequest(@PathVariable Long studentApplicationId, @RequestParam Long statusId) {
+        return service.approveStudentApplication(studentApplicationId, statusId)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
     }
 
     /**
-     * Rechaza una solicitud de monitoría.
-     * @param id ID de la solicitud
-     * @param statusId ID del estado de rechazo
-     * @return Respuesta sin contenido
+     * Rejects a monitoring request.
+     * @param studentApplicationId Application ID
+     * @param statusId Rejection status ID
+     * @return Response with ok status
      */
-    @PatchMapping("/{id}/reject")
-    public ResponseEntity<Void> rejectRequest(@PathVariable Long id, @RequestParam Long statusId) {
-        service.rejectRequest(id, statusId);
-        return ResponseEntity.noContent().build();
+    @PatchMapping("/{studentApplicationId}/reject")
+    public Mono<ResponseEntity<Void>> rejectRequest(@PathVariable Long studentApplicationId, @RequestParam Long statusId) {
+        return service.rejectStudentApplication(studentApplicationId, statusId)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
     }
 
     /**
-     * Obtiene solicitudes de monitoría por estado.
-     * @param statusId ID del estado
-     * @return Lista de estudiantes con solicitudes en ese estado
+     * Gets monitoring requests by status.
+     * @param statusId Status ID
+     * @return Stream of students with requests in that status
      */
     @GetMapping("/status/{statusId}")
-    public ResponseEntity<List<Student>> getRequestsByStatus(@PathVariable Long statusId) {
-        return ResponseEntity.ok(service.listByStatus(statusId));
+    public ResponseEntity<Flux<Student>> getRequestsByStatus(@PathVariable Long statusId) {
+        return ResponseEntity.ok(service.listStudentApplicationsByStatus(statusId));
     }
 
     /**
-     * Obtiene solicitudes de monitoría para una sección específica.
-     * @param sectionId ID de la sección
-     * @return Lista de estudiantes con solicitudes en esa sección
+     * Gets monitoring requests for a specific section.
+     * @param sectionId Section ID
+     * @return Stream of students with requests in that section
      */
-    @GetMapping("/section/{sectionId}/requests")
-    public ResponseEntity<List<Student>> getRequestsForSection(@PathVariable Long sectionId) {
-        return ResponseEntity.ok(service.listForSection(sectionId));
+    @GetMapping("/section/{sectionId}")
+    public ResponseEntity<Flux<Student>> getRequestsForSection(@PathVariable Long sectionId) {
+        return ResponseEntity.ok(service.listStudentApplicationsForSection(sectionId));
     }
 }

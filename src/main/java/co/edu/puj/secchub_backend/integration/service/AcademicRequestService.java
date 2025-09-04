@@ -3,16 +3,23 @@ package co.edu.puj.secchub_backend.integration.service;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.RequestScheduleDTO;
+import co.edu.puj.secchub_backend.integration.exception.AcademicRequestNotFound;
+import co.edu.puj.secchub_backend.integration.exception.RequestScheduleNotFound;
 import co.edu.puj.secchub_backend.integration.model.AcademicRequest;
 import co.edu.puj.secchub_backend.integration.model.RequestSchedule;
 import co.edu.puj.secchub_backend.integration.repository.AcademicRequestRepository;
 import co.edu.puj.secchub_backend.integration.repository.RequestScheduleRepository;
 import lombok.RequiredArgsConstructor;
+
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
+
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,234 +28,202 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class AcademicRequestService {
+    private final ModelMapper modelMapper;
 
-    private final AcademicRequestRepository requestRepo;
-    private final RequestScheduleRepository scheduleRepo;
+    private final AcademicRequestRepository academicRequestRepository;
+    private final RequestScheduleRepository requestScheduleRepository;
 
+    /**
     private final ValidationService validation;
     private final PdfGenerator pdfGenerator;
     private final EmailService emailService;
+    */
 
     /**
-     * Crea un lote de solicitudes académicas con sus horarios asociados.
+     * Creates a batch of academic requests with their associated schedules.
+     * @param academicRequestBatchDTO with batch request information
+     * @return Stream of created academic requests
      */
     @Transactional
-    public List<AcademicRequest> createBatch(AcademicRequestBatchDTO payload) {
-        List<AcademicRequest> results = new ArrayList<>();
+    public Flux<AcademicRequest> createAcademicRequestBatch(AcademicRequestBatchDTO payload) {
+        return Flux.fromIterable(payload.getRequests())
+                .concatMap(item -> Mono.fromCallable(() -> {
+                AcademicRequest academicRequest = modelMapper.map(item, AcademicRequest.class);
+                AcademicRequest saved = academicRequestRepository.save(academicRequest);
 
-        for (AcademicRequestDTO item : payload.getRequests()) {
-            AcademicRequest ar = AcademicRequest.builder()
-                    .userId(payload.getUserId())
-                    .courseId(item.getCourseId())
-                    .semesterId(payload.getSemesterId())
-                    .capacity(item.getCapacity())
-                    .startDate(item.getStartDate())
-                    .endDate(item.getEndDate())
-                    .observation(item.getObservation())
-                    .build();
+                if (item.getSchedules() != null) {
+                    List<RequestSchedule> savedSchedules = new ArrayList<>();
+                    for (RequestScheduleDTO schedule : item.getSchedules()) {
+                        RequestSchedule requestSchedule = modelMapper.map(schedule, RequestSchedule.class);
+                        RequestSchedule savedSchedule = requestScheduleRepository.save(requestSchedule);
+                        savedSchedules.add(savedSchedule);
+                    }
+                    saved.setSchedules(savedSchedules);
+                }
 
-    AcademicRequest saved = requestRepo.save(ar);
-
-    if (item.getSchedules() != null) {
-        for (RequestScheduleDTO s : item.getSchedules()) {
-            RequestSchedule sch = RequestSchedule.builder()
-                    .academicRequestId(saved.getId())
-                    .day(s.getDay())
-                    .startTime(toSqlTime(s.getStartTime()))
-                    .endTime(toSqlTime(s.getEndTime()))
-                    .classroomTypeId(s.getClassroomTypeId())
-                    .modalityId(s.getModalityId())
-                    .disability(s.getDisability())
-                    .build();
-            scheduleRepo.save(sch);
-        }
-        // 🚀 Cargar los schedules recién guardados
-        saved.setSchedules(scheduleRepo.findByAcademicRequestId(saved.getId()));
+                return saved;
+            }))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
-    results.add(saved);
+    /**
+     * Gets all academic requests
+     * @return Stream of academic requests
+     */
+    public Flux<AcademicRequest> findAllAcademicRequests() {
+        return Mono.fromCallable(academicRequestRepository::findAll)
+                .flatMapMany(Flux::fromIterable)
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 
+    /**
+     * Gets an academic request by ID.
+     * @param requestId Request ID
+     * @return Academic request found
+     */
+    public Mono<AcademicRequest> findAcademicRequestById(Long requestId) {
+        return Mono.fromCallable(() -> academicRequestRepository.findById(requestId)
+                .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for consult: " + requestId)))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Deletes an academic request by ID.
+     * @param requestId Request ID
+     * @return empty Mono when done
+     */
+    public Mono<Void> deleteAcademicRequest(Long requestId) {
+        return Mono.fromCallable(() -> {
+            if (!academicRequestRepository.existsById(requestId)) {
+                throw new AcademicRequestNotFound("AcademicRequest not found for delete: " + requestId);
             }
-
-
-        return results;
+            academicRequestRepository.deleteById(requestId);
+            return Mono.empty();
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
     /**
-     * Obtiene todas las solicitudes académicas.
+     * Updates an academic request.
+     * @param requestId Request ID
+     * @param academicRequestDTO with updated data
+     * @return Updated academic request
      */
-    @Transactional(readOnly = true)
-    public List<AcademicRequest> findAll() {
-        return requestRepo.findAll();
+    public Mono<AcademicRequest> updateAcademicRequest(Long requestId, AcademicRequestDTO academicRequestDTO) {
+        return Mono.fromCallable(() -> {
+            AcademicRequest request = academicRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for update: " + requestId));
+
+            modelMapper.getConfiguration().setPropertyCondition(context -> 
+                context.getSource() != null);
+            modelMapper.map(academicRequestDTO, request);
+            return academicRequestRepository.save(request);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
-     * Obtiene una solicitud académica por ID.
+     * Adds a schedule to an academic request.
+     * @param requestId Request ID
+     * @param requestScheduleDTO DTO with schedule data
+     * @return Created schedule DTO
      */
-    @Transactional(readOnly = true)
-    public AcademicRequest findById(Long id) {
-        return requestRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("AcademicRequest not found: " + id));
+    public Mono<RequestScheduleDTO> addRequestSchedule(Long requestId, RequestScheduleDTO requestScheduleDTO) {
+        return Mono.fromCallable(() -> {
+            academicRequestRepository.findById(requestId)
+                .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for schedule creation: " + requestId));
+
+            RequestSchedule schedule = modelMapper.map(requestScheduleDTO, RequestSchedule.class);
+
+            RequestSchedule savedSchedule = requestScheduleRepository.save(schedule);
+
+            requestScheduleDTO.setId(savedSchedule.getId());
+            return requestScheduleDTO;
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
-     * Elimina una solicitud académica por ID.
+     * Gets schedules associated with a request.
+     * @param requestId Request ID
+     * @return Stream of schedules
      */
-    @Transactional
-    public void deleteRequest(Long requestId) {
-        if (!requestRepo.existsById(requestId)) {
-            throw new IllegalArgumentException("AcademicRequest not found: " + requestId);
-        }
-        requestRepo.deleteById(requestId);
+    public Flux<RequestScheduleDTO> findRequestSchedulesByAcademicRequestId(Long requestId) {
+        return Mono.fromCallable(() -> {
+            academicRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for schedule retrieval: " + requestId));
+
+            List<RequestSchedule> requestSchedules = requestScheduleRepository.findByAcademicRequestId(requestId);
+            List<RequestScheduleDTO> requestScheduleDTOs = new ArrayList<>();
+
+            for (RequestSchedule requestSchedule : requestSchedules) {
+                RequestScheduleDTO requestScheduleDTO = modelMapper.map(requestSchedule, RequestScheduleDTO.class);
+                requestScheduleDTOs.add(requestScheduleDTO);
+            }
+            return requestScheduleDTOs;
+        }).flatMapMany(Flux::fromIterable)
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
-     * Actualiza una solicitud académica.
+     * Updates a specific schedule.
+     * @param scheduleId Schedule ID
+     * @param requestScheduleDTO DTO with updated data
      */
-    @Transactional
-    public AcademicRequest updateRequest(Long id, AcademicRequestDTO dto) {
-        AcademicRequest request = requestRepo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("AcademicRequest not found: " + id));
+    public Mono<RequestScheduleDTO> updateRequestSchedule(Long scheduleId, RequestScheduleDTO requestScheduleDTO) {
+        return Mono.fromCallable(() -> {
+            RequestSchedule schedule = requestScheduleRepository.findById(scheduleId)
+                    .orElseThrow(() -> new RequestScheduleNotFound("RequestSchedule not found for update: " + scheduleId));
 
-        request.setCourseId(dto.getCourseId());
-        request.setCapacity(dto.getCapacity());
-        request.setStartDate(dto.getStartDate());
-        request.setEndDate(dto.getEndDate());
-        request.setObservation(dto.getObservation());
+            modelMapper.getConfiguration().setPropertyCondition(context -> 
+                context.getSource() != null);
+            modelMapper.map(requestScheduleDTO, schedule);
 
-        return requestRepo.save(request);
+            requestScheduleRepository.save(schedule);
+
+            return modelMapper.map(schedule, RequestScheduleDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
-     * Agrega un horario a una solicitud académica.
+     * Deletes a schedule by ID.
+     * @param scheduleId Schedule ID
+     * @return empty Mono when done
      */
-    @Transactional
-    public RequestScheduleDTO addSchedule(Long requestId, RequestScheduleDTO dto) {
-        AcademicRequest request = requestRepo.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("AcademicRequest not found: " + requestId));
-
-        RequestSchedule schedule = RequestSchedule.builder()
-                .academicRequestId(request.getId())
-                .day(dto.getDay())
-                .startTime(toSqlTime(dto.getStartTime()))
-                .endTime(toSqlTime(dto.getEndTime()))
-                .classroomTypeId(dto.getClassroomTypeId())
-                .modalityId(dto.getModalityId())
-                .disability(dto.getDisability())
-                .build();
-
-        scheduleRepo.save(schedule);
-
-        dto.setId(schedule.getId());
-        return dto;
+    public Mono<Void> deleteRequestSchedule(Long scheduleId) {
+        return Mono.fromCallable(() -> {
+            if (!requestScheduleRepository.existsById(scheduleId)) {
+                throw new RequestScheduleNotFound("RequestSchedule not found: " + scheduleId);
+            }
+            requestScheduleRepository.deleteById(scheduleId);
+            return Mono.empty();
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
     /**
-     * Obtiene los horarios asociados a una solicitud.
+     * Partially updates a schedule.
+     * @param scheduleId Schedule ID
+     * @param updates Map with fields to update
+     * @return Updated schedule
      */
-    @Transactional(readOnly = true)
-    public List<RequestScheduleDTO> findSchedulesByRequest(Long requestId) {
-        requestRepo.findById(requestId)
-                .orElseThrow(() -> new IllegalArgumentException("AcademicRequest not found: " + requestId));
+    public Mono<RequestScheduleDTO> patchRequestSchedule(Long scheduleId, Map<String, Object> updates) {
+        return Mono.fromCallable(() -> {
+            RequestSchedule schedule = requestScheduleRepository.findById(scheduleId)
+                    .orElseThrow(() -> new RequestScheduleNotFound("RequestSchedule not found: " + scheduleId));
+            
+            RequestScheduleDTO updateDTO = new RequestScheduleDTO();
+            modelMapper.map(updates, updateDTO);
+            
+            modelMapper.getConfiguration().setPropertyCondition(context -> 
+                context.getSource() != null);
+            modelMapper.map(updateDTO, schedule);
 
-        List<RequestSchedule> schedules = scheduleRepo.findByAcademicRequestId(requestId);
-        List<RequestScheduleDTO> dtos = new ArrayList<>();
+            requestScheduleRepository.save(schedule);
 
-        for (RequestSchedule s : schedules) {
-            dtos.add(RequestScheduleDTO.builder()
-                    .id(s.getId())
-                    .day(s.getDay())
-                    .startTime(toStringTime(s.getStartTime()))
-                    .endTime(toStringTime(s.getEndTime()))
-                    .classroomTypeId(s.getClassroomTypeId())
-                    .modalityId(s.getModalityId())
-                    .disability(s.getDisability())
-                    .build());
-        }
-        return dtos;
-    }
-
-    /**
-     * Actualiza un horario específico.
-     */
-    @Transactional
-    public RequestScheduleDTO updateSchedule(Long scheduleId, RequestScheduleDTO dto) {
-        RequestSchedule schedule = scheduleRepo.findById(scheduleId)
-                .orElseThrow(() -> new IllegalArgumentException("RequestSchedule not found: " + scheduleId));
-
-        if (dto.getDay() != null) schedule.setDay(dto.getDay());
-        if (dto.getStartTime() != null) schedule.setStartTime(toSqlTime(dto.getStartTime()));
-        if (dto.getEndTime() != null) schedule.setEndTime(toSqlTime(dto.getEndTime()));
-        if (dto.getClassroomTypeId() != null) schedule.setClassroomTypeId(dto.getClassroomTypeId());
-        if (dto.getModalityId() != null) schedule.setModalityId(dto.getModalityId());
-        if (dto.getDisability() != null) schedule.setDisability(dto.getDisability());
-
-        scheduleRepo.save(schedule);
-
-        return RequestScheduleDTO.builder()
-                .id(schedule.getId())
-                .day(schedule.getDay())
-                .startTime(toStringTime(schedule.getStartTime()))
-                .endTime(toStringTime(schedule.getEndTime()))
-                .classroomTypeId(schedule.getClassroomTypeId())
-                .modalityId(schedule.getModalityId())
-                .disability(schedule.getDisability())
-                .build();
-    }
-
-    /**
-     * Elimina un horario por ID.
-     */
-    @Transactional
-    public void deleteSchedule(Long scheduleId) {
-        if (!scheduleRepo.existsById(scheduleId)) {
-            throw new IllegalArgumentException("RequestSchedule not found: " + scheduleId);
-        }
-        scheduleRepo.deleteById(scheduleId);
-    }
-
-    /**
-     * Actualiza parcialmente un horario.
-     */
-    @Transactional
-    public RequestScheduleDTO patchSchedule(Long scheduleId, Map<String, Object> updates) {
-        RequestSchedule schedule = scheduleRepo.findById(scheduleId)
-                .orElseThrow(() -> new IllegalArgumentException("RequestSchedule not found: " + scheduleId));
-
-        if (updates.containsKey("day")) schedule.setDay((String) updates.get("day"));
-        if (updates.containsKey("startTime")) schedule.setStartTime(toSqlTime((String) updates.get("startTime")));
-        if (updates.containsKey("endTime")) schedule.setEndTime(toSqlTime((String) updates.get("endTime")));
-        if (updates.containsKey("classroomTypeId")) schedule.setClassroomTypeId(Long.valueOf(updates.get("classroomTypeId").toString()));
-        if (updates.containsKey("modalityId")) schedule.setModalityId(Long.valueOf(updates.get("modalityId").toString()));
-        if (updates.containsKey("disability")) schedule.setDisability(Boolean.valueOf(updates.get("disability").toString()));
-
-        scheduleRepo.save(schedule);
-
-        return RequestScheduleDTO.builder()
-                .id(schedule.getId())
-                .day(schedule.getDay())
-                .startTime(toStringTime(schedule.getStartTime()))
-                .endTime(toStringTime(schedule.getEndTime()))
-                .classroomTypeId(schedule.getClassroomTypeId())
-                .modalityId(schedule.getModalityId())
-                .disability(schedule.getDisability())
-                .build();
+            return modelMapper.map(schedule, RequestScheduleDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     // ======================
-    // Utilidades privadas
+    // Private utilities
     // ======================
-
-    private java.sql.Time toSqlTime(String hhmmss) {
-        if (hhmmss == null) return null;
-        LocalTime t = LocalTime.parse(hhmmss);
-        return java.sql.Time.valueOf(t);
-    }
-
-    private String toStringTime(java.sql.Time time) {
-        return time != null ? time.toLocalTime().toString() : null;
-    }
-
     public int calculateWeeks(LocalDate start, LocalDate end) {
         if (start == null || end == null) return 0;
         long days = ChronoUnit.DAYS.between(start, end.plusDays(1));
