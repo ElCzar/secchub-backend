@@ -33,11 +33,7 @@ public class AcademicRequestService {
     private final AcademicRequestRepository academicRequestRepository;
     private final RequestScheduleRepository requestScheduleRepository;
 
-    /**
-    private final ValidationService validation;
-    private final PdfGenerator pdfGenerator;
-    private final EmailService emailService;
-    */
+    // TODO: Add ValidationService, PdfGenerator, and EmailService dependencies if needed in future.
 
     /**
      * Creates a batch of academic requests with their associated schedules.
