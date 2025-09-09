@@ -1,4 +1,4 @@
-package co.edu.puj.secchub_backend.security.domain;
+package co.edu.puj.secchub_backend.security.model;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

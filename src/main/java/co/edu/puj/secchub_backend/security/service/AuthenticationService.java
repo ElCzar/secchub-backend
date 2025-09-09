@@ -5,12 +5,11 @@ import java.util.Optional;
 import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
-import co.edu.puj.secchub_backend.security.domain.User;
 import co.edu.puj.secchub_backend.security.dto.AuthTokenDTO;
 import co.edu.puj.secchub_backend.security.dto.RefreshTokenRequestDTO;
 import co.edu.puj.secchub_backend.security.exception.JwtAuthenticationException;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
+import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
 
 @Slf4j
