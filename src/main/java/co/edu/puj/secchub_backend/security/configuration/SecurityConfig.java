@@ -56,7 +56,6 @@ public class SecurityConfig {
                 )
                 .authorizeExchange(auth -> auth
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
-                        // All endpoints that need authentication must use @PreAuthorize in the controller
                         .anyExchange().permitAll()
                 )
                 .addFilterAt(authenticationFilter, SecurityWebFiltersOrder.AUTHENTICATION)

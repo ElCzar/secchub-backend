@@ -4,6 +4,7 @@ import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.service.TeacherClassService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import reactor.core.publisher.Flux;
@@ -29,7 +30,8 @@ public class TeacherClassController {
      * @return Stream of classes assigned to the teacher
      */
     @GetMapping("/{teacherId}/classes")
-    public ResponseEntity<Flux<TeacherClass>> getAllClasses(@PathVariable Long teacherId) {
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public ResponseEntity<Flux<TeacherClass>> getAllTeacherClasses(@PathVariable Long teacherId) {
         return ResponseEntity.ok(service.listAllTeacherClassByTeacher(teacherId));
     }
 
@@ -41,7 +43,8 @@ public class TeacherClassController {
      * @return Stream of classes assigned to the teacher with the given status
      */
     @GetMapping("/{teacherId}/classes/status/{statusId}")
-    public ResponseEntity<Flux<TeacherClass>> getClassesByStatus(
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public ResponseEntity<Flux<TeacherClass>> getTeacherClassesByStatus(
             @PathVariable Long teacherId,
             @PathVariable Long statusId) {
         return ResponseEntity.ok(service.listTeacherClassByStatus(teacherId, statusId));
@@ -54,7 +57,8 @@ public class TeacherClassController {
      * @return Updated class assignment
      */
     @PatchMapping("/classes/{teacherClassId}/accept")
-    public Mono<ResponseEntity<TeacherClass>> acceptClass(
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    public Mono<ResponseEntity<TeacherClass>> acceptTeacherClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;
@@ -69,7 +73,8 @@ public class TeacherClassController {
      * @return Updated class assignment
      */
     @PatchMapping("/classes/{teacherClassId}/reject")
-    public Mono<ResponseEntity<TeacherClass>> rejectClass(
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    public Mono<ResponseEntity<TeacherClass>> rejectTeacherClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;

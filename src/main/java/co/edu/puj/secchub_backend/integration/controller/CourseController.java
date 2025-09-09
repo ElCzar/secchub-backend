@@ -5,6 +5,7 @@ import co.edu.puj.secchub_backend.integration.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
@@ -28,7 +29,8 @@ public class CourseController {
      * @return Created course with status 201
      */
     @PostMapping
-    public Mono<ResponseEntity<CourseDTO>> create(@RequestBody CourseDTO courseDTO) {
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<CourseDTO>> createCourse(@RequestBody CourseDTO courseDTO) {
         return courseService.createCourse(courseDTO)
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
@@ -38,7 +40,8 @@ public class CourseController {
      * @return Stream of courses
      */
     @GetMapping
-    public ResponseEntity<Flux<CourseDTO>> findAll() {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Flux<CourseDTO>> findAllCourses() {
         return ResponseEntity.ok(courseService.findAllCourses());
     }
 
@@ -48,7 +51,8 @@ public class CourseController {
      * @return Course with the given ID
      */
     @GetMapping("/{courseId}")
-    public Mono<ResponseEntity<CourseDTO>> findById(@PathVariable Long courseId) {
+    @PreAuthorize("isAuthenticated()")
+    public Mono<ResponseEntity<CourseDTO>> findCourseById(@PathVariable Long courseId) {
         return courseService.findCourseById(courseId)
                 .map(ResponseEntity::ok);
     }
@@ -60,7 +64,8 @@ public class CourseController {
      * @return Updated course with ok status
      */
     @PutMapping("/{courseId}")
-    public Mono<ResponseEntity<CourseDTO>> update(@PathVariable Long courseId, @RequestBody CourseDTO courseDTO) {
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<CourseDTO>> updateCourse(@PathVariable Long courseId, @RequestBody CourseDTO courseDTO) {
         return courseService.updateCourse(courseId, courseDTO)
                 .map(ResponseEntity::ok);
     }
@@ -72,7 +77,8 @@ public class CourseController {
      * @return Updated course with ok status
      */
     @PatchMapping("/{courseId}")
-    public Mono<ResponseEntity<CourseDTO>> patch(@PathVariable Long courseId, @RequestBody Map<String, Object> updates) {
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<CourseDTO>> patchCourse(@PathVariable Long courseId, @RequestBody Map<String, Object> updates) {
         return courseService.patchCourse(courseId, updates)
                 .map(ResponseEntity::ok);
     }

@@ -16,7 +16,8 @@ INSERT INTO role (name) VALUES
     ('ROLE_ADMIN'), 
     ('ROLE_USER'), 
     ('ROLE_STUDENT'), 
-    ('ROLE_TEACHER');
+    ('ROLE_TEACHER'),
+    ('ROLE_PROGRAM');
 
 -- Document Types valid in Colombia --
 INSERT INTO document_type (name) VALUES
