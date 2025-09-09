@@ -34,3 +34,6 @@ logs/
 .vscode/
 
 .fake
+
+### SeccHub ###
+logs/
