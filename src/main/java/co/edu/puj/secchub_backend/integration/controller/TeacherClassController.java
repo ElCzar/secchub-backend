@@ -31,7 +31,7 @@ public class TeacherClassController {
      */
     @GetMapping("/{teacherId}/classes")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<Flux<TeacherClass>> getAllClasses(@PathVariable Long teacherId) {
+    public ResponseEntity<Flux<TeacherClass>> getAllTeacherClasses(@PathVariable Long teacherId) {
         return ResponseEntity.ok(service.listAllTeacherClassByTeacher(teacherId));
     }
 
@@ -44,7 +44,7 @@ public class TeacherClassController {
      */
     @GetMapping("/{teacherId}/classes/status/{statusId}")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<Flux<TeacherClass>> getClassesByStatus(
+    public ResponseEntity<Flux<TeacherClass>> getTeacherClassesByStatus(
             @PathVariable Long teacherId,
             @PathVariable Long statusId) {
         return ResponseEntity.ok(service.listTeacherClassByStatus(teacherId, statusId));
@@ -58,7 +58,7 @@ public class TeacherClassController {
      */
     @PatchMapping("/classes/{teacherClassId}/accept")
     @PreAuthorize("hasRole('ROLE_TEACHER')")
-    public Mono<ResponseEntity<TeacherClass>> acceptClass(
+    public Mono<ResponseEntity<TeacherClass>> acceptTeacherClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;
@@ -74,7 +74,7 @@ public class TeacherClassController {
      */
     @PatchMapping("/classes/{teacherClassId}/reject")
     @PreAuthorize("hasRole('ROLE_TEACHER')")
-    public Mono<ResponseEntity<TeacherClass>> rejectClass(
+    public Mono<ResponseEntity<TeacherClass>> rejectTeacherClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;

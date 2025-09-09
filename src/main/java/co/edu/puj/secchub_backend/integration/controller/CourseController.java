@@ -30,7 +30,7 @@ public class CourseController {
      */
     @PostMapping
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<CourseDTO>> create(@RequestBody CourseDTO courseDTO) {
+    public Mono<ResponseEntity<CourseDTO>> createCourse(@RequestBody CourseDTO courseDTO) {
         return courseService.createCourse(courseDTO)
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
@@ -41,7 +41,7 @@ public class CourseController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Flux<CourseDTO>> findAll() {
+    public ResponseEntity<Flux<CourseDTO>> findAllCourses() {
         return ResponseEntity.ok(courseService.findAllCourses());
     }
 
@@ -52,7 +52,7 @@ public class CourseController {
      */
     @GetMapping("/{courseId}")
     @PreAuthorize("isAuthenticated()")
-    public Mono<ResponseEntity<CourseDTO>> findById(@PathVariable Long courseId) {
+    public Mono<ResponseEntity<CourseDTO>> findCourseById(@PathVariable Long courseId) {
         return courseService.findCourseById(courseId)
                 .map(ResponseEntity::ok);
     }
@@ -65,7 +65,7 @@ public class CourseController {
      */
     @PutMapping("/{courseId}")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<CourseDTO>> update(@PathVariable Long courseId, @RequestBody CourseDTO courseDTO) {
+    public Mono<ResponseEntity<CourseDTO>> updateCourse(@PathVariable Long courseId, @RequestBody CourseDTO courseDTO) {
         return courseService.updateCourse(courseId, courseDTO)
                 .map(ResponseEntity::ok);
     }
@@ -78,7 +78,7 @@ public class CourseController {
      */
     @PatchMapping("/{courseId}")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<CourseDTO>> patch(@PathVariable Long courseId, @RequestBody Map<String, Object> updates) {
+    public Mono<ResponseEntity<CourseDTO>> patchCourse(@PathVariable Long courseId, @RequestBody Map<String, Object> updates) {
         return courseService.patchCourse(courseId, updates)
                 .map(ResponseEntity::ok);
     }

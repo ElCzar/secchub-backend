@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.security.controller;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,17 +11,15 @@ import co.edu.puj.secchub_backend.security.dto.AuthTokenDTO;
 import co.edu.puj.secchub_backend.security.dto.LoginRequestDTO;
 import co.edu.puj.secchub_backend.security.dto.RefreshTokenRequestDTO;
 import co.edu.puj.secchub_backend.security.service.AuthenticationService;
+import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 public class AuthenticationController {
 
 	private final AuthenticationService authenticationService;
-
-	public AuthenticationController(AuthenticationService authenticationService) {
-		this.authenticationService = authenticationService;
-	}
 
 	/**
 	 * Login endpoint for user authentication.
@@ -29,6 +28,7 @@ public class AuthenticationController {
 	 * @return a Mono containing the authentication token
 	 */
 	@PostMapping("/login")
+	@PreAuthorize("permitAll()")
 	public Mono<ResponseEntity<AuthTokenDTO>> login(@RequestBody LoginRequestDTO loginRequestDTO) {
 		return Mono.fromCallable(() -> authenticationService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()))
 				.map(ResponseEntity::ok);
@@ -41,6 +41,7 @@ public class AuthenticationController {
 	 * @return a Mono containing the new authentication token
 	 */
 	@PostMapping("/refresh")
+	@PreAuthorize("permitAll()")
 	public Mono<ResponseEntity<AuthTokenDTO>> refresh(@RequestBody RefreshTokenRequestDTO refreshToken) {
 		return Mono.fromCallable(() -> authenticationService.refreshToken(refreshToken))
 				.map(ResponseEntity::ok);
