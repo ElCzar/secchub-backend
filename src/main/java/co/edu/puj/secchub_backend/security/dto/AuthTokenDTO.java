@@ -13,5 +13,5 @@ public class AuthTokenDTO {
     private String accessToken;
     private String refreshToken;
     private String tokenType;
-    private String role; // Rol del usuario
+    private String role;
 }

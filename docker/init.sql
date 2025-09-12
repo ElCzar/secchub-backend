@@ -37,16 +37,7 @@ INSERT INTO employment_type (name) VALUES
 INSERT INTO modality (name) VALUES
     ('In-Person'),
     ('Online');
-
--- Usuarios de prueba para desarrollo --
-INSERT INTO users (username, password, faculty, name, last_name, email, status_id, last_access, role_id, document_type_id, document_number)
-VALUES
-('admin', '$2a$10$u1b6QwQwQwQwQwQwQwQwQeQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQw', NULL, 'Admin', 'User', 'admin@secchub.com', 1, NULL, 1, 1, '12345678'),
-('program', '$2a$10$u1b6QwQwQwQwQwQwQwQwQeQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQw', NULL, 'Program', 'User', 'program@secchub.com', 1, NULL, 5, 1, '33333333'),
-('student', '$2a$10$u1b6QwQwQwQwQwQwQwQwQeQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQw', NULL, 'Student', 'User', 'student@secchub.com', 1, NULL, 3, 1, '11111111'),
-('teacher', '$2a$10$u1b6QwQwQwQwQwQwQwQwQeQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQw', NULL, 'Teacher', 'User', 'teacher@secchub.com', 1, NULL, 4, 1, '22222222'),
-('user', '$2a$10$u1b6QwQwQwQwQwQwQwQwQeQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQwQw', NULL, 'Regular', 'User', 'user@secchub.com', 1, NULL, 2, 1, '87654321');
-
+    
 -- The sessions available for the courses --
 INSERT INTO session (name) VALUES
     ('Morning'),
@@ -59,5 +50,9 @@ INSERT INTO classroom_type (name) VALUES
 
 -- Sample user with password hashed --
 INSERT INTO users (username, password, name, last_name, email, status_id, role_id, document_type_id, document_number)
-VALUES ('admin', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Admin', 'User', 'admin@secchub.com', 1, 1, 1, '12345678'),
-       ('user', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Regular', 'User', 'user@secchub.com', 1, 2, 1, '87654321');
+VALUES 
+('admin', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Admin', 'User', 'admin@secchub.com', 1, 1, 1, '12345678'),
+('user', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Regular', 'User', 'user@secchub.com', 1, 2, 1, '87654321'),
+('student', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Student', 'User', 'student@secchub.com', 1, 3, 1, '11111111'),
+('teacher', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Teacher', 'User', 'teacher@secchub.com', 1, 4, 1, '22222222'),
+('program', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Program', 'User', 'program@secchub.com', 1, 5, 1, '33333333');
