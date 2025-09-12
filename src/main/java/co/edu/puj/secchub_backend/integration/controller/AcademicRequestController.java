@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -34,8 +35,9 @@ public class AcademicRequestController {
      */
     @PostMapping
     @PreAuthorize("hasRole('ROLE_PROGRAM')")
-    public ResponseEntity<Flux<AcademicRequest>> createAcademicRequestBatch(@RequestBody AcademicRequestBatchDTO academicRequestBatchDTO) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(academicRequestService.createAcademicRequestBatch(academicRequestBatchDTO));
+    public Mono<ResponseEntity<List<AcademicRequest>>> createAcademicRequestBatch(@RequestBody AcademicRequestBatchDTO academicRequestBatchDTO) {
+        return Mono.fromCallable(() -> academicRequestService.createAcademicRequestBatch(academicRequestBatchDTO))
+                .map(createdRequests -> ResponseEntity.status(HttpStatus.CREATED).body(createdRequests));
     }
 
     /**

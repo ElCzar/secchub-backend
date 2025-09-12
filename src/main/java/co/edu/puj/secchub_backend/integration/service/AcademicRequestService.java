@@ -38,28 +38,30 @@ public class AcademicRequestService {
     /**
      * Creates a batch of academic requests with their associated schedules.
      * @param academicRequestBatchDTO with batch request information
-     * @return Stream of created academic requests
+     * @return List of created academic requests
      */
     @Transactional
-    public Flux<AcademicRequest> createAcademicRequestBatch(AcademicRequestBatchDTO payload) {
-        return Flux.fromIterable(payload.getRequests())
-                .concatMap(item -> Mono.fromCallable(() -> {
-                AcademicRequest academicRequest = modelMapper.map(item, AcademicRequest.class);
-                AcademicRequest saved = academicRequestRepository.save(academicRequest);
+    public List<AcademicRequest> createAcademicRequestBatch(AcademicRequestBatchDTO payload) {
+        List<AcademicRequest> createdRequests = new ArrayList<>();
+        for (AcademicRequestDTO item : payload.getRequests()) {
+            AcademicRequest academicRequest = modelMapper.map(item, AcademicRequest.class);
+            academicRequest.setSchedules(null);
+            AcademicRequest saved = academicRequestRepository.save(academicRequest);
 
-                if (item.getSchedules() != null) {
-                    List<RequestSchedule> savedSchedules = new ArrayList<>();
-                    for (RequestScheduleDTO schedule : item.getSchedules()) {
-                        RequestSchedule requestSchedule = modelMapper.map(schedule, RequestSchedule.class);
-                        RequestSchedule savedSchedule = requestScheduleRepository.save(requestSchedule);
-                        savedSchedules.add(savedSchedule);
-                    }
-                    saved.setSchedules(savedSchedules);
+            if (item.getSchedules() != null) {
+                List<RequestSchedule> savedSchedules = new ArrayList<>();
+                for (RequestScheduleDTO schedule : item.getSchedules()) {
+                    RequestSchedule requestSchedule = modelMapper.map(schedule, RequestSchedule.class);
+                    requestSchedule.setAcademicRequestId(saved.getId());
+                    RequestSchedule savedSchedule = requestScheduleRepository.save(requestSchedule);
+                    savedSchedules.add(savedSchedule);
                 }
+                saved.setSchedules(savedSchedules);
+            }
+            createdRequests.add(saved);
+        }
 
-                return saved;
-            }))
-                .subscribeOn(Schedulers.boundedElastic());
+        return createdRequests;
     }
 
     /**
