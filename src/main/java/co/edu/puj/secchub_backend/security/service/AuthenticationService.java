@@ -44,13 +44,14 @@ public class AuthenticationService {
             throw new JwtAuthenticationException("Invalid email or password");
         }
 
-        userRepository.updateLastAccess(user.getEmail());
+    userRepository.updateLastAccess(user.getEmail());
 
-        String token = jwtTokenProvider.generateToken(user.getEmail(), user.getRole().getName());
-        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
-        log.info("Authentication successful for email: {}", email);
+    String token = jwtTokenProvider.generateToken(user.getEmail(), user.getRole().getName());
+    String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
+    log.info("Authentication successful for email: {}", email);
 
-        return new AuthTokenDTO("Login successful", System.currentTimeMillis(), token, refreshToken, JwtTokenProvider.BEARER_PREFIX);
+    // Incluir el rol en la respuesta
+    return new AuthTokenDTO("Login successful", System.currentTimeMillis(), token, refreshToken, JwtTokenProvider.BEARER_PREFIX, user.getRole().getName());
     }
 
     /**
@@ -87,6 +88,6 @@ public class AuthenticationService {
         String newRefreshToken = jwtTokenProvider.generateRefreshToken(email);
         log.info("Token refreshed successfully for email: {}", email);
 
-        return new AuthTokenDTO("Token refreshed successfully", System.currentTimeMillis(), newToken, newRefreshToken, JwtTokenProvider.BEARER_PREFIX);
+    return new AuthTokenDTO("Token refreshed successfully", System.currentTimeMillis(), newToken, newRefreshToken, JwtTokenProvider.BEARER_PREFIX, user.getRole().getName());
     }
 }
