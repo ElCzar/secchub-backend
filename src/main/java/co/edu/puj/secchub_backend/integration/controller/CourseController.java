@@ -5,11 +5,13 @@ import co.edu.puj.secchub_backend.integration.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -41,8 +43,10 @@ public class CourseController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public ResponseEntity<Flux<CourseDTO>> findAllCourses() {
-        return ResponseEntity.ok(courseService.findAllCourses());
+    public Mono<ResponseEntity<List<CourseDTO>>> findAllCourses() {
+        return courseService.findAllCourses()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
