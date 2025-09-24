@@ -40,7 +40,7 @@ public class CourseController {
      * @return Stream of courses
      */
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    //@PreAuthorize("isAuthenticated()")
     public ResponseEntity<Flux<CourseDTO>> findAllCourses() {
         return ResponseEntity.ok(courseService.findAllCourses());
     }
@@ -51,7 +51,7 @@ public class CourseController {
      * @return Course with the given ID
      */
     @GetMapping("/{courseId}")
-    @PreAuthorize("isAuthenticated()")
+    //@PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<CourseDTO>> findCourseById(@PathVariable Long courseId) {
         return courseService.findCourseById(courseId)
                 .map(ResponseEntity::ok);

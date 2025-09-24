@@ -58,6 +58,7 @@ public class AcademicClass {
      * Represents when the class begins within the semester.
      */
     @Column(name = "start_date")
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate startDate;
     
     /**
@@ -65,7 +66,22 @@ public class AcademicClass {
      * Represents when the class concludes within the semester.
      */
     @Column(name = "end_date")
+    @com.fasterxml.jackson.annotation.JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
+
+    // Getters y setters explícitos para fechas
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
     
     /**
      * Additional observations or notes about the academic class.

@@ -9,6 +9,8 @@ import co.edu.puj.secchub_backend.admin_resources.model.TeacherAssignment;
 import co.edu.puj.secchub_backend.admin_resources.repository.ClassRepository;
 import co.edu.puj.secchub_backend.admin_resources.repository.TeacherRepository;
 import co.edu.puj.secchub_backend.admin_resources.repository.TeacherAssignmentRepository;
+import co.edu.puj.secchub_backend.admin_resources.repository.AdminUserRepository;
+import co.edu.puj.secchub_backend.admin_resources.model.AdminUser;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,33 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class TeacherAssignmentService {
+    /**
+     * Obtener todos los docentes con información completa incluyendo datos de usuario
+     */
+    public List<TeacherDTO> getAllTeachersWithDetails() {
+        log.info("Obteniendo todos los docentes con información completa de usuario");
+        List<Teacher> teachers = teacherRepository.findAll();
+        return teachers.stream().map(teacher -> {
+            TeacherDTO dto = modelMapper.map(teacher, TeacherDTO.class);
+            // Cargar datos personales del usuario asociado
+            if (teacher.getUserId() != null) {
+                adminUserRepository.findById(teacher.getUserId()).ifPresent(user -> {
+                    dto.setUsername(user.getUsername());
+                    dto.setName(user.getName());
+                    dto.setLastName(user.getLast_name());
+                    dto.setEmail(user.getEmail());
+                    dto.setDocumentNumber(user.getDocument_number());
+                    dto.setFullName(user.getName() + " " + user.getLast_name());
+                });
+            }
+            // Calcular horas asignadas y disponibles
+            int totalHours = getCurrentAssignedHours(teacher.getId());
+            dto.setTotalHours(totalHours);
+            dto.setAvailableHours(teacher.getMaxHours() != null ? teacher.getMaxHours() - totalHours : null);
+            return dto;
+        }).collect(Collectors.toList());
+    }
+    private final AdminUserRepository adminUserRepository;
     
     private final TeacherRepository teacherRepository;
     private final ClassRepository classRepository;
@@ -402,10 +431,11 @@ public class TeacherAssignmentService {
     }
     
     private int getCurrentAssignedHours(Long teacherId) {
-        return teacherAssignmentRepository.findByTeacherId(teacherId)
-            .stream()
-            .mapToInt(TeacherAssignment::getWorkHours)
-            .sum();
+    // Preferir la suma real basada en horarios de class_schedule (minutos -> horas)
+    Integer minutes = teacherAssignmentRepository.getTotalScheduledMinutesByTeacherId(teacherId);
+    if (minutes == null) return 0;
+    // Convertir minutos a horas (puede ser decimal, se redondea hacia arriba al entero más cercano)
+    return (int) Math.ceil(minutes / 60.0);
     }
     
     private int calculateAvailableHours(Long teacherId, Integer maxHours) {
@@ -415,7 +445,6 @@ public class TeacherAssignmentService {
     
     private TeacherDTO buildTeacherDTOWithAssignment(Teacher teacher, TeacherAssignment assignment) {
         TeacherDTO dto = modelMapper.map(teacher, TeacherDTO.class);
-        
         // Información de la asignación
         dto.setTeacherClassId(assignment.getId());
         dto.setClassId(assignment.getClassId());
@@ -425,25 +454,30 @@ public class TeacherAssignmentService {
         dto.setDecision(assignment.getDecision());
         dto.setObservation(assignment.getObservation());
         dto.setAssignmentStatusId(assignment.getStatusId());
-        
         // Calcular horas totales y disponibles
         dto.setTotalHours(getCurrentAssignedHours(teacher.getId()));
         dto.setAvailableHours(calculateAvailableHours(teacher.getId(), teacher.getMaxHours()));
-        
+        // Cargar datos personales del usuario asociado
+        if (teacher.getUserId() != null) {
+            adminUserRepository.findById(teacher.getUserId()).ifPresent(user -> {
+                dto.setUsername(user.getUsername());
+                dto.setName(user.getName());
+                dto.setLastName(user.getLast_name());
+                dto.setEmail(user.getEmail());
+                dto.setDocumentNumber(user.getDocument_number());
+                dto.setFullName(user.getName() + " " + user.getLast_name());
+            });
+        }
         return dto;
     }
     
     private TeacherDTO buildTeacherDTOWithWorkload(Teacher teacher) {
         TeacherDTO dto = modelMapper.map(teacher, TeacherDTO.class);
         
-        // Calcular carga horaria total
-        List<TeacherAssignment> assignments = teacherAssignmentRepository.findByTeacherId(teacher.getId());
-        int totalHours = assignments.stream()
-            .mapToInt(TeacherAssignment::getWorkHours)
-            .sum();
-        
-        dto.setTotalHours(totalHours);
-        dto.setAvailableHours(teacher.getMaxHours() - totalHours);
+    // Calcular carga horaria total usando horarios reales
+    int totalHours = getCurrentAssignedHours(teacher.getId());
+    dto.setTotalHours(totalHours);
+    dto.setAvailableHours(teacher.getMaxHours() - totalHours);
         
         return dto;
     }
@@ -465,5 +499,35 @@ public class TeacherAssignmentService {
         log.info("Decisión de asignación actualizada: {}", decision ? "Aceptada" : "Rechazada");
         
         return buildTeacherDTOWithAssignment(teacher, updatedAssignment);
+    }
+
+    public TeacherDTO updateTeacherNameForClass(Long classId, Long teacherId, String name, String lastName) {
+        Teacher teacher = teacherRepository.findById(teacherId)
+            .orElseThrow(() -> new CustomException("Docente no encontrado"));
+        AdminUser user = adminUserRepository.findById(teacher.getUserId())
+            .orElseThrow(() -> new CustomException("Usuario no encontrado"));
+        user.setName(name);
+        user.setLast_name(lastName);
+        adminUserRepository.save(user);
+        TeacherAssignment assignment = teacherAssignmentRepository.findByClassIdAndTeacherId(classId, teacherId)
+            .orElseThrow(() -> new CustomException("Asignación no encontrada"));
+        return buildTeacherDTOWithAssignment(teacher, assignment);
+    }
+
+    public TeacherDTO changeTeacherForClass(Long classId, Long newTeacherId, Integer workHours, String observation) {
+        List<TeacherAssignment> assignments = teacherAssignmentRepository.findByClassId(classId);
+        if (assignments.isEmpty()) {
+            throw new CustomException("Asignación no encontrada para la clase");
+        }
+        TeacherAssignment assignment = assignments.get(0); // O busca el que corresponda si hay más de uno
+        assignment.setTeacherId(newTeacherId);
+        assignment.setWorkHours(workHours);
+        if (observation != null) {
+            assignment.setObservation(observation);
+        }
+        teacherAssignmentRepository.save(assignment);
+        Teacher teacher = teacherRepository.findById(newTeacherId)
+            .orElseThrow(() -> new CustomException("Docente no encontrado"));
+        return buildTeacherDTOWithAssignment(teacher, assignment);
     }
 }

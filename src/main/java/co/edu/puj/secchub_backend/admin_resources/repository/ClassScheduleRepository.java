@@ -295,4 +295,25 @@ public interface ClassScheduleRepository extends JpaRepository<ClassSchedule, Lo
      */
     @Query("SELECT DISTINCT cs.classroomId, cs.day FROM ClassSchedule cs ORDER BY cs.classroomId, cs.day")
     List<Object[]> findDistinctClassroomAndDayCombinations();
+    
+    /**
+     * Finds schedules that conflict with a proposed time slot in a specific classroom,
+     * excluding a specific schedule ID (useful for updates).
+     * 
+     * @param classroomId the ID of the classroom to check
+     * @param day the day of the week
+     * @param startTime the proposed start time
+     * @param endTime the proposed end time
+     * @param excludeScheduleId the schedule ID to exclude from the search
+     * @return list of conflicting schedules
+     */
+    @Query("SELECT cs FROM ClassSchedule cs WHERE cs.classroomId = :classroomId " +
+           "AND cs.day = :day " +
+           "AND cs.id != :excludeScheduleId " +
+           "AND ((cs.startTime <= :endTime AND cs.endTime >= :startTime))")
+    List<ClassSchedule> findConflictingSchedulesExcludingId(@Param("classroomId") Long classroomId,
+                                                           @Param("day") String day,
+                                                           @Param("startTime") LocalTime startTime,
+                                                           @Param("endTime") LocalTime endTime,
+                                                           @Param("excludeScheduleId") Long excludeScheduleId);
 }

@@ -35,6 +35,11 @@ import java.util.List;
  */
 @Repository
 public interface ClassRepository extends JpaRepository<AcademicClass, Long> {
+       /**
+        * Consulta todas las clases con logs para depuración de fechas.
+        */
+       @Query("SELECT ac FROM AcademicClass ac")
+       List<AcademicClass> findAllClasses();
     
     /**
      * Finds all academic classes for a specific course.

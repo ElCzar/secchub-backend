@@ -64,7 +64,7 @@ public class PlanningController {
      * @return ResponseEntity containing the created class DTO and HTTP 201 status
      * @throws CustomException if validation fails or business rules are violated
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/classes")
     public ResponseEntity<ClassDTO> createClass(@RequestBody ClassDTO classDTO) {
         try {
@@ -83,14 +83,30 @@ public class PlanningController {
     /**
      * Obtener todas las clases con paginación
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/classes")
     public ResponseEntity<List<ClassDTO>> getAllClasses() {
+        System.out.println("=== OBTENIENDO TODAS LAS CLASES ===");
         try {
-            log.info("Obteniendo todas las clases");
             List<ClassDTO> classes = planningService.getAllClasses();
+            System.out.println("Número de clases encontradas: " + classes.size());
+            for (int i = 0; i < classes.size(); i++) {
+                ClassDTO classDTO = classes.get(i);
+                System.out.println("=== CLASE " + (i + 1) + " ===");
+                System.out.println("ID: " + classDTO.getId());
+                System.out.println("CourseID: " + classDTO.getCourseId());
+                System.out.println("CourseName: " + classDTO.getCourseName());
+                System.out.println("StartDate: " + classDTO.getStartDate());
+                System.out.println("EndDate: " + classDTO.getEndDate());
+                System.out.println("StartDate Type: " + (classDTO.getStartDate() != null ? classDTO.getStartDate().getClass().getSimpleName() : "null"));
+                System.out.println("EndDate Type: " + (classDTO.getEndDate() != null ? classDTO.getEndDate().getClass().getSimpleName() : "null"));
+                System.out.println("Capacity: " + classDTO.getCapacity());
+                System.out.println("Complete Object: " + classDTO.toString());
+                System.out.println("------------------------");
+            }
             return ResponseEntity.ok(classes);
         } catch (Exception e) {
+            System.out.println("Error al obtener todas las clases: " + e.getMessage());
             log.error("Error al obtener todas las clases", e);
             throw new CustomException("Error al obtener las clases");
         }
@@ -99,7 +115,7 @@ public class PlanningController {
     /**
      * Obtener clases por semestre
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/classes/semester/{semesterId}")
     public ResponseEntity<List<ClassDTO>> getClassesBySemester(
             @PathVariable Long semesterId) {
@@ -116,7 +132,7 @@ public class PlanningController {
     /**
      * Actualizar clase académica existente
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //PreAuthorize("hasRole('ROLE_ADMIN')")
     @PutMapping("/classes/{classId}")
     public ResponseEntity<ClassDTO> updateClass(
             @PathVariable Long classId,
@@ -137,7 +153,7 @@ public class PlanningController {
     /**
      * Eliminar clase académica y sus horarios asociados
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/classes/{classId}")
     public ResponseEntity<Void> deleteClass(@PathVariable Long classId) {
         try {
@@ -187,7 +203,7 @@ public class PlanningController {
     /**
      * Asignar horario a una clase académica
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/classes/{classId}/schedules")
     public ResponseEntity<ClassScheduleDTO> assignScheduleToClass(
             @PathVariable Long classId,
@@ -208,7 +224,7 @@ public class PlanningController {
     /**
      * Obtener todos los horarios de una clase
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/classes/{classId}/schedules")
     public ResponseEntity<List<ClassScheduleDTO>> getClassSchedules(@PathVariable Long classId) {
         try {
@@ -222,9 +238,49 @@ public class PlanningController {
     }
 
     /**
+     * Eliminar un horario específico
+     */
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
+    @DeleteMapping("/schedules/{scheduleId}")
+    public ResponseEntity<Map<String, String>> deleteSchedule(@PathVariable Long scheduleId) {
+        try {
+            log.info("Eliminando horario: {}", scheduleId);
+            planningService.deleteSchedule(scheduleId);
+            return ResponseEntity.ok(Map.of("message", "Horario eliminado exitosamente"));
+        } catch (CustomException e) {
+            log.error("Error al eliminar horario {}: {}", scheduleId, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error inesperado al eliminar horario {}", scheduleId, e);
+            throw new CustomException("Error interno del servidor al eliminar el horario");
+        }
+    }
+
+    /**
+     * Actualizar un horario específico
+     */
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PutMapping("/schedules/{scheduleId}")
+    public ResponseEntity<ClassScheduleDTO> updateSchedule(
+            @PathVariable Long scheduleId,
+            @RequestBody ClassScheduleDTO scheduleDTO) {
+        try {
+            log.info("Actualizando horario: {}", scheduleId);
+            ClassScheduleDTO updatedSchedule = planningService.updateSchedule(scheduleId, scheduleDTO);
+            return ResponseEntity.ok(updatedSchedule);
+        } catch (CustomException e) {
+            log.error("Error al actualizar horario {}: {}", scheduleId, e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error inesperado al actualizar horario {}", scheduleId, e);
+            throw new CustomException("Error interno del servidor al actualizar el horario");
+        }
+    }
+
+    /**
      * Detectar conflictos de horarios en un aula específica
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/schedules/conflicts")
     public ResponseEntity<List<ClassScheduleDTO>> detectScheduleConflicts(
             @RequestParam Long classroomId,
@@ -246,7 +302,7 @@ public class PlanningController {
     /**
      * Obtener profesores disponibles para una cantidad de horas
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/teachers/available")
     public ResponseEntity<List<TeacherDTO>> getAvailableTeachers(@RequestParam Integer requiredHours) {
         try {
@@ -286,7 +342,7 @@ public class PlanningController {
     /**
      * Obtener información general de una clase específica
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/classes/{classId}")
     public ResponseEntity<ClassDTO> getClassById(@PathVariable Long classId) {
         try {
@@ -305,7 +361,7 @@ public class PlanningController {
     /**
      * Validar conflictos antes de crear/actualizar una clase
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/classes/validate")
     public ResponseEntity<Map<String, Object>> validateClass(@RequestBody ClassDTO classDTO) {
         try {

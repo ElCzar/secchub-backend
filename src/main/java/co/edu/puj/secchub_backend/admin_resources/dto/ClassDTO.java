@@ -109,7 +109,7 @@ public class ClassDTO {
      * 
      * @implNote Formato: yyyy-MM-dd
      */
-    private Date startDate;
+    private java.time.LocalDate startDate;
     
     /**
      * Fecha de finalización de las clases.
@@ -117,7 +117,7 @@ public class ClassDTO {
      * 
      * @implNote Debe ser posterior a {@link #startDate}
      */
-    private Date endDate;
+    private java.time.LocalDate endDate;
     
     /**
      * Observaciones o notas especiales sobre la clase.

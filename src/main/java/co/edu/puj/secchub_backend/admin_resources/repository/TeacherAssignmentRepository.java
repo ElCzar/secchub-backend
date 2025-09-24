@@ -67,6 +67,14 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
      * @return optional assignment if found
      */
     Optional<TeacherAssignment> findByTeacherIdAndClassId(Long teacherId, Long classId);
+        /**
+         * Finds a specific assignment for a class and teacher.
+         *
+         * @param classId the ID of the academic class
+         * @param teacherId the ID of the teacher
+         * @return optional assignment if found
+         */
+        Optional<TeacherAssignment> findByClassIdAndTeacherId(Long classId, Long teacherId);
 
     /**
      * Finds all assignments with a specific status.
@@ -109,6 +117,18 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
      */
     @Query("SELECT COALESCE(SUM(ta.workHours), 0) FROM TeacherAssignment ta WHERE ta.teacherId = :teacherId")
     Integer getTotalWorkHoursByTeacherId(@Param("teacherId") Long teacherId);
+
+    /**
+     * Calcula los minutos totales planificados para un profesor basado en los horarios
+     * de las clases a las que está asignado (usa tablas reales: teacher_class, class, class_schedule).
+     * Se considera únicamente asignaciones aceptadas (status_id = 2) para reflejar horas realmente dictadas.
+     */
+    @Query(value = "SELECT COALESCE(SUM(TIMESTAMPDIFF(MINUTE, cs.start_time, cs.end_time)), 0) " +
+                   "FROM teacher_class tc " +
+                   "JOIN `class` c ON tc.class_id = c.id " +
+                   "JOIN class_schedule cs ON c.id = cs.class_id " +
+                   "WHERE tc.teacher_id = :teacherId AND tc.status_id = 2", nativeQuery = true)
+    Integer getTotalScheduledMinutesByTeacherId(@Param("teacherId") Long teacherId);
 
     /**
      * Finds all accepted assignments for a teacher.

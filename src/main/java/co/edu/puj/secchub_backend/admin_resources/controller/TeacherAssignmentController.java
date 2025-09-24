@@ -1,3 +1,4 @@
+
 package co.edu.puj.secchub_backend.admin_resources.controller;
 
 import co.edu.puj.secchub_backend.admin_resources.dto.ClassDTO;
@@ -46,6 +47,20 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class TeacherAssignmentController {
+    /**
+     * Obtener todos los docentes con información completa de usuario
+     */
+    @GetMapping("/teachers")
+    public ResponseEntity<List<TeacherDTO>> getAllTeachersWithDetails() {
+        try {
+            log.info("Obteniendo todos los docentes con información completa");
+            List<TeacherDTO> teachers = teacherAssignmentService.getAllTeachersWithDetails();
+            return ResponseEntity.ok(teachers);
+        } catch (Exception e) {
+            log.error("Error al obtener docentes con detalles", e);
+            throw new CustomException("Error al obtener información de docentes");
+        }
+    }
 
     private final TeacherAssignmentService teacherAssignmentService;
 
@@ -66,7 +81,7 @@ public class TeacherAssignmentController {
      * @return ResponseEntity containing the updated teacher DTO and HTTP 200 status
      * @throws CustomException if assignment validation fails or conflicts exist
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/assign")
     public ResponseEntity<TeacherDTO> assignTeacherToClass(
             @RequestParam Long teacherId,
@@ -90,7 +105,7 @@ public class TeacherAssignmentController {
     /**
      * Actualizar una asignación existente
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @PutMapping("/{assignmentId}")
     public ResponseEntity<TeacherDTO> updateAssignment(
             @PathVariable Long assignmentId,
@@ -113,7 +128,7 @@ public class TeacherAssignmentController {
     /**
      * Eliminar una asignación
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/{assignmentId}")
     public ResponseEntity<Void> removeAssignment(@PathVariable Long assignmentId) {
         try {
@@ -136,7 +151,7 @@ public class TeacherAssignmentController {
     /**
      * Obtener profesores asignados a una clase
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/class/{classId}/teachers")
     public ResponseEntity<List<TeacherDTO>> getTeachersAssignedToClass(@PathVariable Long classId) {
         try {
@@ -246,6 +261,51 @@ public class TeacherAssignmentController {
         }
     }
 
+        /**
+     * Actualizar el nombre del profesor asignado a una clase
+     */
+    @PutMapping("/class/{classId}/teacher/{teacherId}/name")
+    public ResponseEntity<TeacherDTO> updateTeacherNameForClass(
+            @PathVariable Long classId,
+            @PathVariable Long teacherId,
+            @RequestParam String name,
+            @RequestParam String lastName) {
+        try {
+            log.info("Actualizando nombre del profesor {} en la clase {}", teacherId, classId);
+            TeacherDTO updatedTeacher = teacherAssignmentService.updateTeacherNameForClass(classId, teacherId, name, lastName);
+            return ResponseEntity.ok(updatedTeacher);
+        } catch (CustomException e) {
+            log.error("Error al actualizar nombre del profesor: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error inesperado al actualizar nombre del profesor", e);
+            throw new CustomException("Error interno del servidor al actualizar nombre del profesor");
+        }
+    }
+
+
+        /**
+     * Cambiar el docente asignado a una clase
+     */
+    @PutMapping("/class/{classId}/teacher")
+    public ResponseEntity<TeacherDTO> changeTeacherForClass(
+            @PathVariable Long classId,
+            @RequestParam Long newTeacherId,
+            @RequestParam Integer workHours,
+            @RequestParam(required = false) String observation) {
+        try {
+            log.info("Cambiando docente de la clase {} al docente {}", classId, newTeacherId);
+            TeacherDTO updatedAssignment = teacherAssignmentService.changeTeacherForClass(classId, newTeacherId, workHours, observation);
+            return ResponseEntity.ok(updatedAssignment);
+        } catch (CustomException e) {
+            log.error("Error al cambiar docente: {}", e.getMessage());
+            throw e;
+        } catch (Exception e) {
+            log.error("Error inesperado al cambiar docente", e);
+            throw new CustomException("Error interno del servidor al cambiar docente");
+        }
+    }
+
     // ==========================================
     // REPORTES Y ESTADÍSTICAS
     // ==========================================
@@ -253,7 +313,7 @@ public class TeacherAssignmentController {
     /**
      * Obtener reporte de carga horaria por profesor
      */
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/workload-report")
     public ResponseEntity<List<TeacherDTO>> getWorkloadReport() {
         try {

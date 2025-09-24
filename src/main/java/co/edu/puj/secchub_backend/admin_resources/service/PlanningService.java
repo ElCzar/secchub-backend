@@ -10,6 +10,10 @@ import co.edu.puj.secchub_backend.admin_resources.model.Teacher;
 import co.edu.puj.secchub_backend.admin_resources.repository.ClassRepository;
 import co.edu.puj.secchub_backend.admin_resources.repository.ClassScheduleRepository;
 import co.edu.puj.secchub_backend.admin_resources.repository.TeacherRepository;
+import co.edu.puj.secchub_backend.admin_resources.repository.ClassroomRepository;
+import co.edu.puj.secchub_backend.admin_resources.repository.ModalityRepository;
+import co.edu.puj.secchub_backend.admin_resources.model.Classroom;
+import co.edu.puj.secchub_backend.admin_resources.model.Modality;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,10 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,6 +61,8 @@ public class PlanningService {
     private final ClassRepository classRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final TeacherRepository teacherRepository;
+    private final ClassroomRepository classroomRepository;
+    private final ModalityRepository modalityRepository;
     private final ModelMapper modelMapper;
     
     /**
@@ -128,14 +131,28 @@ public class PlanningService {
      * Obtener todas las clases
      */
     public List<ClassDTO> getAllClasses() {
+        System.out.println("=== CONSULTANDO BD PARA TODAS LAS CLASES ===");
         log.info("Obteniendo todas las clases");
-        
-        List<AcademicClass> classes = classRepository.findAll();
-        return classes.stream().map(academicClass -> {
+        List<AcademicClass> classes = classRepository.findAllClasses();
+        System.out.println("=== DATOS CRUDOS DE LA BD ===");
+        for (AcademicClass ac : classes) {
+            System.out.println("Clase " + ac.getId() + ":");
+            System.out.println("  startDate (raw): " + ac.getStartDate());
+            System.out.println("  endDate (raw): " + ac.getEndDate());
+            System.out.println("  startDate type: " + (ac.getStartDate() != null ? ac.getStartDate().getClass() : "null"));
+        }
+        List<ClassDTO> result = classes.stream().map(academicClass -> {
             ClassDTO dto = modelMapper.map(academicClass, ClassDTO.class);
             loadAdditionalClassInfo(dto);
             return dto;
         }).collect(Collectors.toList());
+        System.out.println("=== DTOs ANTES DE ENVIAR AL FRONTEND ===");
+        for (ClassDTO dto : result) {
+            System.out.println("DTO Clase " + dto.getId() + ":");
+            System.out.println("  startDate: " + dto.getStartDate());
+            System.out.println("  endDate: " + dto.getEndDate());
+        }
+        return result;
     }
     
     /**
@@ -243,7 +260,7 @@ public class PlanningService {
         ClassSchedule savedSchedule = classScheduleRepository.save(schedule);
         
         log.info("Horario asignado exitosamente");
-        return modelMapper.map(savedSchedule, ClassScheduleDTO.class);
+        return convertScheduleToDTO(savedSchedule);
     }
     
     /**
@@ -254,8 +271,92 @@ public class PlanningService {
         
         List<ClassSchedule> schedules = classScheduleRepository.findByClassIdOrderedByDayAndTime(classId);
         return schedules.stream()
-            .map(schedule -> modelMapper.map(schedule, ClassScheduleDTO.class))
+            .map(this::convertScheduleToDTO)
             .collect(Collectors.toList());
+    }
+    
+    /**
+     * Convierte un ClassSchedule entity a ClassScheduleDTO cargando todos los datos relacionados
+     */
+    private ClassScheduleDTO convertScheduleToDTO(ClassSchedule schedule) {
+        ClassScheduleDTO dto = modelMapper.map(schedule, ClassScheduleDTO.class);
+        
+        // Cargar datos de aula si existe
+        if (schedule.getClassroomId() != null) {
+            classroomRepository.findByIdWithType(schedule.getClassroomId()).ifPresent(classroom -> {
+                dto.setClassroomRoom(classroom.getRoom());
+                dto.setClassroomLocation(classroom.getLocation());
+                dto.setClassroomCampus(classroom.getCampus());
+                dto.setClassroomCapacity(classroom.getCapacity());
+                
+                // Cargar tipo de aula si existe
+                if (classroom.getClassroomType() != null) {
+                    dto.setClassroomTypeName(classroom.getClassroomType().getName());
+                }
+            });
+        }
+        
+        // Cargar datos de modalidad si existe
+        if (schedule.getModalityId() != null) {
+            modalityRepository.findById(schedule.getModalityId()).ifPresent(modality -> {
+                dto.setModalityName(modality.getName());
+            });
+        }
+        
+        return dto;
+    }
+    
+    /**
+     * Eliminar un horario específico
+     */
+    @Transactional
+    public void deleteSchedule(Long scheduleId) {
+        log.info("Eliminando horario con ID: {}", scheduleId);
+        
+        if (!classScheduleRepository.existsById(scheduleId)) {
+            throw new CustomException("Horario no encontrado con ID: " + scheduleId);
+        }
+        
+        classScheduleRepository.deleteById(scheduleId);
+        log.info("Horario eliminado exitosamente");
+    }
+    
+    /**
+     * Actualizar un horario específico
+     */
+    @Transactional
+    public ClassScheduleDTO updateSchedule(Long scheduleId, ClassScheduleDTO scheduleDTO) {
+        log.info("Actualizando horario con ID: {}", scheduleId);
+        
+        // Verificar que el horario existe
+        ClassSchedule existingSchedule = classScheduleRepository.findById(scheduleId)
+            .orElseThrow(() -> new CustomException("Horario no encontrado con ID: " + scheduleId));
+        
+        // Validar los datos del horario
+        validateScheduleData(scheduleDTO);
+        validateTimeRange(scheduleDTO.getStartTime(), scheduleDTO.getEndTime());
+        
+        // Crear una copia temporal para validar conflictos excluyendo el horario actual
+        ClassScheduleDTO tempScheduleDTO = new ClassScheduleDTO();
+        tempScheduleDTO.setClassroomId(scheduleDTO.getClassroomId());
+        tempScheduleDTO.setDay(scheduleDTO.getDay());
+        tempScheduleDTO.setStartTime(scheduleDTO.getStartTime());
+        tempScheduleDTO.setEndTime(scheduleDTO.getEndTime());
+        tempScheduleDTO.setClassId(existingSchedule.getClassId());
+        
+        validateNoScheduleConflictsForUpdate(tempScheduleDTO, scheduleId);
+        
+        // Actualizar los campos del horario existente
+        existingSchedule.setClassroomId(scheduleDTO.getClassroomId());
+        existingSchedule.setModalityId(scheduleDTO.getModalityId());
+        existingSchedule.setDay(scheduleDTO.getDay());
+        existingSchedule.setStartTime(scheduleDTO.getStartTime());
+        existingSchedule.setEndTime(scheduleDTO.getEndTime());
+        
+        ClassSchedule updatedSchedule = classScheduleRepository.save(existingSchedule);
+        
+        log.info("Horario actualizado exitosamente");
+        return convertScheduleToDTO(updatedSchedule);
     }
     
     /**
@@ -280,7 +381,7 @@ public class PlanningService {
         List<ClassSchedule> schedules = classScheduleRepository.findByDayAndClassroomId(day, classroomId);
         
         return schedules.stream()
-            .map(schedule -> modelMapper.map(schedule, ClassScheduleDTO.class))
+            .map(this::convertScheduleToDTO)
             .collect(Collectors.toList());
     }
     
@@ -320,8 +421,8 @@ public class PlanningService {
         }
     }
     
-    private void validateDateRange(Date startDate, Date endDate) {
-        if (startDate != null && endDate != null && startDate.after(endDate)) {
+    private void validateDateRange(java.time.LocalDate startDate, java.time.LocalDate endDate) {
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
             throw new CustomException("La fecha de inicio no puede ser posterior a la fecha de fin");
         }
     }
@@ -341,8 +442,15 @@ public class PlanningService {
         if (scheduleDTO.getStartTime() == null || scheduleDTO.getEndTime() == null) {
             throw new CustomException("Las horas de inicio y fin son obligatorias");
         }
-        if (scheduleDTO.getClassroomId() == null) {
-            throw new CustomException("El ID del aula es obligatorio");
+        
+        // Permitir classroomId null para modalidad VIRTUAL (ID = 2)
+        if (scheduleDTO.getClassroomId() == null && !isVirtualModality(scheduleDTO.getModalityId())) {
+            throw new CustomException("El ID del aula es obligatorio para modalidades presenciales");
+        }
+        
+        // Validar que para modalidad virtual no se asigne aula
+        if (scheduleDTO.getClassroomId() != null && isVirtualModality(scheduleDTO.getModalityId())) {
+            throw new CustomException("No se debe asignar aula para modalidad virtual");
         }
     }
     
@@ -353,16 +461,38 @@ public class PlanningService {
     }
     
     private void validateNoScheduleConflicts(ClassScheduleDTO scheduleDTO) {
-        boolean hasConflict = classScheduleRepository.existsConflictingSchedule(
-            scheduleDTO.getClassroomId(),
-            scheduleDTO.getDay(),
-            scheduleDTO.getStartTime(),
-            scheduleDTO.getEndTime(),
-            scheduleDTO.getClassId() != null ? scheduleDTO.getClassId() : 0L
-        );
-        
-        if (hasConflict) {
-            throw new CustomException("Existe un conflicto de horario en el aula especificada");
+        // Solo validar conflictos si se asigna un aula (modalidades presenciales)
+        if (scheduleDTO.getClassroomId() != null) {
+            boolean hasConflict = classScheduleRepository.existsConflictingSchedule(
+                scheduleDTO.getClassroomId(),
+                scheduleDTO.getDay(),
+                scheduleDTO.getStartTime(),
+                scheduleDTO.getEndTime(),
+                scheduleDTO.getClassId() != null ? scheduleDTO.getClassId() : 0L
+            );
+            
+            if (hasConflict) {
+                throw new CustomException("Existe un conflicto de horario en el aula especificada");
+            }
+        }
+    }
+    
+    private void validateNoScheduleConflictsForUpdate(ClassScheduleDTO scheduleDTO, Long excludeScheduleId) {
+        // Solo validar conflictos si se asigna un aula (modalidades presenciales)
+        if (scheduleDTO.getClassroomId() != null) {
+            // Buscar conflictos excluyendo el horario que se está actualizando
+            List<ClassSchedule> conflictingSchedules = classScheduleRepository
+                .findConflictingSchedulesExcludingId(
+                    scheduleDTO.getClassroomId(),
+                    scheduleDTO.getDay(),
+                    scheduleDTO.getStartTime(),
+                    scheduleDTO.getEndTime(),
+                    excludeScheduleId
+                );
+            
+            if (!conflictingSchedules.isEmpty()) {
+                throw new CustomException("Existe un conflicto de horario en el aula especificada");
+            }
         }
     }
     
@@ -370,15 +500,32 @@ public class PlanningService {
         // TODO: Cargar información de curso, semestre, etc.
     }
     
+    /**
+     * Verifica si la modalidad es virtual (Online).
+     * Las modalidades virtuales no requieren aula física.
+     * 
+     * @param modalityId ID de la modalidad
+     * @return true si es modalidad virtual, false en caso contrario
+     */
+    private boolean isVirtualModality(Long modalityId) {
+        // Modalidad ID 2 = "Online" según init.sql
+        // También verificamos algunos IDs comunes para modalidades virtuales
+        return modalityId != null && (modalityId == 2L || modalityId == 3L); // 2=Online, 3=Hybrid puede ser virtual también
+    }
+    
     private void updateClassFields(AcademicClass existingClass, ClassDTO classDTO) {
         existingClass.setCapacity(classDTO.getCapacity());
         existingClass.setObservation(classDTO.getObservation());
         
+        if (classDTO.getCourseId() != null) {
+            existingClass.setCourseId(classDTO.getCourseId());
+        }
+        
         if (classDTO.getStartDate() != null) {
-            existingClass.setStartDate(convertToLocalDate(classDTO.getStartDate()));
+            existingClass.setStartDate(classDTO.getStartDate());
         }
         if (classDTO.getEndDate() != null) {
-            existingClass.setEndDate(convertToLocalDate(classDTO.getEndDate()));
+            existingClass.setEndDate(classDTO.getEndDate());
         }
     }
     
@@ -428,11 +575,5 @@ public class PlanningService {
             .mapToInt(AcademicClass::getCapacity)
             .average()
             .orElse(0.0);
-    }
-    
-    private LocalDate convertToLocalDate(Date date) {
-        return date.toInstant()
-            .atZone(ZoneId.systemDefault())
-            .toLocalDate();
     }
 }
