@@ -61,4 +61,17 @@ public class Student {
 
     @Column(name = "status_id")
     private Long statusId;
+
+    /**
+     * Asigna valores por defecto al momento de persistir si no están definidos.
+     */
+    @PrePersist
+    public void onCreate() {
+        if (applicationDate == null) {
+            applicationDate = LocalDate.now();
+        }
+        if (statusId == null) {
+            statusId = 1L; // Default status: "Active"
+        }
+    }
 }

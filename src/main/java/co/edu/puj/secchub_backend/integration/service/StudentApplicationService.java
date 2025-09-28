@@ -4,9 +4,11 @@ import co.edu.puj.secchub_backend.integration.dto.*;
 import co.edu.puj.secchub_backend.integration.exception.StudentApplicationNotFoundException;
 import co.edu.puj.secchub_backend.integration.model.*;
 import co.edu.puj.secchub_backend.integration.repository.*;
+import co.edu.puj.secchub_backend.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,13 +16,18 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
+import java.sql.Time;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
 @Service
 @RequiredArgsConstructor
 public class StudentApplicationService {
     private final ModelMapper modelMapper;
-
     private final StudentRepository studentRepo;
     private final StudentScheduleRepository requestScheduleRepository;
+    private final UserRepository userRepository;
 
     /**
      * Creates a new student application with its associated schedules.
@@ -29,20 +36,63 @@ public class StudentApplicationService {
      */
     @Transactional
     public Mono<Student> createStudentApplication(StudentApplicationDTO studentApplicationDTO) {
-        return Mono.fromCallable(() -> {
-            Student student = modelMapper.map(studentApplicationDTO, Student.class);
-            Student saved = studentRepo.save(student);
+        return ReactiveSecurityContextHolder.getContext()
+                .map(securityContext -> securityContext.getAuthentication().getName()) // Get username or email
+                .flatMap(identifier -> Mono.fromCallable(() -> {
+                    // Try finding user by email first, then by username
+                    var userOptional = userRepository.findByEmail(identifier);
+                    if (userOptional.isEmpty()) {
+                        userOptional = userRepository.findByUsername(identifier);
+                    }
+                    
+                    var user = userOptional
+                            .orElseThrow(() -> new RuntimeException("User not found: " + identifier));
+                    
+                    // Map DTO to entity
+                    Student student = modelMapper.map(studentApplicationDTO, Student.class);
+                    
+                    // Set automatic values
+                    student.setUserId(user.getId()); // Set user_id from authenticated user
+                    student.setApplicationDate(LocalDate.now()); // Set current date
+                    student.setStatusId(1L); // Set status to "Active" (ID: 1)
+                    student.setId(null); // Ignore ID from frontend
+                    
+                    Student saved = studentRepo.save(student);
 
-            if (studentApplicationDTO.getSchedules() != null) {
-                for (ScheduleDTO scheduleDTO : studentApplicationDTO.getSchedules()) {
-                    StudentSchedule studentSchedule = modelMapper.map(scheduleDTO, StudentSchedule.class);
-                    studentSchedule.setStudentId(saved.getId());
-                    requestScheduleRepository.save(studentSchedule);
-                }
-            }
+                    if (studentApplicationDTO.getSchedules() != null) {
+                        for (ScheduleDTO scheduleDTO : studentApplicationDTO.getSchedules()) {
+                            // Manual mapping instead of using ModelMapper for time conversion
+                            StudentSchedule studentSchedule = new StudentSchedule();
+                            studentSchedule.setDay(scheduleDTO.getDay());
+                            studentSchedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
+                            studentSchedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
+                            studentSchedule.setStudentId(saved.getId());
+                            
+                            requestScheduleRepository.save(studentSchedule);
+                        }
+                    }
 
-            return saved;
-        }).subscribeOn(Schedulers.boundedElastic());
+                    return saved;
+                }).subscribeOn(Schedulers.boundedElastic()));
+    }
+
+    /**
+     * Helper method to parse time string (HH:mm:ss) to java.sql.Time
+     * @param timeString Time in format "HH:mm:ss"
+     * @return java.sql.Time object or null if parsing fails
+     */
+    private Time parseTimeString(String timeString) {
+        if (timeString == null || timeString.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            // Parse the time string and convert to java.sql.Time
+            LocalTime localTime = LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HH:mm:ss"));
+            return Time.valueOf(localTime);
+        } catch (Exception e) {
+            System.err.println("Error parsing time string: " + timeString + " - " + e.getMessage());
+            return null;
+        }
     }
 
     /**
