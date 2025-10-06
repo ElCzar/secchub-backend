@@ -1,14 +1,15 @@
-package co.edu.puj.secchub_backend.integration.service;
+package co.edu.puj.secchub_backend.admin.service;
 
-import co.edu.puj.secchub_backend.integration.dto.SectionDTO;
-import co.edu.puj.secchub_backend.integration.model.Section;
-import co.edu.puj.secchub_backend.integration.repository.SectionRepository;
+import co.edu.puj.secchub_backend.admin.dto.SectionDTO;
+import co.edu.puj.secchub_backend.admin.model.Section;
+import co.edu.puj.secchub_backend.admin.repository.SectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+
+import java.util.List;
 
 /**
  * Service for managing sections business logic.
@@ -36,13 +37,13 @@ public class SectionService {
 
     /**
      * Lists all existing sections.
-     * @return Stream of sections
+     * @return List of sections
      */
-    public Flux<SectionDTO> findAllSections() {
-        return Mono.fromCallable(sectionRepository::findAll)
-                .flatMapMany(Flux::fromIterable)
+    public List<SectionDTO> findAllSections() {
+        return sectionRepository.findAll()
+                .stream()
                 .map(section -> modelMapper.map(section, SectionDTO.class))
-                .subscribeOn(Schedulers.boundedElastic());
+                .toList();
     }
 
     /**
@@ -53,7 +54,7 @@ public class SectionService {
     public Mono<SectionDTO> findSectionById(Long sectionId) {
         return Mono.fromCallable(() -> {
             Section section = sectionRepository.findById(sectionId)
-                    .orElseThrow(() -> new RuntimeException("Section not found: " + sectionId));
+                    .orElseThrow(() -> new RuntimeException("Section not found for consult: " + sectionId));
             return modelMapper.map(section, SectionDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
     }
@@ -61,12 +62,12 @@ public class SectionService {
     /**
      * Lists sections by user ID.
      * @param userId User ID
-     * @return Stream of sections managed by the user
+     * @return List of sections managed by the user
      */
-    public Flux<SectionDTO> findSectionsByUserId(Long userId) {
-        return Mono.fromCallable(() -> sectionRepository.findByUserId(userId))
-                .flatMapMany(Flux::fromIterable)
+    public List<SectionDTO> findSectionsByUserId(Long userId) {
+        return sectionRepository.findByUserId(userId)
+                .stream()
                 .map(section -> modelMapper.map(section, SectionDTO.class))
-                .subscribeOn(Schedulers.boundedElastic());
+                .toList();
     }
 }

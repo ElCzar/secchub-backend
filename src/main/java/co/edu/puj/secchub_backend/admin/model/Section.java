@@ -1,4 +1,4 @@
-package co.edu.puj.secchub_backend.integration.model;
+package co.edu.puj.secchub_backend.admin.model;
 
 import jakarta.persistence.*;
 import lombok.*;

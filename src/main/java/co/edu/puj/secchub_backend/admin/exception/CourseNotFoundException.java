@@ -1,4 +1,4 @@
-package co.edu.puj.secchub_backend.integration.exception;
+package co.edu.puj.secchub_backend.admin.exception;
 
 /**
  * Exception thrown when a course is not found.

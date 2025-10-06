@@ -1,4 +1,4 @@
-package co.edu.puj.secchub_backend.integration.dto;
+package co.edu.puj.secchub_backend.admin.dto;
 
 import lombok.Data;
 import lombok.AllArgsConstructor;

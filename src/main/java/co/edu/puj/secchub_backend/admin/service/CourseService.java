@@ -1,26 +1,26 @@
-package co.edu.puj.secchub_backend.integration.service;
+package co.edu.puj.secchub_backend.admin.service;
 
-import co.edu.puj.secchub_backend.integration.dto.CourseDTO;
-import co.edu.puj.secchub_backend.integration.exception.CourseNotFoundException;
-import co.edu.puj.secchub_backend.integration.model.Course;
-import co.edu.puj.secchub_backend.integration.repository.CourseRepository;
+import co.edu.puj.secchub_backend.admin.dto.CourseDTO;
+import co.edu.puj.secchub_backend.admin.exception.CourseNotFoundException;
+import co.edu.puj.secchub_backend.admin.model.Course;
+import co.edu.puj.secchub_backend.admin.repository.CourseRepository;
 import lombok.RequiredArgsConstructor;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.Map;
+import java.util.List;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 public class CourseService {
     private final ModelMapper modelMapper;
-
     private final CourseRepository courseRepository;
+    private final SectionService sectionService;
 
     /**
      * Creates a new course.
@@ -29,21 +29,25 @@ public class CourseService {
      */
     public Mono<CourseDTO> createCourse(CourseDTO courseDTO) {
         return Mono.fromCallable(() -> {
+            if (courseDTO.getSectionId() != null) {
+                sectionService.findSectionById(courseDTO.getSectionId()).block();
+            }
+            
             Course course = modelMapper.map(courseDTO, Course.class);
             Course saved = courseRepository.save(course);
             return modelMapper.map(saved, CourseDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
-    }
-
+    }    
+    
     /**
      * Lists all existing courses.
-     * @return Stream of courses
+     * @return List of courses
      */
-    public Flux<CourseDTO> findAllCourses() {
-        return Mono.fromCallable(courseRepository::findAll)
-                .flatMapMany(Flux::fromIterable)
+    public List<CourseDTO> findAllCourses() {
+        return courseRepository.findAll()
+                .stream()
                 .map(course -> modelMapper.map(course, CourseDTO.class))
-                .subscribeOn(Schedulers.boundedElastic());
+                .toList();
     }
 
     /**
@@ -69,6 +73,11 @@ public class CourseService {
         return Mono.fromCallable(() -> {
             Course course = courseRepository.findById(courseId)
                     .orElseThrow(() -> new CourseNotFoundException("Course not found for update: " + courseId));
+
+            // Validate that the section exists if sectionId is being updated
+            if (courseDTO.getSectionId() != null) {
+                sectionService.findSectionById(courseDTO.getSectionId()).block();
+            }
 
             modelMapper.getConfiguration().setPropertyCondition(context ->
                     context.getSource() != null);

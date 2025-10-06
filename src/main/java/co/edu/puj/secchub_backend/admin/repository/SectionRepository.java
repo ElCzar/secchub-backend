@@ -1,7 +1,8 @@
-package co.edu.puj.secchub_backend.integration.repository;
+package co.edu.puj.secchub_backend.admin.repository;
 
-import co.edu.puj.secchub_backend.integration.model.Section;
 import org.springframework.data.jpa.repository.JpaRepository;
+
+import co.edu.puj.secchub_backend.admin.model.Section;
 
 import java.util.List;
 

@@ -1,8 +1,8 @@
 package co.edu.puj.secchub_backend.integration.controller;
 
-import co.edu.puj.secchub_backend.integration.dto.RequestScheduleDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestDTO;
+import co.edu.puj.secchub_backend.integration.dto.RequestScheduleDTO;
 import co.edu.puj.secchub_backend.integration.model.AcademicRequest;
 import co.edu.puj.secchub_backend.integration.service.AcademicRequestService;
 import lombok.RequiredArgsConstructor;

@@ -1,7 +1,7 @@
-package co.edu.puj.secchub_backend.integration.controller;
+package co.edu.puj.secchub_backend.admin.controller;
 
-import co.edu.puj.secchub_backend.integration.dto.SectionDTO;
-import co.edu.puj.secchub_backend.integration.service.SectionService;
+import co.edu.puj.secchub_backend.admin.dto.SectionDTO;
+import co.edu.puj.secchub_backend.admin.service.SectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,14 +36,12 @@ public class SectionController {
 
     /**
      * List all existing sections.
-     * @return Stream of sections
+     * @return List of sections
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public Mono<ResponseEntity<List<SectionDTO>>> findAllSections() {
-        return sectionService.findAllSections()
-                .collectList()
-                .map(ResponseEntity::ok);
+    public List<SectionDTO> findAllSections() {
+        return sectionService.findAllSections();
     }
 
     /**
@@ -61,13 +59,11 @@ public class SectionController {
     /**
      * Get sections managed by a specific user.
      * @param userId User ID
-     * @return Stream of sections managed by the user
+     * @return List of sections managed by the user
      */
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public Mono<ResponseEntity<List<SectionDTO>>> findSectionsByUserId(@PathVariable Long userId) {
-        return sectionService.findSectionsByUserId(userId)
-                .collectList()
-                .map(ResponseEntity::ok);
+    public List<SectionDTO> findSectionsByUserId(@PathVariable Long userId) {
+        return sectionService.findSectionsByUserId(userId);
     }
 }

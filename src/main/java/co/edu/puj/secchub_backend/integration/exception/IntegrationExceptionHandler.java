@@ -17,7 +17,7 @@ import java.util.Map;
  */
 @ControllerAdvice(basePackages = "co.edu.puj.secchub_backend.integration.controller")
 @Slf4j
-public class ApiExceptionHandler {
+public class IntegrationExceptionHandler {
     /**
      * Response mapping keys.
      */
@@ -31,6 +31,7 @@ public class ApiExceptionHandler {
     private static final String GENERIC_ERROR_MESSAGE = "An unexpected error occurred";
     private static final String BUSINESS_ERROR_MESSAGE = "Business rule violation";
     private static final String NOT_FOUND_ERROR_MESSAGE = "Not found";
+    private static final String VALIDATION_ERROR_MESSAGE = "Validation error";
 
     /**
      * Manages business exceptions and returns a 400 error with details.
@@ -82,21 +83,6 @@ public class ApiExceptionHandler {
      * @param ex Not found exception
      * @return HTTP response with error information
      */
-    @ExceptionHandler(CourseNotFoundException.class)
-    public Mono<ResponseEntity<Object>> handleNotFound(CourseNotFoundException ex) {
-        log.warn("Course not found exception occurred: {}", ex.getMessage());
-        return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
-                TIMESTAMP_KEY, Instant.now().toString(),
-                ERROR_KEY, NOT_FOUND_ERROR_MESSAGE,
-                MESSAGE_KEY, ex.getMessage()
-        )));
-    }
-
-    /**
-     * Manages not found exceptions and returns a 404 error with details.
-     * @param ex Not found exception
-     * @return HTTP response with error information
-     */
     @ExceptionHandler(StudentApplicationNotFoundException.class)
     public Mono<ResponseEntity<Object>> handleNotFound(StudentApplicationNotFoundException ex) {
         log.warn("StudentApplication not found exception occurred: {}", ex.getMessage());
@@ -118,6 +104,21 @@ public class ApiExceptionHandler {
         return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                 TIMESTAMP_KEY, Instant.now().toString(),
                 ERROR_KEY, NOT_FOUND_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Manages time parsing exceptions and returns a 400 error with details.
+     * @param ex Time parsing exception
+     * @return HTTP response with error information
+     */
+    @ExceptionHandler(TimeParsingException.class)
+    public Mono<ResponseEntity<Object>> handleTimeParsingException(TimeParsingException ex) {
+        log.warn("Time parsing exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.badRequest().body(Map.of(
+                TIMESTAMP_KEY, Instant.now().toString(),
+                ERROR_KEY, VALIDATION_ERROR_MESSAGE,
                 MESSAGE_KEY, ex.getMessage()
         )));
     }

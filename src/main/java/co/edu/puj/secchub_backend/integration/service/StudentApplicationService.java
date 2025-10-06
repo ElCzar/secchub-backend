@@ -2,10 +2,12 @@ package co.edu.puj.secchub_backend.integration.service;
 
 import co.edu.puj.secchub_backend.integration.dto.*;
 import co.edu.puj.secchub_backend.integration.exception.StudentApplicationNotFoundException;
+import co.edu.puj.secchub_backend.integration.exception.TimeParsingException;
 import co.edu.puj.secchub_backend.integration.model.*;
 import co.edu.puj.secchub_backend.integration.repository.*;
-import co.edu.puj.secchub_backend.security.repository.UserRepository;
+import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -22,12 +24,13 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class StudentApplicationService {
     private final ModelMapper modelMapper;
     private final StudentRepository studentRepo;
     private final StudentScheduleRepository requestScheduleRepository;
-    private final UserRepository userRepository;
+    private final SecurityModuleUserContract userService;
 
     /**
      * Creates a new student application with its associated schedules.
@@ -39,20 +42,14 @@ public class StudentApplicationService {
         return ReactiveSecurityContextHolder.getContext()
                 .map(securityContext -> securityContext.getAuthentication().getName()) // Get username or email
                 .flatMap(identifier -> Mono.fromCallable(() -> {
-                    // Try finding user by email first, then by username
-                    var userOptional = userRepository.findByEmail(identifier);
-                    if (userOptional.isEmpty()) {
-                        userOptional = userRepository.findByUsername(identifier);
-                    }
-                    
-                    var user = userOptional
-                            .orElseThrow(() -> new RuntimeException("User not found: " + identifier));
+                    // Use the user service to get user ID by email
+                    Long userId = userService.getUserIdByEmail(identifier);
                     
                     // Map DTO to entity
                     Student student = modelMapper.map(studentApplicationDTO, Student.class);
                     
                     // Set automatic values
-                    student.setUserId(user.getId()); // Set user_id from authenticated user
+                    student.setUserId(userId); // Set user_id from authenticated user
                     student.setApplicationDate(LocalDate.now()); // Set current date
                     student.setStatusId(1L); // Set status to "Active" (ID: 1)
                     student.setId(null); // Ignore ID from frontend
@@ -79,7 +76,8 @@ public class StudentApplicationService {
     /**
      * Helper method to parse time string (HH:mm:ss) to java.sql.Time
      * @param timeString Time in format "HH:mm:ss"
-     * @return java.sql.Time object or null if parsing fails
+     * @return java.sql.Time object or null if timeString is null/empty
+     * @throws TimeParsingException if the time string format is invalid
      */
     private Time parseTimeString(String timeString) {
         if (timeString == null || timeString.trim().isEmpty()) {
@@ -90,8 +88,7 @@ public class StudentApplicationService {
             LocalTime localTime = LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HH:mm:ss"));
             return Time.valueOf(localTime);
         } catch (Exception e) {
-            System.err.println("Error parsing time string: " + timeString + " - " + e.getMessage());
-            return null;
+            throw new TimeParsingException("Invalid time format: '" + timeString + "'. Expected format: HH:mm:ss", e);
         }
     }
 

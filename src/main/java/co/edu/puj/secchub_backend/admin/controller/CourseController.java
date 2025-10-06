@@ -1,7 +1,7 @@
-package co.edu.puj.secchub_backend.integration.controller;
+package co.edu.puj.secchub_backend.admin.controller;
 
-import co.edu.puj.secchub_backend.integration.dto.CourseDTO;
-import co.edu.puj.secchub_backend.integration.service.CourseService;
+import co.edu.puj.secchub_backend.admin.dto.CourseDTO;
+import co.edu.puj.secchub_backend.admin.service.CourseService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,14 +37,12 @@ public class CourseController {
 
     /**
      * List all existing courses.
-     * @return Stream of courses
+     * @return List of courses
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public Mono<ResponseEntity<List<CourseDTO>>> findAllCourses() {
-        return courseService.findAllCourses()
-                .collectList()
-                .map(ResponseEntity::ok);
+    public List<CourseDTO> findAllCourses() {
+        return courseService.findAllCourses();
     }
 
     /**

@@ -23,6 +23,11 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
 
     private final UserRepository userRepository;
 
+    /**
+     * Finds a user by username and builds UserDetails for authentication.
+     * @param username the username to search for
+     * @return Mono emitting UserDetails if found and active, empty otherwise
+     */
     @Override
     public Mono<UserDetails> findByUsername(String username) {
         return Mono.fromCallable(() -> userRepository.findByUsername(username))
@@ -33,6 +38,11 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
                 .map(this::buildUserDetails);
     }
 
+    /**
+     * Builds UserDetails from a User entity.
+     * @param user the User entity
+     * @return UserDetails object
+     */
     private UserDetails buildUserDetails(User user) {
         String roleName = user.getRole() != null ? user.getRole().getName() : "ROLE_USER";
 
@@ -47,6 +57,11 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
                 .build();
     }
 
+    /**
+     * Finds a user by email and builds an Authentication token.
+     * @param email the email to search for
+     * @return Mono emitting Authentication token if found and active, empty otherwise
+     */
     public Mono<Authentication> findByEmail(String email) {
         return Mono.fromCallable(() -> userRepository.findByEmail(email))
                 .subscribeOn(Schedulers.boundedElastic())
