@@ -86,27 +86,27 @@ public class PlanningController {
     //@PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/classes")
     public ResponseEntity<List<ClassDTO>> getAllClasses() {
-        System.out.println("=== OBTENIENDO TODAS LAS CLASES ===");
+        log.debug("=== OBTENIENDO TODAS LAS CLASES ===");
         try {
             List<ClassDTO> classes = planningService.getAllClasses();
-            System.out.println("Número de clases encontradas: " + classes.size());
+            log.debug("Número de clases encontradas: {}", classes.size());
             for (int i = 0; i < classes.size(); i++) {
                 ClassDTO classDTO = classes.get(i);
-                System.out.println("=== CLASE " + (i + 1) + " ===");
-                System.out.println("ID: " + classDTO.getId());
-                System.out.println("CourseID: " + classDTO.getCourseId());
-                System.out.println("CourseName: " + classDTO.getCourseName());
-                System.out.println("StartDate: " + classDTO.getStartDate());
-                System.out.println("EndDate: " + classDTO.getEndDate());
-                System.out.println("StartDate Type: " + (classDTO.getStartDate() != null ? classDTO.getStartDate().getClass().getSimpleName() : "null"));
-                System.out.println("EndDate Type: " + (classDTO.getEndDate() != null ? classDTO.getEndDate().getClass().getSimpleName() : "null"));
-                System.out.println("Capacity: " + classDTO.getCapacity());
-                System.out.println("Complete Object: " + classDTO.toString());
-                System.out.println("------------------------");
+                log.debug("=== CLASE {} ===", (i + 1));
+                log.debug("ID: {}", classDTO.getId());
+                log.debug("CourseID: {}", classDTO.getCourseId());
+                log.debug("CourseName: {}", classDTO.getCourseName());
+                log.debug("StartDate: {}", classDTO.getStartDate());
+                log.debug("EndDate: {}", classDTO.getEndDate());
+                log.debug("StartDate Type: {}", (classDTO.getStartDate() != null ? classDTO.getStartDate().getClass().getSimpleName() : "null"));
+                log.debug("EndDate Type: {}", (classDTO.getEndDate() != null ? classDTO.getEndDate().getClass().getSimpleName() : "null"));
+                log.debug("Capacity: {}", classDTO.getCapacity());
+                log.debug("Complete Object: {}", classDTO.toString());
+                log.debug("------------------------");
             }
             return ResponseEntity.ok(classes);
         } catch (Exception e) {
-            System.out.println("Error al obtener todas las clases: " + e.getMessage());
+            log.error("Error al obtener todas las clases: {}", e.getMessage());
             log.error("Error al obtener todas las clases", e);
             throw new CustomException("Error al obtener las clases");
         }
