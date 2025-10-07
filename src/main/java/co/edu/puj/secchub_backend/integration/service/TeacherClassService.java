@@ -21,6 +21,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class TeacherClassService {
+    // TODO: Add notifications when an admin/user wants to inform a teacher of a new class assignment
 
     private final TeacherClassRepository repository;
     private final ModelMapper modelMapper;
@@ -45,6 +46,17 @@ public class TeacherClassService {
             TeacherClass saved = repository.save(teacherClass);
             return modelMapper.map(saved, TeacherClassResponseDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Lists all teacher classes for the current semester.
+     * @return List of TeacherClassResponseDTO for the current semester
+     */
+    public List<TeacherClassResponseDTO> listCurrentSemesterTeacherClasses() {
+        Long currentSemesterId = semesterService.getCurrentSemesterId();
+        return repository.findBySemesterId(currentSemesterId).stream()
+                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+                .toList();
     }
 
     /**

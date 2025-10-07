@@ -37,6 +37,16 @@ public class TeacherClassController {
     }
 
     /**
+     * Get all teacher classes for the current semester.
+     * @return List of teacher classes for the current semester
+     */
+    @GetMapping("/classes/current-semester")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public ResponseEntity<List<TeacherClassResponseDTO>> getCurrentSemesterTeacherClasses() {
+        return ResponseEntity.ok(service.listCurrentSemesterTeacherClasses());
+    }
+
+    /**
      * Get all classes assigned to a teacher.
      * @param teacherId Teacher ID
      * @return List of classes assigned to the teacher

@@ -51,6 +51,16 @@ public class AcademicRequestController {
     }
 
     /**
+     * Gets all academic requests for the current semester.
+     * @return List of academic requests for the current semester
+     */
+    @GetMapping("/current-semester")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public List<AcademicRequestResponseDTO> getCurrentSemesterAcademicRequests() {
+        return academicRequestService.findCurrentSemesterAcademicRequests();
+    }
+
+    /**
      * Gets all academic requests.
      * @return List of academic requests
      */

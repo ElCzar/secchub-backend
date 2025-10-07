@@ -39,6 +39,16 @@ public class StudentApplicationController {
     }
 
     /**
+     * Gets all student applications for the current semester.
+     * @return List of StudentApplicationResponseDTOs with applications for the current semester
+     */
+    @GetMapping("/current-semester")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public ResponseEntity<List<StudentApplicationResponseDTO>> getCurrentSemesterStudentApplications() {
+        return ResponseEntity.ok(studentApplicationService.listCurrentSemesterStudentApplications());
+    }
+
+    /**
      * Gets all student applications.
      * @return List of StudentApplicationResponseDTOs with applications
      */

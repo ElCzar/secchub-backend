@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface StudentApplicationRepository extends JpaRepository<StudentApplication, Long> {
+    List<StudentApplication> findBySemesterId(Long semesterId);
+    
     List<StudentApplication> findByStatusId(Long statusId);
 
     @Query("""

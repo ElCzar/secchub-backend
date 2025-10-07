@@ -81,6 +81,17 @@ public class AcademicRequestService {
     }
 
     /**
+     * Gets all academic requests for the current semester.
+     * @return List of academic requests for the current semester
+     */
+    public List<AcademicRequestResponseDTO> findCurrentSemesterAcademicRequests() {
+        Long currentSemesterId = semesterService.getCurrentSemesterId();
+        return academicRequestRepository.findBySemesterId(currentSemesterId).stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
+    /**
      * Gets all academic requests
      * @return List of academic requests
      */

@@ -99,6 +99,17 @@ public class StudentApplicationService {
     }
 
     /**
+     * Obtains all student applications for the current semester.
+     * @return List of student applications for the current semester
+     */
+    public List<StudentApplicationResponseDTO> listCurrentSemesterStudentApplications() {
+        Long currentSemesterId = semesterService.getCurrentSemesterId();
+        return studentRepo.findBySemesterId(currentSemesterId).stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
+    /**
      * Obtains all student applications.
      * @return List of student applications
      */
