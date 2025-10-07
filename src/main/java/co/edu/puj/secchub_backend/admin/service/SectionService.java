@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.admin.service;
 
-import co.edu.puj.secchub_backend.admin.dto.SectionDTO;
+import co.edu.puj.secchub_backend.admin.dto.SectionRequestDTO;
+import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.model.Section;
 import co.edu.puj.secchub_backend.admin.repository.SectionRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,14 +25,14 @@ public class SectionService {
 
     /**
      * Creates a new section.
-     * @param sectionDTO dto with section data
+     * @param sectionRequestDTO dto with section data
      * @return Created section
      */
-    public Mono<SectionDTO> createSection(SectionDTO sectionDTO) {
+    public Mono<SectionResponseDTO> createSection(SectionRequestDTO sectionRequestDTO) {
         return Mono.fromCallable(() -> {
-            Section section = modelMapper.map(sectionDTO, Section.class);
+            Section section = modelMapper.map(sectionRequestDTO, Section.class);
             Section saved = sectionRepository.save(section);
-            return modelMapper.map(saved, SectionDTO.class);
+            return modelMapper.map(saved, SectionResponseDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -39,10 +40,10 @@ public class SectionService {
      * Lists all existing sections.
      * @return List of sections
      */
-    public List<SectionDTO> findAllSections() {
+    public List<SectionResponseDTO> findAllSections() {
         return sectionRepository.findAll()
                 .stream()
-                .map(section -> modelMapper.map(section, SectionDTO.class))
+                .map(section -> modelMapper.map(section, SectionResponseDTO.class))
                 .toList();
     }
 
@@ -51,11 +52,11 @@ public class SectionService {
      * @param sectionId Section ID
      * @return Section with the given ID
      */
-    public Mono<SectionDTO> findSectionById(Long sectionId) {
+    public Mono<SectionResponseDTO> findSectionById(Long sectionId) {
         return Mono.fromCallable(() -> {
             Section section = sectionRepository.findById(sectionId)
                     .orElseThrow(() -> new RuntimeException("Section not found for consult: " + sectionId));
-            return modelMapper.map(section, SectionDTO.class);
+            return modelMapper.map(section, SectionResponseDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -64,10 +65,10 @@ public class SectionService {
      * @param userId User ID
      * @return List of sections managed by the user
      */
-    public List<SectionDTO> findSectionsByUserId(Long userId) {
+    public List<SectionResponseDTO> findSectionsByUserId(Long userId) {
         return sectionRepository.findByUserId(userId)
                 .stream()
-                .map(section -> modelMapper.map(section, SectionDTO.class))
+                .map(section -> modelMapper.map(section, SectionResponseDTO.class))
                 .toList();
     }
 }

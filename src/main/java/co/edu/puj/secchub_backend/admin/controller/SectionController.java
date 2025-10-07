@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.admin.controller;
 
-import co.edu.puj.secchub_backend.admin.dto.SectionDTO;
+import co.edu.puj.secchub_backend.admin.dto.SectionRequestDTO;
+import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.service.SectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,13 +25,13 @@ public class SectionController {
 
     /**
      * Creates a new section.
-     * @param sectionDTO with section data
+     * @param sectionRequestDTO with section data
      * @return Created section with status 201
      */
     @PostMapping
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<SectionDTO>> createSection(@RequestBody SectionDTO sectionDTO) {
-        return sectionService.createSection(sectionDTO)
+    public Mono<ResponseEntity<SectionResponseDTO>> createSection(@RequestBody SectionRequestDTO sectionRequestDTO) {
+        return sectionService.createSection(sectionRequestDTO)
                 .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
     }
 
@@ -40,7 +41,7 @@ public class SectionController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public List<SectionDTO> findAllSections() {
+    public List<SectionResponseDTO> findAllSections() {
         return sectionService.findAllSections();
     }
 
@@ -51,7 +52,7 @@ public class SectionController {
      */
     @GetMapping("/{sectionId}")
     @PreAuthorize("isAuthenticated()")
-    public Mono<ResponseEntity<SectionDTO>> findSectionById(@PathVariable Long sectionId) {
+    public Mono<ResponseEntity<SectionResponseDTO>> findSectionById(@PathVariable Long sectionId) {
         return sectionService.findSectionById(sectionId)
                 .map(ResponseEntity::ok);
     }
@@ -63,7 +64,7 @@ public class SectionController {
      */
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<SectionDTO> findSectionsByUserId(@PathVariable Long userId) {
+    public List<SectionResponseDTO> findSectionsByUserId(@PathVariable Long userId) {
         return sectionService.findSectionsByUserId(userId);
     }
 }
