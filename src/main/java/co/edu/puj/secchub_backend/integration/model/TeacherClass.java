@@ -17,6 +17,9 @@ public class TeacherClass {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "semester_id")
+    private Long semesterId;
+
     @Column(name = "teacher_id")
     private Long teacherId;
 
@@ -31,8 +34,7 @@ public class TeacherClass {
 
     @Column(name = "adjunct_extra_hours")
     private Integer adjunctExtraHours;
-
-    /** true = accepted, false = rejected, null = pending */
+    
     @Column(name = "decision")
     private Boolean decision;
 

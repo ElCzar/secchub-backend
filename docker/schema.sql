@@ -273,6 +273,7 @@ CREATE TABLE `teaching_assistant` (
 
 CREATE TABLE `teacher_class` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `semester_id` BIGINT UNSIGNED NULL,
   `teacher_id` BIGINT UNSIGNED NULL,
   `class_id` BIGINT UNSIGNED NULL,
   `work_hours` INT NULL,
@@ -282,6 +283,9 @@ CREATE TABLE `teacher_class` (
   `observation` TEXT NULL,
   `status_id` BIGINT UNSIGNED NULL,
   PRIMARY KEY (`id`),
+  CONSTRAINT `fk_teacher_class_semester`
+    FOREIGN KEY (`semester_id`) REFERENCES `semester` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_teacher_class_teacher`
     FOREIGN KEY (`teacher_id`) REFERENCES `teacher` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE,
