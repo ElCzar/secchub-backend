@@ -1,5 +1,6 @@
 package co.edu.puj.secchub_backend.security.service;
 
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
@@ -16,6 +17,7 @@ public class UserService implements SecurityModuleUserContract {
     private final UserRepository userRepository;
 
     @Override
+    @Cacheable("user-id-by-email")
     public Long getUserIdByEmail(String email) {
         log.debug("Getting user id by email: {}", email);
         return userRepository.findByEmail(email)

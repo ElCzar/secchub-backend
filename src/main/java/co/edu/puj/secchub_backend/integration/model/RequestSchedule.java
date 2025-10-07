@@ -43,5 +43,4 @@ public class RequestSchedule {
     @JoinColumn(name = "academic_request_id", insertable = false, updatable = false)
     @JsonBackReference
     private AcademicRequest academicRequest;
-
 }
