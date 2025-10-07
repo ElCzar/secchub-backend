@@ -38,8 +38,7 @@ public class TeacherClass {
 
     @Column(name = "observation")
     private String observation;
-
-    /** Status: 1=Pending, 2=Accepted, 3=Rejected */
+    
     @Column(name = "status_id")
     private Long statusId;
 }
