@@ -33,12 +33,6 @@ CREATE TABLE `modality` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE `session` (
-  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(100) NOT NULL UNIQUE,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
 CREATE TABLE `classroom_type` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(100) NOT NULL UNIQUE,
@@ -106,15 +100,11 @@ CREATE TABLE `course` (
   `description` TEXT NULL,
   `requirement` VARCHAR(200) NULL,
   `is_valid` BOOLEAN NULL,
-  `session_id` BIGINT UNSIGNED NULL,
   `recommendation` TEXT NULL,
   `status_id` BIGINT UNSIGNED NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_course_section`
     FOREIGN KEY (`section_id`) REFERENCES `section` (`id`)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT `fk_course_session`
-    FOREIGN KEY (`session_id`) REFERENCES `session` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_course_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
