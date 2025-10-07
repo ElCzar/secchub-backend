@@ -26,10 +26,10 @@ public class TeacherClassService {
     private final ModelMapper modelMapper;
     private final AdminModuleSemesterContract semesterService;
 
-    private final Long STATUS_PENDING_ID = 4L;
-    private final Long STATUS_IN_PROGRESS_ID = 6L;
-    private final Long STATUS_ACCEPTED_ID = 8L;
-    private final Long STATUS_REJECTED_ID = 9L;
+    private static final Long STATUS_PENDING_ID = 4L;
+    private static final Long STATUS_IN_PROGRESS_ID = 6L;
+    private static final Long STATUS_ACCEPTED_ID = 8L;
+    private static final Long STATUS_REJECTED_ID = 9L;
 
     /**
      * Creates a new teacher-class assignment.
