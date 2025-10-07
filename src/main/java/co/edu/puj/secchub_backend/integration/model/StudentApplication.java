@@ -2,29 +2,35 @@ package co.edu.puj.secchub_backend.integration.model;
 
 import jakarta.persistence.*;
 import lombok.*;
-import java.time.LocalDate;
 
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Entity mapped to 'student_application'.
+ * Represents a student's application to be a teaching assistant (academic or administrative).
+ */
 @Entity
-@Table(name = "student")
+@Table(name = "student_application")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class Student {
+public class StudentApplication {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id")
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
     @Column(name = "course_id")
-    private Long courseId; // solo si es monitor académico
+    private Long courseId;
 
     @Column(name = "section_id")
-    private Long sectionId; // solo si es monitor administrativo
+    private Long sectionId;
 
     @Column(name = "program")
     private String program;
@@ -62,16 +68,16 @@ public class Student {
     @Column(name = "status_id")
     private Long statusId;
 
+    @OneToMany(mappedBy = "studentApplication", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<StudentApplicationSchedule> schedules;
+
     /**
-     * Asigna valores por defecto al momento de persistir si no están definidos.
+     * Assigns default values when persisting if not defined.
      */
     @PrePersist
     public void onCreate() {
         if (applicationDate == null) {
             applicationDate = LocalDate.now();
-        }
-        if (statusId == null) {
-            statusId = 1L; // Default status: "Active"
         }
     }
 }

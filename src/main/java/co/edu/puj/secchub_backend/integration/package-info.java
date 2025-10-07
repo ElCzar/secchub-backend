@@ -9,12 +9,15 @@
  * 
  * Dependencies:
  * - Security module: For user authentication, user lookup, and authorization
+ * - Admin module: For course and section information (implicit through shared entities)
+ * - Parametric module: For status and role lookups
  * 
- * This module serves as the core business logic layer for any request to the system,
- * allowing coordination between different actors (students, teachers, administrators).
+ * This module serves as the core business logic layer for academic operations,
+ * coordinating between different actors (students, teachers, administrators) and
+ * managing complex academic workflows.
  */
 @org.springframework.modulith.ApplicationModule(
     displayName = "Integration Module", 
-    allowedDependencies = "security"
+    allowedDependencies = {"security", "admin", "parametric"}
 )
 package co.edu.puj.secchub_backend.integration;

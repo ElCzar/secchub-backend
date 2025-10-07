@@ -22,14 +22,15 @@ import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class StudentApplicationService {
     private final ModelMapper modelMapper;
-    private final StudentRepository studentRepo;
-    private final StudentScheduleRepository requestScheduleRepository;
+    private final StudentApplicationRepository studentRepo;
+    private final StudentApplicationScheduleRepository requestScheduleRepository;
     private final SecurityModuleUserContract userService;
 
     /**
@@ -38,7 +39,7 @@ public class StudentApplicationService {
      * @return Created application
      */
     @Transactional
-    public Mono<Student> createStudentApplication(StudentApplicationDTO studentApplicationDTO) {
+    public Mono<StudentApplication> createStudentApplication(StudentApplicationDTO studentApplicationDTO) {
         return ReactiveSecurityContextHolder.getContext()
                 .map(securityContext -> securityContext.getAuthentication().getName()) // Get username or email
                 .flatMap(identifier -> Mono.fromCallable(() -> {
@@ -46,7 +47,7 @@ public class StudentApplicationService {
                     Long userId = userService.getUserIdByEmail(identifier);
                     
                     // Map DTO to entity
-                    Student student = modelMapper.map(studentApplicationDTO, Student.class);
+                    StudentApplication student = modelMapper.map(studentApplicationDTO, StudentApplication.class);
                     
                     // Set automatic values
                     student.setUserId(userId); // Set user_id from authenticated user
@@ -54,16 +55,16 @@ public class StudentApplicationService {
                     student.setStatusId(1L); // Set status to "Active" (ID: 1)
                     student.setId(null); // Ignore ID from frontend
                     
-                    Student saved = studentRepo.save(student);
+                    StudentApplication saved = studentRepo.save(student);
 
                     if (studentApplicationDTO.getSchedules() != null) {
                         for (ScheduleDTO scheduleDTO : studentApplicationDTO.getSchedules()) {
                             // Manual mapping instead of using ModelMapper for time conversion
-                            StudentSchedule studentSchedule = new StudentSchedule();
+                            StudentApplicationSchedule studentSchedule = new StudentApplicationSchedule();
                             studentSchedule.setDay(scheduleDTO.getDay());
                             studentSchedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
                             studentSchedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
-                            studentSchedule.setStudentId(saved.getId());
+                            studentSchedule.setStudentApplicationId(saved.getId());
                             
                             requestScheduleRepository.save(studentSchedule);
                         }
@@ -96,7 +97,7 @@ public class StudentApplicationService {
      * Obtains all student applications.
      * @return Stream of student applications
      */
-    public Flux<Student> listAllStudentApplication() {
+    public Flux<StudentApplication> listAllStudentApplications() {
         return Mono.fromCallable(studentRepo::findAll)
                 .flatMapMany(Flux::fromIterable)
                 .subscribeOn(Schedulers.boundedElastic());
@@ -107,7 +108,7 @@ public class StudentApplicationService {
      * @param studentApplicationId Application ID
      * @return Student with the given ID
      */
-    public Mono<Student> findStudentApplicationById(Long studentApplicationId) {
+    public Mono<StudentApplication> findStudentApplicationById(Long studentApplicationId) {
         return Mono.fromCallable(() -> studentRepo.findById(studentApplicationId)
                 .orElseThrow(() -> new StudentApplicationNotFoundException("StudentApplication not found for consult: " + studentApplicationId)))
                 .subscribeOn(Schedulers.boundedElastic());
@@ -118,10 +119,12 @@ public class StudentApplicationService {
      * @param statusId Status ID
      * @return Stream of student applications with the given status ID
      */
-    public Flux<Student> listStudentApplicationsByStatus(Long statusId) {
+    public List<StudentApplication> listStudentApplicationsByStatus(Long statusId) {
         return Mono.fromCallable(() -> studentRepo.findByStatusId(statusId))
                 .flatMapMany(Flux::fromIterable)
-                .subscribeOn(Schedulers.boundedElastic());
+                .subscribeOn(Schedulers.boundedElastic())
+                .collectList()
+                .block();
     }
 
     /**
@@ -129,10 +132,12 @@ public class StudentApplicationService {
      * @param sectionId Section ID
      * @return Stream of student applications for the given section
      */
-    public Flux<Student> listStudentApplicationsForSection(Long sectionId) {
+    public List<StudentApplication> listStudentApplicationsForSection(Long sectionId) {
         return Mono.fromCallable(() -> studentRepo.findRequestsForSection(sectionId))
                 .flatMapMany(Flux::fromIterable)
-                .subscribeOn(Schedulers.boundedElastic());
+                .subscribeOn(Schedulers.boundedElastic())
+                .collectList()
+                .block();
     }
 
     /**
@@ -143,7 +148,7 @@ public class StudentApplicationService {
      */
     public Mono<Void> approveStudentApplication(Long studentApplicationId, Long statusApprovedId) {
         return Mono.fromCallable(() -> {
-            Student student = studentRepo.findById(studentApplicationId)
+            StudentApplication student = studentRepo.findById(studentApplicationId)
                     .orElseThrow(() -> new StudentApplicationNotFoundException("StudentApplication not found for approval: " + studentApplicationId));
             student.setStatusId(statusApprovedId);
             studentRepo.save(student);
@@ -159,7 +164,7 @@ public class StudentApplicationService {
      */
     public Mono<Void> rejectStudentApplication(Long studentApplicationId, Long statusRejectedId) {
         return Mono.fromCallable(() -> {
-            Student student = studentRepo.findById(studentApplicationId)
+            StudentApplication student = studentRepo.findById(studentApplicationId)
                     .orElseThrow(() -> new StudentApplicationNotFoundException("StudentApplication not found for rejection: " + studentApplicationId));
             student.setStatusId(statusRejectedId);
             studentRepo.save(student);

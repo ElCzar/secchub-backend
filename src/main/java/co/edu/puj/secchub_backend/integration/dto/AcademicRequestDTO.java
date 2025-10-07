@@ -7,16 +7,17 @@ import java.util.List;
 /**
  * DTO que representa una solicitud académica individual.
  */
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class AcademicRequestDTO {
     private Long courseId;
-    private Integer capacity; // cupo solicitado
+    private Integer capacity;
     private LocalDate startDate;
     private LocalDate endDate;
     private String observation;
     private List<RequestScheduleDTO> schedules;
-
-    // Campos calculados (no en DB)
-    private Integer weeks;    // se calcula en service
-    private Long sectionId;   // se deriva del curso
+    private Integer weeks;
+    private Long sectionId;
 }

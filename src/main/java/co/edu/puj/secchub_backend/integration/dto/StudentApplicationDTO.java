@@ -8,11 +8,10 @@ import java.util.List;
  * DTO que representa una solicitud de monitoría realizada por un estudiante.
  * Incluye información completa del estudiante y su solicitud según la tabla student.
  */
-@Getter
-@Setter
-@Builder
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class StudentApplicationDTO {
     /** Identificador único de la solicitud (será ignorado en la creación). */
     private Long id;

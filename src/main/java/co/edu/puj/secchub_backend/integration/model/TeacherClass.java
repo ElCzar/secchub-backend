@@ -4,8 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 /**
- * Entity representing the relation between a Teacher and a Class.
- * Used in HU17 (professor availability) for accepting or rejecting assigned classes.
+ * Entity mapped to 'teacher_class'.
+ * Represents the assignment of a teacher to a class along with their workload and decision status.
  */
 @Entity
 @Table(name = "teacher_class")

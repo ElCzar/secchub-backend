@@ -5,9 +5,17 @@ import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Configuration class for ModelMapper bean.
+ * Sets up ModelMapper with strict matching strategy and field access.´
+ */
 @Configuration
 public class ModelMapperConfig {
-
+    
+    /**
+     * Creates and configures a ModelMapper bean.
+     * @return Configured ModelMapper instance
+     */
     @Bean
     public ModelMapper modelMapper() {
         ModelMapper mapper = new ModelMapper();

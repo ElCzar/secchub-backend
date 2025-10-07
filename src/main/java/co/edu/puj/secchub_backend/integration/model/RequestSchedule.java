@@ -5,6 +5,10 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 
+/**
+ * Entity mapped to 'request_schedule'.
+ * Represents the schedule details associated with an academic request.
+ */
 @Entity
 @Table(name = "request_schedule")
 @Getter @Setter @Builder

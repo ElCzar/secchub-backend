@@ -6,6 +6,6 @@
  */
 @org.springframework.modulith.ApplicationModule(
     displayName = "Security Module",
-    allowedDependencies = {}
+    allowedDependencies = "parametric"
 )
 package co.edu.puj.secchub_backend.security;

@@ -6,7 +6,10 @@ import lombok.*;
  * DTO que representa un horario asociado a una solicitud académica.
  * Incluye información sobre el día, hora de inicio y fin, tipo de aula, modalidad y accesibilidad.
  */
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class RequestScheduleDTO {
     /** Identificador único del horario. */
     private Long id;

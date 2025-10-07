@@ -39,4 +39,10 @@ public class Course {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "section_id", insertable = false, updatable = false)
     private Section section;
+
+    @Column
+    private String recommendation;
+
+    @Column(name = "status_id")
+    private Long statusId;
 }

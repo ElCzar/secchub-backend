@@ -9,6 +9,7 @@ import org.springframework.security.core.userdetails.ReactiveUserDetailsService;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
+import co.edu.puj.secchub_backend.parametric.contracts.ParametricContract;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
 import reactor.core.publisher.Mono;
@@ -22,6 +23,7 @@ import java.util.Optional;
 public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsService {
 
     private final UserRepository userRepository;
+    private final ParametricContract parametricService;
 
     /**
      * Finds a user by username and builds UserDetails for authentication.
@@ -34,7 +36,7 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
                 .subscribeOn(Schedulers.boundedElastic())
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(user -> user.getStatus() != null && "Active".equals(user.getStatus().getName()))
+                .filter(user -> user.getStatusId() != null && "Active".equals(parametricService.getStatusNameById(user.getStatusId())))
                 .map(this::buildUserDetails);
     }
 
@@ -44,7 +46,7 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
      * @return UserDetails object
      */
     private UserDetails buildUserDetails(User user) {
-        String roleName = user.getRole() != null ? user.getRole().getName() : "ROLE_USER";
+        String roleName = user.getRoleId() != null ? parametricService.getRoleNameById(user.getRoleId()) : "ROLE_USER";
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())
@@ -67,7 +69,7 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
                 .subscribeOn(Schedulers.boundedElastic())
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .filter(user -> user.getStatus() != null && "Active".equals(user.getStatus().getName()))
+                .filter(user -> user.getStatusId() != null && "Active".equals(parametricService.getStatusNameById(user.getStatusId())))
                 .map(this::buildUserDetails)
                 .map(userDetails -> new UsernamePasswordAuthenticationToken(
                         userDetails.getUsername(),

@@ -5,11 +5,10 @@ import lombok.*;
  * DTO que representa un horario simple con día y horas de inicio y fin.
  * Utilizado para transferir información de bloques de horario.
  */
-@Getter
-@Setter
-@Builder
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class ScheduleDTO {
     /** Día de la semana del horario. */
     private String day;

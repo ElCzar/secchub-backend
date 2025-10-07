@@ -24,8 +24,6 @@ import java.util.Map;
 @RequestMapping("/academic-requests")
 @RequiredArgsConstructor
 public class AcademicRequestController {
-
-    /** Service for academic request business logic. */
     private final AcademicRequestService academicRequestService;
 
     /**
