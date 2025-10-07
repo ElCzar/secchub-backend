@@ -152,5 +152,19 @@ public class IntegrationExceptionHandler {
                 MESSAGE_KEY, ex.getMessage()
         )));
     }
-}
 
+    /**
+     * Manages student application bad request exceptions and returns a 400 error with details.
+     * @param ex Student application bad request exception
+     * @return HTTP response with error information
+     */
+    @ExceptionHandler(StudentApplicationBadRequestException.class)
+    public Mono<ResponseEntity<Object>> handleStudentApplicationBadRequest(StudentApplicationBadRequestException ex) {
+        log.warn("Student application bad request exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.badRequest().body(Map.of(
+                TIMESTAMP_KEY, Instant.now().toString(),
+                ERROR_KEY, VALIDATION_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+}

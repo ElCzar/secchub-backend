@@ -32,11 +32,14 @@ public class StudentApplication {
     @Column(name = "section_id")
     private Long sectionId;
 
+    @Column(name = "semester_id")
+    private Long semesterId;
+
     @Column(name = "program")
     private String program;
 
-    @Column(name = "semester")
-    private Integer semester;
+    @Column(name = "student_semester")
+    private Integer studentSemester;
 
     @Column(name = "academic_average")
     private Double academicAverage;

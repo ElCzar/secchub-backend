@@ -1,6 +1,9 @@
 package co.edu.puj.secchub_backend.integration.dto;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * DTO that represents a schedule associated with an academic request.

@@ -139,8 +139,9 @@ CREATE TABLE `student_application` (
   `user_id` BIGINT UNSIGNED NULL,
   `course_id` BIGINT UNSIGNED NULL,
   `section_id` BIGINT UNSIGNED NULL,
+  `semester_id` BIGINT UNSIGNED NULL,
   `program` VARCHAR(150) NULL,
-  `semester` INT NULL,
+  `student_semester` INT NULL,
   `academic_average` DECIMAL(4,2) NULL,
   `phone_number` VARCHAR(50) NULL,
   `alternate_phone_number` VARCHAR(50) NULL,
@@ -160,6 +161,9 @@ CREATE TABLE `student_application` (
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_student_application_section`
     FOREIGN KEY (`section_id`) REFERENCES `section` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_student_application_semester`
+    FOREIGN KEY (`semester_id`) REFERENCES `semester` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT `fk_student_application_status`
     FOREIGN KEY (`status_id`) REFERENCES `status` (`id`)
