@@ -1,9 +1,8 @@
-package co.edu.puj.secchub_backend.planning.model;
+package co.edu.puj.secchub_backend.parametric.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -12,18 +11,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Entity representing a Modality in the university system.
- * Modalities are used to categorize courses as in-person, online, or hybrid.
+ * Entity represents different types of classrooms.
  */
 @Entity
-@Table(name = "modality")
+@Table(name = "classroom_type")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Modality {
+public class ClassroomType {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = jakarta.persistence.GenerationType.IDENTITY)
     private Long id;
 
     @Column

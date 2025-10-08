@@ -1,5 +1,6 @@
 package co.edu.puj.secchub_backend.planning.model;
 
+import co.edu.puj.secchub_backend.parametric.model.ClassroomType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -41,8 +42,4 @@ public class Classroom {
 
     @Column
     private Integer capacity;
-
-    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
-    @JoinColumn(name = "classroom_type_id", insertable = false, updatable = false)
-    private ClassroomType classroomType;
 }

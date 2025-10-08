@@ -9,12 +9,6 @@ import java.util.Map;
  * All methods are cached for optimal performance.
  */
 public interface ParametricContract {
-
-    /**
-     * Retrieves all available statuses.
-     * @return List of all status DTOs
-     */
-    List<StatusDTO> getAllStatuses();
     
     /**
      * Finds a status by its name.
@@ -38,12 +32,6 @@ public interface ParametricContract {
      * @return true if exists, false otherwise
      */
     boolean statusExists(String name);
-
-    /**
-     * Retrieves all available roles.
-     * @return List of all role DTOs
-     */
-    List<RoleDTO> getAllRoles();
     
     /**
      * Finds a role by its name.
@@ -69,26 +57,6 @@ public interface ParametricContract {
     boolean roleExists(String name);
     
     /**
-     * Gets a map of status names to IDs for bulk operations.
-     * @return Map with status name as key and ID as value
-     */
-    Map<String, Long> getStatusNameToIdMap();
-    
-    /**
-     * Gets a map of role names to IDs for bulk operations.
-     * @return Map with role name as key and ID as value
-     */
-    Map<String, Long> getRoleNameToIdMap();
-
-    // DocumentType methods
-    
-    /**
-     * Retrieves all available document types.
-     * @return List of all document type DTOs
-     */
-    List<DocumentTypeDTO> getAllDocumentTypes();
-    
-    /**
      * Finds a document type by its name.
      * @param name the document type name
      * @return DocumentTypeDTO if found
@@ -110,20 +78,6 @@ public interface ParametricContract {
      * @return true if exists, false otherwise
      */
     boolean documentTypeExists(String name);
-    
-    /**
-     * Gets a map of document type names to IDs for bulk operations.
-     * @return Map with document type name as key and ID as value
-     */
-    Map<String, Long> getDocumentTypeNameToIdMap();
-
-    // EmploymentType methods
-    
-    /**
-     * Retrieves all available employment types.
-     * @return List of all employment type DTOs
-     */
-    List<EmploymentTypeDTO> getAllEmploymentTypes();
     
     /**
      * Finds an employment type by its name.
@@ -149,8 +103,62 @@ public interface ParametricContract {
     boolean employmentTypeExists(String name);
     
     /**
-     * Gets a map of employment type names to IDs for bulk operations.
-     * @return Map with employment type name as key and ID as value
+     * Finds a modality by its name.
+     * @param name the modality name
+     * @return ModalityDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
      */
-    Map<String, Long> getEmploymentTypeNameToIdMap();
+    ModalityDTO getModalityByName(String name);
+    
+    /**
+     * Finds a modality name by its ID.
+     * @param id the modality ID
+     * @return Modality name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getModalityNameById(Long id);
+    
+    /**
+     * Checks if a modality exists by name.
+     * @param name the modality name
+     * @return true if exists, false otherwise
+     */
+    boolean modalityExists(String name);
+
+    // ClassroomType methods
+    
+    /**
+     * Retrieves all available classroom types.
+     * @return List of all classroom type DTOs
+     */
+    List<ClassroomTypeDTO> getAllClassroomTypes();
+    
+    /**
+     * Finds a classroom type by its name.
+     * @param name the classroom type name
+     * @return ClassroomTypeDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    ClassroomTypeDTO getClassroomTypeByName(String name);
+    
+    /**
+     * Finds a classroom type name by its ID.
+     * @param id the classroom type ID
+     * @return Classroom type name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getClassroomTypeNameById(Long id);
+    
+    /**
+     * Checks if a classroom type exists by name.
+     * @param name the classroom type name
+     * @return true if exists, false otherwise
+     */
+    boolean classroomTypeExists(String name);
+    
+    /**
+     * Gets a map of classroom type names to IDs for bulk operations.
+     * @return Map with classroom type name as key and ID as value
+     */
+    Map<String, Long> getClassroomTypeNameToIdMap();
 }

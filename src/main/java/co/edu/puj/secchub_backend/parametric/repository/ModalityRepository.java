@@ -1,8 +1,9 @@
-package co.edu.puj.secchub_backend.planning.repository;
+package co.edu.puj.secchub_backend.parametric.repository;
 
-import co.edu.puj.secchub_backend.planning.model.Modality;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+
+import co.edu.puj.secchub_backend.parametric.model.Modality;
 
 import java.util.Optional;
 

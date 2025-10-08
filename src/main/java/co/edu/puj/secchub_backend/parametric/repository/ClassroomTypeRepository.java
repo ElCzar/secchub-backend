@@ -1,6 +1,6 @@
-package co.edu.puj.secchub_backend.planning.repository;
+package co.edu.puj.secchub_backend.parametric.repository;
 
-import co.edu.puj.secchub_backend.planning.model.ClassroomType;
+import co.edu.puj.secchub_backend.parametric.model.ClassroomType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

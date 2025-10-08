@@ -2,12 +2,16 @@ package co.edu.puj.secchub_backend.parametric.service;
 
 import co.edu.puj.secchub_backend.parametric.contracts.*;
 import co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException;
+import co.edu.puj.secchub_backend.parametric.model.ClassroomType;
 import co.edu.puj.secchub_backend.parametric.model.DocumentType;
 import co.edu.puj.secchub_backend.parametric.model.EmploymentType;
+import co.edu.puj.secchub_backend.parametric.model.Modality;
 import co.edu.puj.secchub_backend.parametric.model.Role;
 import co.edu.puj.secchub_backend.parametric.model.Status;
+import co.edu.puj.secchub_backend.parametric.repository.ClassroomTypeRepository;
 import co.edu.puj.secchub_backend.parametric.repository.DocumentTypeRepository;
 import co.edu.puj.secchub_backend.parametric.repository.EmploymentTypeRepository;
+import co.edu.puj.secchub_backend.parametric.repository.ModalityRepository;
 import co.edu.puj.secchub_backend.parametric.repository.RoleRepository;
 import co.edu.puj.secchub_backend.parametric.repository.StatusRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +36,9 @@ public class ParametricService implements ParametricContract {
     private final RoleRepository roleRepository;
     private final DocumentTypeRepository documentTypeRepository;
     private final EmploymentTypeRepository employmentTypeRepository;
+    private final ModalityRepository modalityRepository;
+    private final ClassroomTypeRepository classroomTypeRepository;
 
-    @Override
     @Cacheable(value = "all-statuses")
     public List<StatusDTO> getAllStatuses() {
         log.debug("Loading all statuses from database");
@@ -67,7 +72,6 @@ public class ParametricService implements ParametricContract {
         return statusRepository.existsByName(name);
     }
 
-    @Override
     @Cacheable(value = "all-roles")
     public List<RoleDTO> getAllRoles() {
         log.debug("Loading all roles from database");
@@ -101,24 +105,6 @@ public class ParametricService implements ParametricContract {
         return roleRepository.existsByName(name);
     }
 
-    @Override
-    @Cacheable(value = "status-name-to-id-map")
-    public Map<String, Long> getStatusNameToIdMap() {
-        log.debug("Building status name to ID map");
-        return statusRepository.findAll()
-                .stream()
-                .collect(Collectors.toMap(Status::getName, Status::getId));
-    }
-
-    @Override
-    @Cacheable(value = "role-name-to-id-map")
-    public Map<String, Long> getRoleNameToIdMap() {
-        log.debug("Building role name to ID map");
-        return roleRepository.findAll()
-                .stream()
-                .collect(Collectors.toMap(Role::getName, Role::getId));
-    }
-
     private StatusDTO mapToStatusDTO(Status status) {
         return StatusDTO.builder()
                 .id(status.getId())
@@ -133,9 +119,6 @@ public class ParametricService implements ParametricContract {
                 .build();
     }
 
-    // DocumentType implementations
-
-    @Override
     @Cacheable(value = "all-document-types")
     public List<DocumentTypeDTO> getAllDocumentTypes() {
         log.debug("Loading all document types from database");
@@ -169,18 +152,6 @@ public class ParametricService implements ParametricContract {
         return documentTypeRepository.existsByName(name);
     }
 
-    @Override
-    @Cacheable(value = "document-type-name-to-id-map")
-    public Map<String, Long> getDocumentTypeNameToIdMap() {
-        log.debug("Building document type name to ID map");
-        return documentTypeRepository.findAll()
-                .stream()
-                .collect(Collectors.toMap(DocumentType::getName, DocumentType::getId));
-    }
-
-    // EmploymentType implementations
-
-    @Override
     @Cacheable(value = "all-employment-types")
     public List<EmploymentTypeDTO> getAllEmploymentTypes() {
         log.debug("Loading all employment types from database");
@@ -214,17 +185,6 @@ public class ParametricService implements ParametricContract {
         return employmentTypeRepository.existsByName(name);
     }
 
-    @Override
-    @Cacheable(value = "employment-type-name-to-id-map")
-    public Map<String, Long> getEmploymentTypeNameToIdMap() {
-        log.debug("Building employment type name to ID map");
-        return employmentTypeRepository.findAll()
-                .stream()
-                .collect(Collectors.toMap(EmploymentType::getName, EmploymentType::getId));
-    }
-
-    // Private mapping methods
-
     private DocumentTypeDTO mapToDocumentTypeDTO(DocumentType documentType) {
         return DocumentTypeDTO.builder()
                 .id(documentType.getId())
@@ -236,6 +196,96 @@ public class ParametricService implements ParametricContract {
         return EmploymentTypeDTO.builder()
                 .id(employmentType.getId())
                 .name(employmentType.getName())
+                .build();
+    }
+
+    @Cacheable(value = "all-modalities")
+    public List<ModalityDTO> getAllModalities() {
+        log.debug("Loading all modalities from database");
+        return modalityRepository.findAll()
+                .stream()
+                .map(this::mapToModalityDTO)
+                .toList();
+    }
+
+    @Override
+    @Cacheable(value = "modality-by-name", key = "#name")
+    public ModalityDTO getModalityByName(String name) {
+        log.debug("Looking up modality by name: {}", name);
+        return modalityRepository.findByName(name)
+                .map(this::mapToModalityDTO)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Modality not found: " + name));
+    }
+
+    @Override
+    @Cacheable(value = "modality-id-to-name", key = "#id")
+    public String getModalityNameById(Long id) {
+        log.debug("Looking up modality name for ID: {}", id);
+        return modalityRepository.findById(id)
+                .map(Modality::getName)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Modality not found: " + id));
+    }
+
+    @Override
+    @Cacheable(value = "modality-exists", key = "#name")
+    public boolean modalityExists(String name) {
+        return modalityRepository.existsByName(name);
+    }
+
+    private ModalityDTO mapToModalityDTO(Modality modality) {
+        return ModalityDTO.builder()
+                .id(modality.getId())
+                .name(modality.getName())
+                .build();
+    }
+
+    @Override
+    @Cacheable(value = "all-classroom-types")
+    public List<ClassroomTypeDTO> getAllClassroomTypes() {
+        log.debug("Loading all classroom types from database");
+        return classroomTypeRepository.findAll()
+                .stream()
+                .map(this::mapToClassroomTypeDTO)
+                .toList();
+    }
+
+    @Override
+    @Cacheable(value = "classroom-type-by-name", key = "#name")
+    public ClassroomTypeDTO getClassroomTypeByName(String name) {
+        log.debug("Looking up classroom type by name: {}", name);
+        return classroomTypeRepository.findByName(name)
+                .map(this::mapToClassroomTypeDTO)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Classroom type not found: " + name));
+    }
+
+    @Override
+    @Cacheable(value = "classroom-type-id-to-name", key = "#id")
+    public String getClassroomTypeNameById(Long id) {
+        log.debug("Looking up classroom type name for ID: {}", id);
+        return classroomTypeRepository.findById(id)
+                .map(ClassroomType::getName)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Classroom type not found: " + id));
+    }
+
+    @Override
+    @Cacheable(value = "classroom-type-exists", key = "#name")
+    public boolean classroomTypeExists(String name) {
+        return classroomTypeRepository.existsByName(name);
+    }
+
+    @Override
+    @Cacheable(value = "classroom-type-name-to-id-map")
+    public Map<String, Long> getClassroomTypeNameToIdMap() {
+        log.debug("Building classroom type name to ID map");
+        return classroomTypeRepository.findAll()
+                .stream()
+                .collect(Collectors.toMap(ClassroomType::getName, ClassroomType::getId));
+    }
+
+    private ClassroomTypeDTO mapToClassroomTypeDTO(ClassroomType classroomType) {
+        return ClassroomTypeDTO.builder()
+                .id(classroomType.getId())
+                .name(classroomType.getName())
                 .build();
     }
 }
