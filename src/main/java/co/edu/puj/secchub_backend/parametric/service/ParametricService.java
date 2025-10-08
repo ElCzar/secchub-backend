@@ -81,7 +81,7 @@ public class ParametricService implements ParametricContract {
     }
 
     @Override
-    @Cacheable(value = "role-id-by-name", key = "#name")
+    @Cacheable(value = "role-id-by-name", key = "#id")
     public String getRoleNameById(Long id) {
         log.debug("Looking up role name for ID: {}", id);
         return roleRepository.findById(id)
