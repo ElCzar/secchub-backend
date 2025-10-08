@@ -28,8 +28,8 @@ public class SectionService {
      * @param SectionCreateRequestDTO dto with section data
      * @return Created section
      */
-    public SectionResponseDTO createSection(SectionCreateRequestDTO SectionCreateRequestDTO) {
-        Section section = modelMapper.map(SectionCreateRequestDTO, Section.class);
+    public SectionResponseDTO createSection(SectionCreateRequestDTO sectionCreateRequestDTO) {
+        Section section = modelMapper.map(sectionCreateRequestDTO, Section.class);
         Section saved = sectionRepository.save(section);
         return modelMapper.map(saved, SectionResponseDTO.class);
     }

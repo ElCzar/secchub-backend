@@ -1,12 +1,9 @@
 package co.edu.puj.secchub_backend.planning.model;
 
-import co.edu.puj.secchub_backend.parametric.model.ClassroomType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

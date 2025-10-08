@@ -83,6 +83,17 @@ public class TeacherClassService {
     }
 
     /**
+     * Lists all classes for a given class ID.
+     * @param classId
+     * @return List of TeacherClassResponseDTO for the given class ID
+     */
+    public List<TeacherClassResponseDTO> listTeacherClassByClassId(Long classId) {
+        return repository.findByClassId(classId).stream()
+                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+                .toList();
+    }
+
+    /**
      * Accepts a class (set decision true and status=2).
      * @param teacherClassId relation id
      * @param observation optional comment from the teacher
