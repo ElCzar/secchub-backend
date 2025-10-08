@@ -2,8 +2,12 @@ package co.edu.puj.secchub_backend.parametric.service;
 
 import co.edu.puj.secchub_backend.parametric.contracts.*;
 import co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException;
+import co.edu.puj.secchub_backend.parametric.model.DocumentType;
+import co.edu.puj.secchub_backend.parametric.model.EmploymentType;
 import co.edu.puj.secchub_backend.parametric.model.Role;
 import co.edu.puj.secchub_backend.parametric.model.Status;
+import co.edu.puj.secchub_backend.parametric.repository.DocumentTypeRepository;
+import co.edu.puj.secchub_backend.parametric.repository.EmploymentTypeRepository;
 import co.edu.puj.secchub_backend.parametric.repository.RoleRepository;
 import co.edu.puj.secchub_backend.parametric.repository.StatusRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,8 @@ import java.util.stream.Collectors;
 public class ParametricService implements ParametricContract {
     private final StatusRepository statusRepository;
     private final RoleRepository roleRepository;
+    private final DocumentTypeRepository documentTypeRepository;
+    private final EmploymentTypeRepository employmentTypeRepository;
 
     @Override
     @Cacheable(value = "all-statuses")
@@ -124,6 +130,112 @@ public class ParametricService implements ParametricContract {
         return RoleDTO.builder()
                 .id(role.getId())
                 .name(role.getName())
+                .build();
+    }
+
+    // DocumentType implementations
+
+    @Override
+    @Cacheable(value = "all-document-types")
+    public List<DocumentTypeDTO> getAllDocumentTypes() {
+        log.debug("Loading all document types from database");
+        return documentTypeRepository.findAll()
+                .stream()
+                .map(this::mapToDocumentTypeDTO)
+                .toList();
+    }
+
+    @Override
+    @Cacheable(value = "document-type-by-name", key = "#name")
+    public DocumentTypeDTO getDocumentTypeByName(String name) {
+        log.debug("Looking up document type by name: {}", name);
+        return documentTypeRepository.findByName(name)
+                .map(this::mapToDocumentTypeDTO)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Document type not found: " + name));
+    }
+
+    @Override
+    @Cacheable(value = "document-type-id-to-name", key = "#id")
+    public String getDocumentTypeNameById(Long id) {
+        log.debug("Looking up document type name for ID: {}", id);
+        return documentTypeRepository.findById(id)
+                .map(DocumentType::getName)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Document type not found: " + id));
+    }
+
+    @Override
+    @Cacheable(value = "document-type-exists", key = "#name")
+    public boolean documentTypeExists(String name) {
+        return documentTypeRepository.existsByName(name);
+    }
+
+    @Override
+    @Cacheable(value = "document-type-name-to-id-map")
+    public Map<String, Long> getDocumentTypeNameToIdMap() {
+        log.debug("Building document type name to ID map");
+        return documentTypeRepository.findAll()
+                .stream()
+                .collect(Collectors.toMap(DocumentType::getName, DocumentType::getId));
+    }
+
+    // EmploymentType implementations
+
+    @Override
+    @Cacheable(value = "all-employment-types")
+    public List<EmploymentTypeDTO> getAllEmploymentTypes() {
+        log.debug("Loading all employment types from database");
+        return employmentTypeRepository.findAll()
+                .stream()
+                .map(this::mapToEmploymentTypeDTO)
+                .toList();
+    }
+
+    @Override
+    @Cacheable(value = "employment-type-by-name", key = "#name")
+    public EmploymentTypeDTO getEmploymentTypeByName(String name) {
+        log.debug("Looking up employment type by name: {}", name);
+        return employmentTypeRepository.findByName(name)
+                .map(this::mapToEmploymentTypeDTO)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Employment type not found: " + name));
+    }
+
+    @Override
+    @Cacheable(value = "employment-type-id-to-name", key = "#id")
+    public String getEmploymentTypeNameById(Long id) {
+        log.debug("Looking up employment type name for ID: {}", id);
+        return employmentTypeRepository.findById(id)
+                .map(EmploymentType::getName)
+                .orElseThrow(() -> new ParametricValueNotFoundException("Employment type not found: " + id));
+    }
+
+    @Override
+    @Cacheable(value = "employment-type-exists", key = "#name")
+    public boolean employmentTypeExists(String name) {
+        return employmentTypeRepository.existsByName(name);
+    }
+
+    @Override
+    @Cacheable(value = "employment-type-name-to-id-map")
+    public Map<String, Long> getEmploymentTypeNameToIdMap() {
+        log.debug("Building employment type name to ID map");
+        return employmentTypeRepository.findAll()
+                .stream()
+                .collect(Collectors.toMap(EmploymentType::getName, EmploymentType::getId));
+    }
+
+    // Private mapping methods
+
+    private DocumentTypeDTO mapToDocumentTypeDTO(DocumentType documentType) {
+        return DocumentTypeDTO.builder()
+                .id(documentType.getId())
+                .name(documentType.getName())
+                .build();
+    }
+
+    private EmploymentTypeDTO mapToEmploymentTypeDTO(EmploymentType employmentType) {
+        return EmploymentTypeDTO.builder()
+                .id(employmentType.getId())
+                .name(employmentType.getName())
                 .build();
     }
 }

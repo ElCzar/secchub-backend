@@ -79,4 +79,78 @@ public interface ParametricContract {
      * @return Map with role name as key and ID as value
      */
     Map<String, Long> getRoleNameToIdMap();
+
+    // DocumentType methods
+    
+    /**
+     * Retrieves all available document types.
+     * @return List of all document type DTOs
+     */
+    List<DocumentTypeDTO> getAllDocumentTypes();
+    
+    /**
+     * Finds a document type by its name.
+     * @param name the document type name
+     * @return DocumentTypeDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    DocumentTypeDTO getDocumentTypeByName(String name);
+    
+    /**
+     * Finds a document type name by its ID.
+     * @param id the document type ID
+     * @return DocumentTypeDTO name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getDocumentTypeNameById(Long id);
+    
+    /**
+     * Checks if a document type exists by name.
+     * @param name the document type name
+     * @return true if exists, false otherwise
+     */
+    boolean documentTypeExists(String name);
+    
+    /**
+     * Gets a map of document type names to IDs for bulk operations.
+     * @return Map with document type name as key and ID as value
+     */
+    Map<String, Long> getDocumentTypeNameToIdMap();
+
+    // EmploymentType methods
+    
+    /**
+     * Retrieves all available employment types.
+     * @return List of all employment type DTOs
+     */
+    List<EmploymentTypeDTO> getAllEmploymentTypes();
+    
+    /**
+     * Finds an employment type by its name.
+     * @param name the employment type name
+     * @return EmploymentTypeDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    EmploymentTypeDTO getEmploymentTypeByName(String name);
+    
+    /**
+     * Finds an employment type name by its ID.
+     * @param id the employment type ID
+     * @return EmploymentTypeDTO name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getEmploymentTypeNameById(Long id);
+    
+    /**
+     * Checks if an employment type exists by name.
+     * @param name the employment type name
+     * @return true if exists, false otherwise
+     */
+    boolean employmentTypeExists(String name);
+    
+    /**
+     * Gets a map of employment type names to IDs for bulk operations.
+     * @return Map with employment type name as key and ID as value
+     */
+    Map<String, Long> getEmploymentTypeNameToIdMap();
 }

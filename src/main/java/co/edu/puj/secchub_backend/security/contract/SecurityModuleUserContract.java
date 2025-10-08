@@ -12,4 +12,12 @@ public interface SecurityModuleUserContract {
      * @return user id
      */
     Long getUserIdByEmail(String email);
+
+    /**
+     * Creates a new user with the given information.
+     * @param email user's email
+     * @param password user's password
+     * @return created user's id
+     */
+    Long createUser(UserCreationRequestDTO userCreationRequestDTO);
 }
