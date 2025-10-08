@@ -87,4 +87,19 @@ public class AdminExceptionHandler {
                 MESSAGE_KEY, ex.getMessage()
         )));
     }
+
+    /**
+     * Manages teacher not found exceptions and returns a 404 error with details.
+     * @param ex Teacher not found exception
+     * @return HTTP response with error information
+     */
+    @ExceptionHandler(TeacherNotFoundException.class)
+    public Mono<ResponseEntity<Object>> handleNotFound(TeacherNotFoundException ex) {
+        log.warn("Teacher not found exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                TIMESTAMP_KEY, Instant.now().toString(),
+                ERROR_KEY, NOT_FOUND_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
 }

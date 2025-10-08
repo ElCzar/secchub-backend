@@ -16,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class UserService implements SecurityModuleUserContract {
+    
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final PasswordEncoderService passwordEncoderService;

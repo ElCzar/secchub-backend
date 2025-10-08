@@ -1,10 +1,8 @@
 package co.edu.puj.secchub_backend.admin.controller;
 
-import co.edu.puj.secchub_backend.admin.dto.SectionRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.service.SectionService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -22,18 +20,6 @@ import java.util.List;
 public class SectionController {
 
     private final SectionService sectionService;
-
-    /**
-     * Creates a new section.
-     * @param sectionRequestDTO with section data
-     * @return Created section with status 201
-     */
-    @PostMapping
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<SectionResponseDTO>> createSection(@RequestBody SectionRequestDTO sectionRequestDTO) {
-        return sectionService.createSection(sectionRequestDTO)
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
-    }
 
     /**
      * List all existing sections.
