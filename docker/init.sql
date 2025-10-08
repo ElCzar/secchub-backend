@@ -1,52 +1,47 @@
 -- Status of the users and the state of processes --
-INSERT INTO status (name) VALUES
-    ('Active'),
-    ('Inactive'),
-    ('Finished'),
-    ('Pending'),
-    ('Cancelled'),
-    ('In Progress'),
-    ('On Hold'),
-    ('Confirmed'),
-    ('Rejected'),
-    ('Completed');
+INSERT INTO status (id, name) VALUES
+    (1, 'Active'),
+    (2, 'Inactive'),
+    (3, 'Finished'),
+    (4, 'Pending'),
+    (5, 'Cancelled'),
+    (6, 'In Progress'),
+    (7, 'On Hold'),
+    (8, 'Confirmed'),
+    (9, 'Rejected'),
+    (10, 'Completed');
 
 -- Roles based on user permissions --
-INSERT INTO role (name) VALUES 
-    ('ROLE_ADMIN'), 
-    ('ROLE_USER'), 
-    ('ROLE_STUDENT'), 
-    ('ROLE_TEACHER'),
-    ('ROLE_PROGRAM');
+INSERT INTO role (id, name) VALUES 
+    (1, 'ROLE_ADMIN'), 
+    (2, 'ROLE_USER'), 
+    (3, 'ROLE_STUDENT'), 
+    (4, 'ROLE_TEACHER'),
+    (5, 'ROLE_PROGRAM');
 
 -- Document Types valid in Colombia --
-INSERT INTO document_type (name) VALUES
-  ('CC'),
-  ('TI'),
-  ('CE'),
-  ('RC'),
-  ('NIT'),
-  ('Passport');
+INSERT INTO document_type (id, name) VALUES
+    (1, 'CC'),
+    (2, 'TI'),
+    (3, 'CE'),
+    (4, 'RC'),
+    (5, 'NIT'),
+    (6, 'Passport');
 
 -- The types of employment --
-INSERT INTO employment_type (name) VALUES
-    ('Full-Time'),
-    ('Part-Time');
+INSERT INTO employment_type (id, name) VALUES
+    (1, 'Full-Time'),
+    (2, 'Part-Time');
 
 -- The modalities of the courses --
-INSERT INTO modality (name) VALUES
-    ('In-Person'),
-    ('Online');
-    
--- The sessions available for the courses --
-INSERT INTO session (name) VALUES
-    ('Morning'),
-    ('Evening');
+INSERT INTO modality (id, name) VALUES
+    (1, 'In-Person'),
+    (2, 'Online');
 
 -- The types of classrooms --
-INSERT INTO classroom_type (name) VALUES
-    ('Lecture'),
-    ('Lab');
+INSERT INTO classroom_type (id, name) VALUES
+    (1, 'Lecture'),
+    (2, 'Lab');
 
 -- Sample user with password hashed --
 INSERT INTO users (username, password, name, last_name, email, status_id, role_id, document_type_id, document_number)

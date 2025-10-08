@@ -4,6 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Data Transfer Object for refresh token requests.
+ */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

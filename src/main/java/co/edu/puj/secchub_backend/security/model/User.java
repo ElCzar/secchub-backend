@@ -7,13 +7,15 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * Entity representing a user in the system.
+ * Contains personal and authentication details.
+ */
 @Entity
 @Table(name = "users")
 @Data
@@ -31,20 +33,17 @@ public class User {
     private String lastName;
     private String email;
 
-    @ManyToOne
-    @JoinColumn(name = "status_id")
-    private Status status;
+    @Column(name = "status_id")
+    private Long statusId;
 
     @Column(name = "last_access")
     private LocalDateTime lastAccess;
 
-    @ManyToOne
-    @JoinColumn(name = "role_id")
-    private Role role;
+    @Column(name = "role_id")
+    private Long roleId;
 
-    @ManyToOne
-    @JoinColumn(name = "document_type_id")
-    private DocumentType documentType;
+    @Column(name = "document_type_id")
+    private Long documentType;
 
     @Column(name = "document_number")
     private String documentNumber;

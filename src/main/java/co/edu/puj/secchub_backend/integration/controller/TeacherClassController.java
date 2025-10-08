@@ -1,15 +1,16 @@
 package co.edu.puj.secchub_backend.integration.controller;
 
-import co.edu.puj.secchub_backend.integration.model.TeacherClass;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassRequestDTO;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassResponseDTO;
 import co.edu.puj.secchub_backend.integration.service.TeacherClassService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -20,18 +21,39 @@ import java.util.Map;
 @RequestMapping("/teachers")
 @RequiredArgsConstructor
 public class TeacherClassController {
-
-    /** Service for teacher-class assignments. */
     private final TeacherClassService service;
+
+    /**
+     * Creates a new teacher-class assignment.
+     * @param TeacherClassRequestDTO with assignment data
+     * @return TeacherClassResponseDTO with created assignment
+     */
+    @PostMapping("/classes")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeacherClassResponseDTO>> createTeacherClass(
+            @RequestBody TeacherClassRequestDTO request) {
+        return service.createTeacherClass(request)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Get all teacher classes for the current semester.
+     * @return List of teacher classes for the current semester
+     */
+    @GetMapping("/classes/current-semester")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public ResponseEntity<List<TeacherClassResponseDTO>> getCurrentSemesterTeacherClasses() {
+        return ResponseEntity.ok(service.listCurrentSemesterTeacherClasses());
+    }
 
     /**
      * Get all classes assigned to a teacher.
      * @param teacherId Teacher ID
-     * @return Stream of classes assigned to the teacher
+     * @return List of classes assigned to the teacher
      */
     @GetMapping("/{teacherId}/classes")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<Flux<TeacherClass>> getAllTeacherClasses(@PathVariable Long teacherId) {
+    public ResponseEntity<List<TeacherClassResponseDTO>> getAllTeacherClasses(@PathVariable Long teacherId) {
         return ResponseEntity.ok(service.listAllTeacherClassByTeacher(teacherId));
     }
 
@@ -40,11 +62,11 @@ public class TeacherClassController {
      * Status: Based on data in the database.
      * @param teacherId Teacher ID
      * @param statusId Status ID
-     * @return Stream of classes assigned to the teacher with the given status
+     * @return List of classes assigned to the teacher with the given status
      */
     @GetMapping("/{teacherId}/classes/status/{statusId}")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<Flux<TeacherClass>> getTeacherClassesByStatus(
+    public ResponseEntity<List<TeacherClassResponseDTO>> getTeacherClassesByStatus(
             @PathVariable Long teacherId,
             @PathVariable Long statusId) {
         return ResponseEntity.ok(service.listTeacherClassByStatus(teacherId, statusId));
@@ -58,7 +80,7 @@ public class TeacherClassController {
      */
     @PatchMapping("/classes/{teacherClassId}/accept")
     @PreAuthorize("hasRole('ROLE_TEACHER')")
-    public Mono<ResponseEntity<TeacherClass>> acceptTeacherClass(
+    public Mono<ResponseEntity<TeacherClassResponseDTO>> acceptTeacherClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;
@@ -74,7 +96,7 @@ public class TeacherClassController {
      */
     @PatchMapping("/classes/{teacherClassId}/reject")
     @PreAuthorize("hasRole('ROLE_TEACHER')")
-    public Mono<ResponseEntity<TeacherClass>> rejectTeacherClass(
+    public Mono<ResponseEntity<TeacherClassResponseDTO>> rejectTeacherClass(
             @PathVariable Long teacherClassId,
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;
