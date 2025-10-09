@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -42,8 +43,9 @@ public class CourseController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public List<CourseResponseDTO> findAllCourses() {
-        return courseService.findAllCourses();
+    public Flux<CourseResponseDTO> findAllCourses() {
+        return Flux.defer(() -> Flux.fromIterable(courseService.findAllCourses()))
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
     }
 
     /**
