@@ -44,12 +44,11 @@ public class AcademicRequestService {
      * @return List of created academic requests
      */
     @Transactional
-    public List<AcademicRequestResponseDTO> createAcademicRequestBatch(AcademicRequestBatchRequestDTO payload) {
+    public Mono<List<AcademicRequestResponseDTO>> createAcademicRequestBatch(AcademicRequestBatchRequestDTO payload) {
         return ReactiveSecurityContextHolder.getContext()
-                .map(securityContext -> {
+                .flatMap(securityContext -> Mono.fromCallable(() -> {
                     String userEmail = securityContext.getAuthentication().getName();
                     Long userId = userService.getUserIdByEmail(userEmail);
-
                     Long currentSemesterId = semesterService.getCurrentSemesterId();
 
                     List<AcademicRequestResponseDTO> createdRequests = new ArrayList<>();
@@ -76,8 +75,7 @@ public class AcademicRequestService {
                     }
 
                     return createdRequests;
-                })
-                .block();
+                }).subscribeOn(Schedulers.boundedElastic()));
     }
 
     /**

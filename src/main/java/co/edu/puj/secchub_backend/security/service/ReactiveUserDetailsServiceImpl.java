@@ -70,11 +70,13 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .filter(user -> user.getStatusId() != null && "Active".equals(parametricService.getStatusNameById(user.getStatusId())))
-                .map(this::buildUserDetails)
-                .map(userDetails -> new UsernamePasswordAuthenticationToken(
-                        userDetails.getUsername(),
-                        userDetails.getPassword(),
-                        userDetails.getAuthorities()
-                ));
+                .map(user -> {
+                    UserDetails userDetails = buildUserDetails(user);
+                    return new UsernamePasswordAuthenticationToken(
+                            user.getEmail(),  // Use email as principal instead of username
+                            userDetails.getPassword(),
+                            userDetails.getAuthorities()
+                    );
+                });
     }
 }

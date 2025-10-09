@@ -34,7 +34,7 @@ public class AcademicRequestController {
     @PostMapping
     @PreAuthorize("hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<AcademicRequestResponseDTO>>> createAcademicRequestBatch(@RequestBody AcademicRequestBatchRequestDTO academicRequestBatchRequestDTO) {
-        return Mono.fromCallable(() -> academicRequestService.createAcademicRequestBatch(academicRequestBatchRequestDTO))
+        return academicRequestService.createAcademicRequestBatch(academicRequestBatchRequestDTO)
                 .map(createdRequests -> ResponseEntity.status(HttpStatus.CREATED).body(createdRequests));
     }
 
