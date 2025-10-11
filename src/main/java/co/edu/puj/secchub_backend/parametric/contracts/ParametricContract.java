@@ -9,12 +9,6 @@ import java.util.Map;
  * All methods are cached for optimal performance.
  */
 public interface ParametricContract {
-
-    /**
-     * Retrieves all available statuses.
-     * @return List of all status DTOs
-     */
-    List<StatusDTO> getAllStatuses();
     
     /**
      * Finds a status by its name.
@@ -38,12 +32,6 @@ public interface ParametricContract {
      * @return true if exists, false otherwise
      */
     boolean statusExists(String name);
-
-    /**
-     * Retrieves all available roles.
-     * @return List of all role DTOs
-     */
-    List<RoleDTO> getAllRoles();
     
     /**
      * Finds a role by its name.
@@ -69,14 +57,108 @@ public interface ParametricContract {
     boolean roleExists(String name);
     
     /**
-     * Gets a map of status names to IDs for bulk operations.
-     * @return Map with status name as key and ID as value
+     * Finds a document type by its name.
+     * @param name the document type name
+     * @return DocumentTypeDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
      */
-    Map<String, Long> getStatusNameToIdMap();
+    DocumentTypeDTO getDocumentTypeByName(String name);
     
     /**
-     * Gets a map of role names to IDs for bulk operations.
-     * @return Map with role name as key and ID as value
+     * Finds a document type name by its ID.
+     * @param id the document type ID
+     * @return DocumentTypeDTO name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
      */
-    Map<String, Long> getRoleNameToIdMap();
+    String getDocumentTypeNameById(Long id);
+    
+    /**
+     * Checks if a document type exists by name.
+     * @param name the document type name
+     * @return true if exists, false otherwise
+     */
+    boolean documentTypeExists(String name);
+    
+    /**
+     * Finds an employment type by its name.
+     * @param name the employment type name
+     * @return EmploymentTypeDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    EmploymentTypeDTO getEmploymentTypeByName(String name);
+    
+    /**
+     * Finds an employment type name by its ID.
+     * @param id the employment type ID
+     * @return EmploymentTypeDTO name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getEmploymentTypeNameById(Long id);
+    
+    /**
+     * Checks if an employment type exists by name.
+     * @param name the employment type name
+     * @return true if exists, false otherwise
+     */
+    boolean employmentTypeExists(String name);
+    
+    /**
+     * Finds a modality by its name.
+     * @param name the modality name
+     * @return ModalityDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    ModalityDTO getModalityByName(String name);
+    
+    /**
+     * Finds a modality name by its ID.
+     * @param id the modality ID
+     * @return Modality name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getModalityNameById(Long id);
+    
+    /**
+     * Checks if a modality exists by name.
+     * @param name the modality name
+     * @return true if exists, false otherwise
+     */
+    boolean modalityExists(String name);
+
+    // ClassroomType methods
+    
+    /**
+     * Retrieves all available classroom types.
+     * @return List of all classroom type DTOs
+     */
+    List<ClassroomTypeDTO> getAllClassroomTypes();
+    
+    /**
+     * Finds a classroom type by its name.
+     * @param name the classroom type name
+     * @return ClassroomTypeDTO if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    ClassroomTypeDTO getClassroomTypeByName(String name);
+    
+    /**
+     * Finds a classroom type name by its ID.
+     * @param id the classroom type ID
+     * @return Classroom type name if found
+     * @throws co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException if not found
+     */
+    String getClassroomTypeNameById(Long id);
+    
+    /**
+     * Checks if a classroom type exists by name.
+     * @param name the classroom type name
+     * @return true if exists, false otherwise
+     */
+    boolean classroomTypeExists(String name);
+    
+    /**
+     * Gets a map of classroom type names to IDs for bulk operations.
+     * @return Map with classroom type name as key and ID as value
+     */
+    Map<String, Long> getClassroomTypeNameToIdMap();
 }

@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class SectionRequestDTO {
+public class SectionCreateRequestDTO {
+    private Long userId;
     private String name;
 }

@@ -215,6 +215,7 @@ CREATE TABLE `request_schedule` (
 
 CREATE TABLE `class` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `section` BIGINT UNSIGNED NULL,
   `course_id` BIGINT UNSIGNED NULL,
   `semester_id` BIGINT UNSIGNED NULL,
   `start_date` DATE NULL,

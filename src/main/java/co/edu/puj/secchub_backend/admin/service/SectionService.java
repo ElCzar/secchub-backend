@@ -1,6 +1,6 @@
 package co.edu.puj.secchub_backend.admin.service;
 
-import co.edu.puj.secchub_backend.admin.dto.SectionRequestDTO;
+import co.edu.puj.secchub_backend.admin.dto.SectionCreateRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.model.Section;
 import co.edu.puj.secchub_backend.admin.repository.SectionRepository;
@@ -25,15 +25,13 @@ public class SectionService {
 
     /**
      * Creates a new section.
-     * @param sectionRequestDTO dto with section data
+     * @param sectionCreateRequestDTO dto with section data
      * @return Created section
      */
-    public Mono<SectionResponseDTO> createSection(SectionRequestDTO sectionRequestDTO) {
-        return Mono.fromCallable(() -> {
-            Section section = modelMapper.map(sectionRequestDTO, Section.class);
-            Section saved = sectionRepository.save(section);
-            return modelMapper.map(saved, SectionResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+    public SectionResponseDTO createSection(SectionCreateRequestDTO sectionCreateRequestDTO) {
+        Section section = modelMapper.map(sectionCreateRequestDTO, Section.class);
+        Section saved = sectionRepository.save(section);
+        return modelMapper.map(saved, SectionResponseDTO.class);
     }
 
     /**

@@ -73,6 +73,17 @@ public class TeacherClassController {
     }
 
     /**
+     * Get teacherclass by the class ID
+     * @param classId Class ID
+     * @return List of teacher classes for the given class ID
+     */
+    @GetMapping("/classes/class/{classId}")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN')")
+    public ResponseEntity<List<TeacherClassResponseDTO>> getTeacherClassByClassId(@PathVariable Long classId) {
+        return ResponseEntity.ok(service.listTeacherClassByClassId(classId));
+    }
+
+    /**
      * Accept a class assignment for a teacher with an optional observation.
      * @param teacherClassId Class ID
      * @param body Request body containing the observation
