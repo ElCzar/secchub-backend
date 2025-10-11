@@ -33,9 +33,9 @@ FROM eclipse-temurin:21.0.8_9-jre-noble AS runtime
 
 # Install curl for health checks and other utilities
 # Create a non-root user for security
-RUN apk add --no-cache curl && \
-    addgroup -g 1001 -S secchub && \
-    adduser -S secchub -u 1001 -G secchub
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 1001 secchub && \
+    useradd -m -u 1001 -g secchub secchub
 
 # Set working directory
 WORKDIR /app
@@ -69,7 +69,7 @@ ENTRYPOINT ["sh", "-c", "java -jar app.jar"]
 # To run the container:
 #   docker run -p 8080:8080 --name secchub-backend secchub-backend:latest
 #
-# To run with custom environment variables (recommmended for deployment):
+# To run with custom environment variables (recommended for deployment):
 #   docker run -p 8080:8080 \
 #     -e DB_URL=jdbc:mysql://mysql:3306/secchub \
 #     -e DB_USERNAME=user \

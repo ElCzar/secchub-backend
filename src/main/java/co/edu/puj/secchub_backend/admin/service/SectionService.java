@@ -25,7 +25,7 @@ public class SectionService {
 
     /**
      * Creates a new section.
-     * @param SectionCreateRequestDTO dto with section data
+     * @param sectionCreateRequestDTO dto with section data
      * @return Created section
      */
     public SectionResponseDTO createSection(SectionCreateRequestDTO sectionCreateRequestDTO) {

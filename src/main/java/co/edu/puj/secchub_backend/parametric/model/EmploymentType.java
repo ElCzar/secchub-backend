@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Entity representing an employment type in the system.
- * Employment types define the nature of employment for teachers (e.g., full-time, part-time
+ * Employment types define the nature of employment for teachers (e.g., full-time, part-time, etc.)
  */
 @Entity
 @Table(name = "employment_type")

@@ -15,8 +15,7 @@ public interface SecurityModuleUserContract {
 
     /**
      * Creates a new user with the given information.
-     * @param email user's email
-     * @param password user's password
+     * @param userCreationRequestDTO DTO containing the user's creation information (e.g., email and password)
      * @return created user's id
      */
     Long createUser(UserCreationRequestDTO userCreationRequestDTO);

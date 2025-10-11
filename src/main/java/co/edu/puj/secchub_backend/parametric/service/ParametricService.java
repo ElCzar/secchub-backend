@@ -39,6 +39,7 @@ public class ParametricService implements ParametricContract {
     private final ModalityRepository modalityRepository;
     private final ClassroomTypeRepository classroomTypeRepository;
 
+    @Override
     @Cacheable(value = "all-statuses")
     public List<StatusDTO> getAllStatuses() {
         log.debug("Loading all statuses from database");
@@ -72,6 +73,7 @@ public class ParametricService implements ParametricContract {
         return statusRepository.existsByName(name);
     }
 
+    @Override
     @Cacheable(value = "all-roles")
     public List<RoleDTO> getAllRoles() {
         log.debug("Loading all roles from database");
