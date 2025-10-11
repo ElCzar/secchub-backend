@@ -1,6 +1,18 @@
+# ==============================================================================
+# SECCHUB BACKEND - DOCKER COMPOSE CONFIGURATION
+# ==============================================================================
+# This docker-compose file sets up the complete SecHub Backend environment
+# including the application and MySQL database with proper networking.
+# ==============================================================================
+
 services:
+  # ==============================================================================
+  # MYSQL DATABASE SERVICE
+  # ==============================================================================
   db:
     image: mysql:8.4.6
+    container_name: secchub-mysql
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: secchub
@@ -12,7 +24,24 @@ services:
       - mysql_data:/var/lib/mysql
       - ./docker/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./docker/init.sql:/docker-entrypoint-initdb.d/02-init.sql
+    networks:
+      - secchub-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 5s
+      retries: 10
 
+# ==============================================================================
+# NETWORKS
+# ==============================================================================
+networks:
+  secchub-network:
+    driver: bridge
+    name: secchub-network
+
+# ==============================================================================
+# VOLUMES
+# ==============================================================================
 volumes:
   mysql_data:
     driver: local

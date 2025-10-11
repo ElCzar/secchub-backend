@@ -72,28 +72,28 @@ server:
 # Consider using INFO or WARN levels in production
 # ==============================================================================
 logging:
-  level:
-    # Application-specific logging
-    "[co.edu.puj.secchub_backend]": INFO
-    
-    # Spring Security logging - useful for debugging authentication issues
-    "[org.springframework.security]": INFO
+    level:
+        # Application-specific logging
+        "[co.edu.puj.secchub_backend]": INFO
+        
+        # Spring Security logging - useful for debugging authentication issues
+        "[org.springframework.security]": INFO
 
-    # Web request logging
-    "[org.springframework.web]": INFO
+        # Web request logging
+        "[org.springframework.web]": INFO
 
-    # Database logging
-    "[org.hibernate]": INFO                                   # INFO: Shows Hibernate logs
-    "[org.hibernate.SQL]": DEBUG                              # INFO: Shows SQL queries executed
-    "[org.hibernate.type.descriptor.sql.BasicBinder]": TRACE  # WARNING: Shows SQL parameters
+        # Database logging
+        "[org.hibernate]": INFO                                   # INFO: Shows Hibernate logs
+        "[org.hibernate.SQL]": DEBUG                              # INFO: Shows SQL queries executed
+        "[org.hibernate.type.descriptor.sql.BasicBinder]": TRACE  # WARNING: Shows SQL parameters
 
-  # Console output pattern with colors
-  pattern:
-    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
-    
-    # File output pattern
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-  
-  # Log file configuration
-  file:
-    name: logs/secchub-backend.log  # INFO: Logs will be written to this file
+    # Console output pattern with colors
+    pattern:
+        console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+        
+        # File output pattern
+        file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+    # Log file configuration
+    file:
+        name: logs/secchub-backend.log  # INFO: Logs will be written to this file

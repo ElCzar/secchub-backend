@@ -1,0 +1,75 @@
+# ==============================================================================
+# SECCHUB BACKEND - DOCKER IGNORE FILE
+# ==============================================================================
+# This file specifies which files and directories should be excluded from
+# the Docker build context to reduce build time and image size.
+# ==============================================================================
+
+# Build outputs
+target/
+*.jar
+*.war
+*.ear
+*.class
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+README.md
+*.md
+docs/
+
+# Docker files
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Test files
+src/test/
+
+# Maven wrapper
+.mvn/wrapper/maven-wrapper.jar
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Coverage reports
+coverage/
+*.lcov
+
+# Backup files
+*.bak
+*.backup
+*~
