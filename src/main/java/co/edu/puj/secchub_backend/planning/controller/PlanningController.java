@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.Map;
@@ -44,8 +45,9 @@ public class PlanningController {
      */
     @GetMapping("/classes/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassResponseDTO> getCurrentSemesterClasses() {
-        return planningService.findCurrentSemesterClasses();
+    public Mono<List<ClassResponseDTO>> getCurrentSemesterClasses() {
+        return Mono.fromCallable(() -> planningService.findCurrentSemesterClasses())
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -54,8 +56,9 @@ public class PlanningController {
      */
     @GetMapping("/classes")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassResponseDTO> getAllClasses() {
-        return planningService.findAllClasses();
+    public Mono<List<ClassResponseDTO>> getAllClasses() {
+        return Mono.fromCallable(() -> planningService.findAllClasses())
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -104,8 +107,9 @@ public class PlanningController {
      */
     @GetMapping("/classes/course/{courseId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassResponseDTO> getClassesByCourse(@PathVariable Long courseId) {
-        return planningService.findClassesByCourse(courseId);
+    public Mono<List<ClassResponseDTO>> getClassesByCourse(@PathVariable Long courseId) {
+        return Mono.fromCallable(() -> planningService.findClassesByCourse(courseId))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -115,8 +119,9 @@ public class PlanningController {
      */
     @GetMapping("/classes/section/{section}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassResponseDTO> getClassesBySection(@PathVariable Long section) {
-        return planningService.findClassesBySection(section);
+    public Mono<List<ClassResponseDTO>> getClassesBySection(@PathVariable Long section) {
+        return Mono.fromCallable(() -> planningService.findClassesBySection(section))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -126,8 +131,9 @@ public class PlanningController {
      */
     @GetMapping("/classes/current-semester/course/{courseId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassResponseDTO> getCurrentSemesterClassesByCourse(@PathVariable Long courseId) {
-        return planningService.findCurrentSemesterClassesByCourse(courseId);
+    public Mono<List<ClassResponseDTO>> getCurrentSemesterClassesByCourse(@PathVariable Long courseId) {
+        return Mono.fromCallable(() -> planningService.findCurrentSemesterClassesByCourse(courseId))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -152,8 +158,9 @@ public class PlanningController {
      */
     @GetMapping("/classes/{classId}/schedules")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassScheduleResponseDTO> getClassSchedules(@PathVariable Long classId) {
-        return planningService.findClassSchedulesByClassId(classId);
+    public Mono<List<ClassScheduleResponseDTO>> getClassSchedules(@PathVariable Long classId) {
+        return Mono.fromCallable(() -> planningService.findClassSchedulesByClassId(classId))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -217,8 +224,9 @@ public class PlanningController {
      */
     @GetMapping("/schedules/classroom/{classroomId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassScheduleResponseDTO> getSchedulesByClassroom(@PathVariable Long classroomId) {
-        return planningService.findClassSchedulesByClassroom(classroomId);
+    public Mono<List<ClassScheduleResponseDTO>> getSchedulesByClassroom(@PathVariable Long classroomId) {
+        return Mono.fromCallable(() -> planningService.findClassSchedulesByClassroom(classroomId))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -228,8 +236,9 @@ public class PlanningController {
      */
     @GetMapping("/schedules/day/{day}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassScheduleResponseDTO> getSchedulesByDay(@PathVariable String day) {
-        return planningService.findClassSchedulesByDay(day);
+    public Mono<List<ClassScheduleResponseDTO>> getSchedulesByDay(@PathVariable String day) {
+        return Mono.fromCallable(() -> planningService.findClassSchedulesByDay(day))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -239,7 +248,122 @@ public class PlanningController {
      */
     @GetMapping("/schedules/disability/{disability}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<ClassScheduleResponseDTO> getSchedulesByDisability(@PathVariable Boolean disability) {
-        return planningService.findClassSchedulesByDisability(disability);
+    public Mono<List<ClassScheduleResponseDTO>> getSchedulesByDisability(@PathVariable Boolean disability) {
+        return Mono.fromCallable(() -> planningService.findClassSchedulesByDisability(disability))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Get classes by semester id.
+     */
+    @GetMapping("/classes/semester/{semesterId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public List<ClassResponseDTO> getClassesBySemester(@PathVariable Long semesterId) {
+        return planningService.findClassesBySemester(semesterId);
+    }
+
+    /**
+     * Validate a class payload before creating/updating. Returns conflicts if any.
+     */
+    @PostMapping("/classes/validate")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    public Mono<ResponseEntity<Map<String, Object>>> validateClass(@RequestBody ClassCreateRequestDTO classCreateRequestDTO) {
+        return planningService.validateClass(classCreateRequestDTO)
+                .map(result -> ResponseEntity.ok(result));
+    }
+
+    /**
+     * Find potential schedule conflicts for a given classroom and day.
+     * Example: /api/planning/schedules/conflicts?classroomId=1&day=Monday
+     */
+    @GetMapping("/schedules/conflicts")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public List<ClassScheduleResponseDTO> getScheduleConflicts(@RequestParam Long classroomId, @RequestParam String day) {
+        return planningService.findConflictingSchedulesByClassroomAndDay(classroomId, day);
+    }
+
+    /**
+     * Duplicate planning from one semester to another.
+     * Query params: sourceSemesterId, targetSemesterId
+     */
+    @PostMapping("/duplicate")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    public List<ClassResponseDTO> duplicateSemesterPlanning(@RequestParam Long sourceSemesterId, @RequestParam Long targetSemesterId) {
+        return planningService.duplicateSemesterPlanning(sourceSemesterId, targetSemesterId);
+    }
+
+    /**
+     * Basic utilization statistics per semester (simple aggregation).
+     */
+    @GetMapping("/statistics/utilization/{semesterId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Map<String, Object> getUtilizationStatistics(@PathVariable Long semesterId) {
+        return planningService.getUtilizationStatistics(semesterId);
+    }
+
+    /**
+     * Stub endpoint to expose available teachers. Frontend expects this under planning.
+     */
+    @GetMapping("/teachers/available")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<List<Map<String, Object>>> getAvailableTeachers(@RequestParam(required = false, defaultValue = "0") Integer requiredHours) {
+        return Mono.fromCallable(() -> planningService.getAvailableTeachers(requiredHours))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    // --------------------------
+    // Teacher-assignment shim (for frontend dev compatibility)
+    // These endpoints mirror the shapes the frontend expects under /api/teacher-assignments
+    // and delegate to the PlanningService stub data.
+    // --------------------------
+
+    @GetMapping("/teacher-assignments/class/{classId}/teachers")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<List<Map<String, Object>>> getAssignedTeachersForClass(@PathVariable Long classId) {
+        return Mono.fromCallable(() -> planningService.getAvailableTeachers(0))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @PostMapping("/teacher-assignments/assign")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    public Mono<ResponseEntity<Map<String, Object>>> assignTeacherToClass(
+            @RequestParam Long teacherId,
+            @RequestParam Long classId,
+            @RequestParam Integer workHours,
+            @RequestParam(required = false) String observation
+    ) {
+        return Mono.fromCallable(() -> {
+            var available = planningService.getAvailableTeachers(0);
+            var found = available.stream()
+                    .filter(m -> Long.valueOf(String.valueOf(m.get("id"))).equals(teacherId))
+                    .findFirst()
+                    .orElse(Map.of("id", teacherId, "name", "Docente", "lastName", "Sín nombre", "availableHours", 0));
+            return ResponseEntity.ok(found);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @PutMapping("/teacher-assignments/class/{classId}/teacher")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    public Mono<ResponseEntity<Map<String, Object>>> changeTeacherForClassViaPlanning(
+            @PathVariable Long classId,
+            @RequestParam Long newTeacherId,
+            @RequestParam Integer workHours,
+            @RequestParam(required = false) String observation
+    ) {
+        return Mono.fromCallable(() -> {
+            var available = planningService.getAvailableTeachers(0);
+            var found = available.stream()
+                    .filter(m -> Long.valueOf(String.valueOf(m.get("id"))).equals(newTeacherId))
+                    .findFirst()
+                    .orElse(Map.of("id", newTeacherId, "name", "Docente", "lastName", "Sín nombre", "availableHours", 0));
+            return ResponseEntity.ok(found);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @GetMapping("/teacher-assignments/class/{classId}/available-teachers")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<List<Map<String, Object>>> getAvailableTeachersForClassShim(@PathVariable Long classId, @RequestParam(required = false, defaultValue = "0") Integer requiredHours) {
+        return Mono.fromCallable(() -> planningService.getAvailableTeachers(requiredHours))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 }

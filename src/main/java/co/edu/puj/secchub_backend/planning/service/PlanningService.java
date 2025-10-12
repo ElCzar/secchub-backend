@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -35,6 +36,7 @@ public class PlanningService {
     private final ClassRepository classRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final AdminModuleSemesterContract semesterService;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Creates a new class.
@@ -314,16 +316,143 @@ public class PlanningService {
                 .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
                 .toList();
     }
+
+    /**
+     * Find classes by semester id (explicit endpoint used by frontend)
+     */
+    public List<ClassResponseDTO> findClassesBySemester(Long semesterId) {
+        return classRepository.findBySemesterId(semesterId).stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
+    /**
+     * Basic validation of a class before creation/update. Returns map with conflicts and message.
+     */
+    public Mono<Map<String, Object>> validateClass(ClassCreateRequestDTO classCreateRequestDTO) {
+        return Mono.fromCallable(() -> {
+            // Simple validation: check schedule conflicts for each provided schedule
+            var conflicts = new java.util.ArrayList<Map<String, Object>>();
+
+            if (classCreateRequestDTO.getSchedules() != null) {
+                for (var sched : classCreateRequestDTO.getSchedules()) {
+                    var overlapping = classScheduleRepository.findConflictingSchedules(
+                            sched.getClassroomId(), sched.getDay(), sched.getStartTime(), sched.getEndTime());
+                    if (!overlapping.isEmpty()) {
+                        overlapping.forEach(o -> conflicts.add(Map.of(
+                                "existingScheduleId", o.getId(),
+                                "day", o.getDay(),
+                                "startTime", o.getStartTime(),
+                                "endTime", o.getEndTime(),
+                                "classroomId", o.getClassroomId()
+                        )));
+                    }
+                }
+            }
+
+            return Map.<String, Object>of(
+                    "valid", conflicts.isEmpty(),
+                    "message", conflicts.isEmpty() ? "No conflicts" : "Found conflicts",
+                    "conflicts", conflicts
+            );
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Find conflicting schedules for a classroom and day
+     */
+    public List<ClassScheduleResponseDTO> findConflictingSchedulesByClassroomAndDay(Long classroomId, String day) {
+        // Return schedules for that classroom and day as potential conflicts
+        List<ClassSchedule> schedules = classScheduleRepository.findByClassroomId(classroomId).stream()
+                .filter(s -> day.equalsIgnoreCase(s.getDay()))
+                .toList();
+        return schedules.stream()
+                .map(s -> modelMapper.map(s, ClassScheduleResponseDTO.class))
+                .toList();
+    }
+
+    /**
+     * Duplicate planning from source semester to target semester
+     */
+    @Transactional
+    public List<ClassResponseDTO> duplicateSemesterPlanning(Long sourceSemesterId, Long targetSemesterId) {
+        List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
+        var created = new java.util.ArrayList<ClassResponseDTO>();
+
+        for (Class src : sourceClasses) {
+            Class copy = new Class();
+            modelMapper.map(src, copy);
+            copy.setId(null); // new entity
+            copy.setSemesterId(targetSemesterId);
+            Class saved = classRepository.save(copy);
+
+            // duplicate schedules
+            List<ClassSchedule> schedules = classScheduleRepository.findByClassId(src.getId());
+            for (ClassSchedule s : schedules) {
+                ClassSchedule sCopy = new ClassSchedule();
+                modelMapper.map(s, sCopy);
+                sCopy.setId(null);
+                sCopy.setClassId(saved.getId());
+                classScheduleRepository.save(sCopy);
+            }
+
+            created.add(mapToResponseDTO(saved));
+        }
+
+        return created;
+    }
+
+    /**
+     * Basic utilization statistics for semester
+     */
+    public Map<String, Object> getUtilizationStatistics(Long semesterId) {
+        List<Class> classes = classRepository.findBySemesterId(semesterId);
+        int totalClasses = classes.size();
+        int totalSeats = classes.stream().mapToInt(c -> c.getCapacity() == null ? 0 : c.getCapacity()).sum();
+
+        return Map.of(
+                "semesterId", semesterId,
+                "totalClasses", totalClasses,
+                "totalSeats", totalSeats
+        );
+    }
+
+    /**
+     * Simple stub for available teachers (frontend uses it). In real app, delegate to teacher service.
+     */
+    public List<Map<String, Object>> getAvailableTeachers(Integer requiredHours) {
+    // Query users table for role_id = 4 (teachers) using JdbcTemplate to avoid cross-package coupling
+    String sql = "SELECT id, name, last_name, email FROM users WHERE role_id = 4";
+    List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+    return rows.stream().map(r -> Map.<String, Object>of(
+        "id", r.get("id"),
+        "name", r.get("name"),
+        "lastName", r.get("last_name"),
+        "email", r.get("email"),
+        "availableHours", 0
+    )).toList();
+    }
     
     private ClassResponseDTO mapToResponseDTO(Class classEntity) {
-        ClassResponseDTO responseDTO = modelMapper.map(classEntity, ClassResponseDTO.class);
+    // Manual mapping to avoid lazy initialization issues when ModelMapper tries to map collections
+    ClassResponseDTO responseDTO = new ClassResponseDTO();
+    responseDTO.setId(classEntity.getId());
+    responseDTO.setSection(classEntity.getSection());
+    responseDTO.setCourseId(classEntity.getCourseId());
+    responseDTO.setSemesterId(classEntity.getSemesterId());
+    responseDTO.setStartDate(classEntity.getStartDate());
+    responseDTO.setEndDate(classEntity.getEndDate());
+    responseDTO.setObservation(classEntity.getObservation());
+    responseDTO.setCapacity(classEntity.getCapacity());
+    responseDTO.setStatusId(classEntity.getStatusId());
 
-        List<ClassSchedule> schedules = classScheduleRepository.findByClassId(classEntity.getId());
-        List<ClassScheduleResponseDTO> scheduleDTOs = schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-                .toList();
-        
-        responseDTO.setSchedules(scheduleDTOs);
-        return responseDTO;
+    // Load schedules explicitly from repository (avoids LazyInitializationException)
+    List<ClassSchedule> schedules = classScheduleRepository.findByClassId(classEntity.getId());
+    List<ClassScheduleResponseDTO> scheduleDTOs = schedules.stream()
+        .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
+        .toList();
+
+    responseDTO.setSchedules(scheduleDTOs);
+    return responseDTO;
     }
 }
