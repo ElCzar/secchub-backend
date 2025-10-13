@@ -26,7 +26,7 @@ import reactor.core.publisher.Mono;
  * Provides endpoints for managing email templates and sending emails following reactive patterns.
  */
 @RestController
-@RequestMapping("/api/emails")
+@RequestMapping("/emails")
 @RequiredArgsConstructor
 public class EmailController {
     private final EmailService emailService;
