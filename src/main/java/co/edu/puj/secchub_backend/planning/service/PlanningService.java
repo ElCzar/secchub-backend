@@ -46,12 +46,36 @@ public class PlanningService {
     @Transactional
     public Mono<ClassResponseDTO> createClass(ClassCreateRequestDTO classCreateRequestDTO) {
         return Mono.fromCallable(() -> {
+            System.out.println("=== CREANDO CLASE CON HORARIOS ===");
+            System.out.println("Request DTO: " + classCreateRequestDTO);
+            System.out.println("Horarios en request: " + classCreateRequestDTO.getSchedules());
+            
             Long currentSemesterId = semesterService.getCurrentSemesterId();
             
+            // Mapear la clase base
             Class classEntity = modelMapper.map(classCreateRequestDTO, Class.class);
             classEntity.setSemesterId(currentSemesterId);
             
+            // Manejar horarios explícitamente
+            if (classCreateRequestDTO.getSchedules() != null && !classCreateRequestDTO.getSchedules().isEmpty()) {
+                List<ClassSchedule> schedules = classCreateRequestDTO.getSchedules().stream()
+                    .map(scheduleDTO -> {
+                        ClassSchedule schedule = modelMapper.map(scheduleDTO, ClassSchedule.class);
+                        schedule.setClazz(classEntity); // Establecer la relación
+                        System.out.println("Horario mapeado: " + schedule);
+                        return schedule;
+                    })
+                    .toList();
+                classEntity.setSchedules(schedules);
+                System.out.println("Total horarios asignados a clase: " + schedules.size());
+            } else {
+                System.out.println("⚠️ No hay horarios en el request DTO");
+            }
+            
             Class savedClass = classRepository.save(classEntity);
+            System.out.println("Clase guardada con ID: " + savedClass.getId());
+            System.out.println("Horarios guardados: " + (savedClass.getSchedules() != null ? savedClass.getSchedules().size() : 0));
+            
             return mapToResponseDTO(savedClass);
         }).subscribeOn(Schedulers.boundedElastic());
     }
