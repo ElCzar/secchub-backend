@@ -109,13 +109,14 @@ public class EmailService {
         EmailTemplate template = emailTemplateRepository.findById(templateId)
                 .orElseThrow(() -> new EmailTemplateNotFoundException("Email template for update not found for ID: " + templateId));
 
-        modelMapper.getConfiguration().setPropertyCondition(context -> 
+        ModelMapper notNullMapper = new ModelMapper();
+        notNullMapper.getConfiguration().setPropertyCondition(context ->
             context.getSource() != null);
-        modelMapper.map(emailTemplateRequestDTO, template);
-        
+        notNullMapper.map(emailTemplateRequestDTO, template);
+
         EmailTemplate savedTemplate = emailTemplateRepository.save(template);
         log.info("Email template updated with ID: {}", savedTemplate.getId());
-        return modelMapper.map(savedTemplate, EmailTemplateResponseDTO.class);
+        return notNullMapper.map(savedTemplate, EmailTemplateResponseDTO.class);
     }
 
     /**
