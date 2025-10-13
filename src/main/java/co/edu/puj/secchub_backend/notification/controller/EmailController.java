@@ -67,6 +67,18 @@ public class EmailController {
     }
 
     /**
+     * Gets a specific email template by name.
+     * @param templateName Template name
+     * @return Email template found
+     */
+    @GetMapping("/templates/name/{templateName}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<EmailTemplateResponseDTO>> getEmailTemplateByName(@PathVariable String templateName) {
+        return Mono.fromCallable(() -> emailService.getEmailTemplateByName(templateName))
+                .map(ResponseEntity::ok);
+    }
+
+    /**
      * Updates an existing email template.
      * @param templateId Template ID
      * @param emailTemplateRequestDTO DTO with updated template data
@@ -92,10 +104,6 @@ public class EmailController {
         return Mono.fromRunnable(() -> emailService.deleteEmailTemplate(templateId))
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
     }
-
-    // ======================
-    // Email Sending Endpoint
-    // ======================
 
     /**
      * Sends an email using the provided details.
