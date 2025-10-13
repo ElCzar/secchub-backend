@@ -266,6 +266,10 @@ public class AcademicRequestService {
                 .capacity(academicRequest.getCapacity())
                 .requestDate(academicRequest.getRequestDate())
                 .observation(academicRequest.getObservation())
+                // Agregar campos enriquecidos
+                .userName(getUserName(academicRequest.getUserId()))
+                .courseName(getCourseName(academicRequest.getCourseId()))
+                .programName(getProgramName(academicRequest.getUserId()))
                 .build();
         
         // Load schedules separately to avoid lazy loading issues
@@ -486,5 +490,42 @@ public class AcademicRequestService {
             System.err.println("Error creating test data: " + e.getMessage());
             return "Error creating test data: " + e.getMessage();
         }
+    }
+
+    /**
+     * Método helper para obtener el nombre del usuario
+     */
+    private String getUserName(Long userId) {
+        // Por ahora, usamos un mapeo básico basado en los IDs conocidos
+        // En el futuro se puede mejorar con consultas reales a la BD
+        if (userId == 10) {
+            return "Programa Sistemas";
+        }
+        return "Usuario " + userId;
+    }
+
+    /**
+     * Método helper para obtener el nombre del curso
+     */
+    private String getCourseName(Long courseId) {
+        // Por ahora, usamos un mapeo básico basado en los IDs conocidos
+        // En el futuro se puede mejorar con consultas reales a la BD
+        switch (courseId.intValue()) {
+            case 1: return "Database Systems";
+            case 2: return "Software Engineering";
+            case 3: return "Data Structures";
+            default: return "Curso " + courseId;
+        }
+    }
+
+    /**
+     * Método helper para obtener el nombre del programa
+     */
+    private String getProgramName(Long userId) {
+        // Por ahora, basado en el usuario conocido
+        if (userId == 10) {
+            return "Ingeniería de Sistemas";
+        }
+        return "Programa Desconocido";
     }
 }
