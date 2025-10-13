@@ -315,7 +315,7 @@ CREATE TABLE `student_application_schedule` (
 -- =========================
 CREATE TABLE `email_template` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(150) NOT NULL,
+  `name` VARCHAR(150) NOT NULL UNIQUE,
   `subject` VARCHAR(255) NOT NULL,
   `body` TEXT NOT NULL,
   PRIMARY KEY (`id`)

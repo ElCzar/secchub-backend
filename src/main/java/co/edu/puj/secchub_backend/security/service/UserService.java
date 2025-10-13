@@ -3,7 +3,6 @@ package co.edu.puj.secchub_backend.security.service;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Service;
 
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
