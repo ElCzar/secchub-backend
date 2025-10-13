@@ -309,3 +309,14 @@ CREATE TABLE `student_application_schedule` (
     FOREIGN KEY (`student_application_id`) REFERENCES `student_application` (`id`)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =========================
+-- Other auxiliary tables
+-- =========================
+CREATE TABLE `email_template` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(150) NOT NULL,
+  `subject` VARCHAR(255) NOT NULL,
+  `body` TEXT NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

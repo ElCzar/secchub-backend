@@ -28,6 +28,29 @@ spring:
             connection-timeout: 30000  # 30 seconds timeout for database connections
             maximum-pool-size: 10      # Maximum number of connections in the pool
 
+    # ==============================================================================
+    # SPRING EMAIL CONFIGURATION
+    # ==============================================================================
+    # Use environment variables MAIL_USERNAME and MAIL_PASSWORD for security
+    # For Gmail, use App Passwords instead of regular passwords
+    # ==============================================================================
+    mail:
+        host: ${MAIL_HOST:smtp.gmail.com}
+        port: ${MAIL_PORT:587}
+        username: ${MAIL_USERNAME:username}
+        password: ${MAIL_PASSWORD:password}
+        properties:
+            mail:
+                transport:
+                    protocol: smtp
+                smtp:
+                    auth: true
+                    starttls:
+                        enable: true
+                    ssl:
+                        trust: "*"
+                debug: false
+
 # ==============================================================================
 # JWT SECURITY CONFIGURATION
 # ==============================================================================
