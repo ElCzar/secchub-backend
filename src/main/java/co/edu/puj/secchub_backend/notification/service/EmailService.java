@@ -94,7 +94,7 @@ public class EmailService {
      */
     public EmailTemplateResponseDTO getEmailTemplateByName(String templateName) {
         EmailTemplate template = emailTemplateRepository.findByName(templateName)
-                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template for consult not found for name: " + templateName));
+                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template not found for name: " + templateName));
         return modelMapper.map(template, EmailTemplateResponseDTO.class);
     }
 
