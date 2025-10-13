@@ -421,16 +421,21 @@ public class PlanningService {
      * Simple stub for available teachers (frontend uses it). In real app, delegate to teacher service.
      */
     public List<Map<String, Object>> getAvailableTeachers(Integer requiredHours) {
-    // Query users table for role_id = 4 (teachers) using JdbcTemplate to avoid cross-package coupling
-    String sql = "SELECT id, name, last_name, email FROM users WHERE role_id = 4";
-    List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-    return rows.stream().map(r -> Map.<String, Object>of(
-        "id", r.get("id"),
-        "name", r.get("name"),
-        "lastName", r.get("last_name"),
-        "email", r.get("email"),
-        "availableHours", 0
-    )).toList();
+        // Query both users and teacher tables to get only valid teachers
+        String sql = """
+            SELECT t.id as teacher_id, u.name, u.last_name, u.email, t.max_hours
+            FROM teacher t 
+            JOIN users u ON t.user_id = u.id 
+            WHERE u.role_id = 4
+            """;
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+        return rows.stream().map(r -> Map.<String, Object>of(
+            "id", r.get("teacher_id"),  // Use teacher_id instead of user_id
+            "name", r.get("name"),
+            "lastName", r.get("last_name"),
+            "email", r.get("email"),
+            "availableHours", r.get("max_hours") != null ? r.get("max_hours") : 0
+        )).toList();
     }
     
     private ClassResponseDTO mapToResponseDTO(Class classEntity) {

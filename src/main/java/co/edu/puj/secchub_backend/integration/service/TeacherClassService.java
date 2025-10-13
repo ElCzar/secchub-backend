@@ -7,6 +7,7 @@ import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.repository.TeacherClassRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
@@ -26,6 +27,7 @@ public class TeacherClassService {
     private final TeacherClassRepository repository;
     private final ModelMapper modelMapper;
     private final AdminModuleSemesterContract semesterService;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final Long STATUS_PENDING_ID = 4L;
     private static final Long STATUS_IN_PROGRESS_ID = 6L;
@@ -83,14 +85,42 @@ public class TeacherClassService {
     }
 
     /**
-     * Lists all classes for a given class ID.
+     * Lists all classes for a given class ID with enriched teacher information.
      * @param classId
-     * @return List of TeacherClassResponseDTO for the given class ID
+     * @return List of TeacherClassResponseDTO for the given class ID with teacher details
      */
     public List<TeacherClassResponseDTO> listTeacherClassByClassId(Long classId) {
-        return repository.findByClassId(classId).stream()
-                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
-                .toList();
+        String sql = """
+            SELECT tc.id, tc.semester_id, tc.teacher_id, tc.class_id, tc.work_hours,
+                   tc.full_time_extra_hours, tc.adjunct_extra_hours, tc.decision, 
+                   tc.observation, tc.status_id,
+                   u.name as teacher_name, u.last_name as teacher_last_name, 
+                   u.email as teacher_email, t.max_hours as teacher_max_hours
+            FROM teacher_class tc
+            JOIN teacher t ON tc.teacher_id = t.id
+            JOIN users u ON t.user_id = u.id
+            WHERE tc.class_id = ?
+            """;
+        
+        return jdbcTemplate.query(sql, (rs, rowNum) -> 
+            TeacherClassResponseDTO.builder()
+                .id(rs.getLong("id"))
+                .semesterId(rs.getLong("semester_id"))
+                .teacherId(rs.getLong("teacher_id"))
+                .classId(rs.getLong("class_id"))
+                .workHours(rs.getInt("work_hours"))
+                .fullTimeExtraHours((Integer) rs.getObject("full_time_extra_hours"))
+                .adjunctExtraHours((Integer) rs.getObject("adjunct_extra_hours"))
+                .decision((Boolean) rs.getObject("decision"))
+                .observation(rs.getString("observation"))
+                .statusId(rs.getLong("status_id"))
+                .teacherName(rs.getString("teacher_name"))
+                .teacherLastName(rs.getString("teacher_last_name"))
+                .teacherEmail(rs.getString("teacher_email"))
+                .teacherMaxHours((Integer) rs.getObject("teacher_max_hours"))
+                .teacherContractType("N/A") // Por ahora hardcodeado, se puede mejorar después
+                .build(), classId
+        );
     }
 
     /**
