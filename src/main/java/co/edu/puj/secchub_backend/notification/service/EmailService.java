@@ -83,7 +83,7 @@ public class EmailService {
      */
     public EmailTemplateResponseDTO getEmailTemplateById(Long templateId) {
         EmailTemplate template = emailTemplateRepository.findById(templateId)
-                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template for consult not found for ID: " + templateId));
+                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template not found for ID: " + templateId));
         return modelMapper.map(template, EmailTemplateResponseDTO.class);
     }
 
