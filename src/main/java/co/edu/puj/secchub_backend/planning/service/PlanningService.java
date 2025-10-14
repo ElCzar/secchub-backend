@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.planning.service;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
@@ -36,6 +37,7 @@ public class PlanningService {
     private final ClassRepository classRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final AdminModuleSemesterContract semesterService;
+    private final AdminModuleCourseContract courseService;
     private final JdbcTemplate jdbcTemplate;
 
     /**
@@ -472,6 +474,11 @@ public class PlanningService {
     responseDTO.setId(classEntity.getId());
     responseDTO.setSection(classEntity.getSection());
     responseDTO.setCourseId(classEntity.getCourseId());
+    
+    // Get course name using the admin module contract
+    String courseName = courseService.getCourseName(classEntity.getCourseId());
+    responseDTO.setCourseName(courseName);
+    
     responseDTO.setSemesterId(classEntity.getSemesterId());
     responseDTO.setStartDate(classEntity.getStartDate());
     responseDTO.setEndDate(classEntity.getEndDate());
@@ -487,5 +494,90 @@ public class PlanningService {
 
     responseDTO.setSchedules(scheduleDTOs);
     return responseDTO;
+    }
+
+    /**
+     * Find classes by semester ID
+     */
+    public List<ClassResponseDTO> findClassesBySemesterId(Long semesterId) {
+        List<Class> classes = classRepository.findBySemesterId(semesterId);
+        return classes.stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
+    /**
+     * Get past semesters available for planning duplication
+     */
+    public List<Map<String, Object>> getPastSemesters() {
+        return semesterService.getPastSemesters();
+    }
+
+    /**
+     * Apply planning from source semester to current semester
+     */
+    @Transactional
+    public Map<String, Object> applySemesterPlanningToCurrent(Long sourceSemesterId) {
+        try {
+            Long currentSemesterId = semesterService.getCurrentSemesterId();
+            
+            // Get classes from source semester
+            List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
+            
+            int copiedClasses = 0;
+            int copiedSchedules = 0;
+            
+            for (Class sourceClass : sourceClasses) {
+                // Create new class for current semester
+                Class newClass = Class.builder()
+                        .section(sourceClass.getSection())
+                        .courseId(sourceClass.getCourseId())
+                        .semesterId(currentSemesterId)
+                        .startDate(sourceClass.getStartDate())
+                        .endDate(sourceClass.getEndDate())
+                        .observation(sourceClass.getObservation() + " (Copiado del semestre " + sourceSemesterId + ")")
+                        .capacity(sourceClass.getCapacity())
+                        .statusId(sourceClass.getStatusId())
+                        .build();
+                
+                // Save the class first
+                Class savedClass = classRepository.save(newClass);
+                copiedClasses++;
+                
+                // Copy schedules
+                List<ClassSchedule> sourceSchedules = classScheduleRepository.findByClassId(sourceClass.getId());
+                for (ClassSchedule sourceSchedule : sourceSchedules) {
+                    ClassSchedule newSchedule = ClassSchedule.builder()
+                            .classId(savedClass.getId())
+                            .classroomId(sourceSchedule.getClassroomId())
+                            .day(sourceSchedule.getDay())
+                            .startTime(sourceSchedule.getStartTime())
+                            .endTime(sourceSchedule.getEndTime())
+                            .modalityId(sourceSchedule.getModalityId())
+                            .disability(sourceSchedule.getDisability())
+                            .build();
+                    
+                    classScheduleRepository.save(newSchedule);
+                    copiedSchedules++;
+                }
+            }
+            
+            return Map.of(
+                "success", true,
+                "message", "Planificación aplicada exitosamente",
+                "sourceSemesterId", sourceSemesterId,
+                "targetSemesterId", currentSemesterId,
+                "copiedClasses", copiedClasses,
+                "copiedSchedules", copiedSchedules
+            );
+            
+        } catch (Exception e) {
+            System.err.println("Error applying semester planning: " + e.getMessage());
+            return Map.of(
+                "success", false,
+                "message", "Error aplicando planificación: " + e.getMessage(),
+                "error", e.getMessage()
+            );
+        }
     }
 }

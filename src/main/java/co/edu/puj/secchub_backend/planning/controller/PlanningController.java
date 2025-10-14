@@ -366,4 +366,49 @@ public class PlanningController {
         return Mono.fromCallable(() -> planningService.getAvailableTeachers(requiredHours))
                 .subscribeOn(Schedulers.boundedElastic());
     }
+
+    /**
+     * Get semester planning preview - shows what classes would be copied from a previous semester
+     * TEMPORAL: Sin autenticación para pruebas
+     */
+    @GetMapping("/semesters/{semesterId}/preview")
+    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")  // Comentado temporalmente
+    public Mono<ResponseEntity<Map<String, Object>>> getSemesterPlanningPreview(@PathVariable Long semesterId) {
+        return Mono.fromCallable(() -> {
+            List<ClassResponseDTO> classes = planningService.findClassesBySemesterId(semesterId);
+            Map<String, Object> preview = Map.of(
+                "semesterId", semesterId,
+                "totalClasses", classes.size(),
+                "classes", classes
+            );
+            return ResponseEntity.ok(preview);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Apply planning from a previous semester to the current semester
+     * TEMPORAL: Sin autenticación para pruebas
+     */
+    @PostMapping("/semesters/{sourceSemesterId}/apply-to-current")
+    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")  // Comentado temporalmente
+    public Mono<ResponseEntity<Map<String, Object>>> applySemesterPlanningToCurrent(@PathVariable Long sourceSemesterId) {
+        return Mono.fromCallable(() -> {
+            Map<String, Object> result = planningService.applySemesterPlanningToCurrent(sourceSemesterId);
+            return ResponseEntity.ok(result);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Get past semesters that are available for planning duplication.
+     * Returns only semesters that have already ended (excluding current semester).
+     * TEMPORAL: Sin autenticación para pruebas
+     */
+    @GetMapping("/semesters/past")
+    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")  // Comentado temporalmente
+    public Mono<ResponseEntity<List<Map<String, Object>>>> getPastSemesters() {
+        return Mono.fromCallable(() -> {
+            List<Map<String, Object>> pastSemesters = planningService.getPastSemesters();
+            return ResponseEntity.ok(pastSemesters);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
 }
