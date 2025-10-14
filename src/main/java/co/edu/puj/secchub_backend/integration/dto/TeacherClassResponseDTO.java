@@ -24,4 +24,11 @@ public class TeacherClassResponseDTO {
     private Boolean decision;
     private String observation;
     private Long statusId;
+    
+    // Teacher information fields
+    private String teacherName;
+    private String teacherLastName;
+    private String teacherEmail;
+    private Integer teacherMaxHours;
+    private String teacherContractType;
 }

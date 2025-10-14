@@ -27,4 +27,9 @@ public class AcademicRequestResponseDTO {
     private LocalDate requestDate;
     private String observation;
     private List<RequestScheduleResponseDTO> schedules;
+    
+    // Campos enriquecidos para el frontend
+    private String userName;        // Nombre completo del usuario que hizo la solicitud
+    private String courseName;      // Nombre del curso
+    private String programName;     // Nombre del programa (basado en faculty del usuario)
 }

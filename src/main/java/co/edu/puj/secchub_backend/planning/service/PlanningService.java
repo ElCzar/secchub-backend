@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.planning.service;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -35,6 +37,8 @@ public class PlanningService {
     private final ClassRepository classRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final AdminModuleSemesterContract semesterService;
+    private final AdminModuleCourseContract courseService;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * Creates a new class.
@@ -44,12 +48,40 @@ public class PlanningService {
     @Transactional
     public Mono<ClassResponseDTO> createClass(ClassCreateRequestDTO classCreateRequestDTO) {
         return Mono.fromCallable(() -> {
+            System.out.println("=== CREANDO CLASE CON HORARIOS ===");
+            System.out.println("Request DTO: " + classCreateRequestDTO);
+            System.out.println("Horarios en request: " + classCreateRequestDTO.getSchedules());
+            
             Long currentSemesterId = semesterService.getCurrentSemesterId();
             
+            // Mapear la clase base SIN horarios para evitar duplicación
             Class classEntity = modelMapper.map(classCreateRequestDTO, Class.class);
             classEntity.setSemesterId(currentSemesterId);
+            classEntity.setSchedules(null); // ⚠️ IMPORTANTE: No establecer horarios aún
             
+            // Guardar primero la clase para obtener el ID
             Class savedClass = classRepository.save(classEntity);
+            System.out.println("Clase guardada con ID: " + savedClass.getId());
+            
+            // Ahora manejar horarios con el ID de la clase
+            if (classCreateRequestDTO.getSchedules() != null && !classCreateRequestDTO.getSchedules().isEmpty()) {
+                List<ClassSchedule> schedules = classCreateRequestDTO.getSchedules().stream()
+                    .map(scheduleDTO -> {
+                        ClassSchedule schedule = modelMapper.map(scheduleDTO, ClassSchedule.class);
+                        schedule.setClassId(savedClass.getId()); // Usar el ID directo
+                        System.out.println("Horario mapeado con classId=" + savedClass.getId() + ": " + schedule);
+                        return schedule;
+                    })
+                    .toList();
+                
+                // Guardar los horarios por separado
+                List<ClassSchedule> savedSchedules = classScheduleRepository.saveAll(schedules);
+                savedClass.setSchedules(savedSchedules);
+                System.out.println("Total horarios guardados: " + savedSchedules.size());
+            } else {
+                System.out.println("⚠️ No hay horarios en el request DTO");
+            }
+            
             return mapToResponseDTO(savedClass);
         }).subscribeOn(Schedulers.boundedElastic());
     }
@@ -314,16 +346,238 @@ public class PlanningService {
                 .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
                 .toList();
     }
+
+    /**
+     * Find classes by semester id (explicit endpoint used by frontend)
+     */
+    public List<ClassResponseDTO> findClassesBySemester(Long semesterId) {
+        return classRepository.findBySemesterId(semesterId).stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
+    /**
+     * Basic validation of a class before creation/update. Returns map with conflicts and message.
+     */
+    public Mono<Map<String, Object>> validateClass(ClassCreateRequestDTO classCreateRequestDTO) {
+        return Mono.fromCallable(() -> {
+            // Simple validation: check schedule conflicts for each provided schedule
+            var conflicts = new java.util.ArrayList<Map<String, Object>>();
+
+            if (classCreateRequestDTO.getSchedules() != null) {
+                for (var sched : classCreateRequestDTO.getSchedules()) {
+                    var overlapping = classScheduleRepository.findConflictingSchedules(
+                            sched.getClassroomId(), sched.getDay(), sched.getStartTime(), sched.getEndTime());
+                    if (!overlapping.isEmpty()) {
+                        overlapping.forEach(o -> conflicts.add(Map.of(
+                                "existingScheduleId", o.getId(),
+                                "day", o.getDay(),
+                                "startTime", o.getStartTime(),
+                                "endTime", o.getEndTime(),
+                                "classroomId", o.getClassroomId()
+                        )));
+                    }
+                }
+            }
+
+            return Map.<String, Object>of(
+                    "valid", conflicts.isEmpty(),
+                    "message", conflicts.isEmpty() ? "No conflicts" : "Found conflicts",
+                    "conflicts", conflicts
+            );
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Find conflicting schedules for a classroom and day
+     */
+    public List<ClassScheduleResponseDTO> findConflictingSchedulesByClassroomAndDay(Long classroomId, String day) {
+        // Return schedules for that classroom and day as potential conflicts
+        List<ClassSchedule> schedules = classScheduleRepository.findByClassroomId(classroomId).stream()
+                .filter(s -> day.equalsIgnoreCase(s.getDay()))
+                .toList();
+        return schedules.stream()
+                .map(s -> modelMapper.map(s, ClassScheduleResponseDTO.class))
+                .toList();
+    }
+
+    /**
+     * Duplicate planning from source semester to target semester
+     */
+    @Transactional
+    public List<ClassResponseDTO> duplicateSemesterPlanning(Long sourceSemesterId, Long targetSemesterId) {
+        List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
+        var created = new java.util.ArrayList<ClassResponseDTO>();
+
+        for (Class src : sourceClasses) {
+            Class copy = new Class();
+            modelMapper.map(src, copy);
+            copy.setId(null); // new entity
+            copy.setSemesterId(targetSemesterId);
+            Class saved = classRepository.save(copy);
+
+            // duplicate schedules
+            List<ClassSchedule> schedules = classScheduleRepository.findByClassId(src.getId());
+            for (ClassSchedule s : schedules) {
+                ClassSchedule sCopy = new ClassSchedule();
+                modelMapper.map(s, sCopy);
+                sCopy.setId(null);
+                sCopy.setClassId(saved.getId());
+                classScheduleRepository.save(sCopy);
+            }
+
+            created.add(mapToResponseDTO(saved));
+        }
+
+        return created;
+    }
+
+    /**
+     * Basic utilization statistics for semester
+     */
+    public Map<String, Object> getUtilizationStatistics(Long semesterId) {
+        List<Class> classes = classRepository.findBySemesterId(semesterId);
+        int totalClasses = classes.size();
+        int totalSeats = classes.stream().mapToInt(c -> c.getCapacity() == null ? 0 : c.getCapacity()).sum();
+
+        return Map.of(
+                "semesterId", semesterId,
+                "totalClasses", totalClasses,
+                "totalSeats", totalSeats
+        );
+    }
+
+    /**
+     * Simple stub for available teachers (frontend uses it). In real app, delegate to teacher service.
+     */
+    public List<Map<String, Object>> getAvailableTeachers(Integer requiredHours) {
+        // Query both users and teacher tables to get only valid teachers
+        String sql = """
+            SELECT t.id as teacher_id, u.name, u.last_name, u.email, t.max_hours
+            FROM teacher t 
+            JOIN users u ON t.user_id = u.id 
+            WHERE u.role_id = 4
+            """;
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
+        return rows.stream().map(r -> Map.<String, Object>of(
+            "id", r.get("teacher_id"),  // Use teacher_id instead of user_id
+            "name", r.get("name"),
+            "lastName", r.get("last_name"),
+            "email", r.get("email"),
+            "availableHours", r.get("max_hours") != null ? r.get("max_hours") : 0
+        )).toList();
+    }
     
     private ClassResponseDTO mapToResponseDTO(Class classEntity) {
-        ClassResponseDTO responseDTO = modelMapper.map(classEntity, ClassResponseDTO.class);
+    // Manual mapping to avoid lazy initialization issues when ModelMapper tries to map collections
+    ClassResponseDTO responseDTO = new ClassResponseDTO();
+    responseDTO.setId(classEntity.getId());
+    responseDTO.setSection(classEntity.getSection());
+    responseDTO.setCourseId(classEntity.getCourseId());
+    
+    // Get course name using the admin module contract
+    String courseName = courseService.getCourseName(classEntity.getCourseId());
+    responseDTO.setCourseName(courseName);
+    
+    responseDTO.setSemesterId(classEntity.getSemesterId());
+    responseDTO.setStartDate(classEntity.getStartDate());
+    responseDTO.setEndDate(classEntity.getEndDate());
+    responseDTO.setObservation(classEntity.getObservation());
+    responseDTO.setCapacity(classEntity.getCapacity());
+    responseDTO.setStatusId(classEntity.getStatusId());
 
-        List<ClassSchedule> schedules = classScheduleRepository.findByClassId(classEntity.getId());
-        List<ClassScheduleResponseDTO> scheduleDTOs = schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
+    // Load schedules explicitly from repository (avoids LazyInitializationException)
+    List<ClassSchedule> schedules = classScheduleRepository.findByClassId(classEntity.getId());
+    List<ClassScheduleResponseDTO> scheduleDTOs = schedules.stream()
+        .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
+        .toList();
+
+    responseDTO.setSchedules(scheduleDTOs);
+    return responseDTO;
+    }
+
+    /**
+     * Find classes by semester ID
+     */
+    public List<ClassResponseDTO> findClassesBySemesterId(Long semesterId) {
+        List<Class> classes = classRepository.findBySemesterId(semesterId);
+        return classes.stream()
+                .map(this::mapToResponseDTO)
                 .toList();
-        
-        responseDTO.setSchedules(scheduleDTOs);
-        return responseDTO;
+    }
+
+    /**
+     * Get past semesters available for planning duplication
+     */
+    public List<Map<String, Object>> getPastSemesters() {
+        return semesterService.getPastSemesters();
+    }
+
+    /**
+     * Apply planning from source semester to current semester
+     */
+    @Transactional
+    public Map<String, Object> applySemesterPlanningToCurrent(Long sourceSemesterId) {
+        try {
+            Long currentSemesterId = semesterService.getCurrentSemesterId();
+            
+            // Get classes from source semester
+            List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
+            
+            int copiedClasses = 0;
+            int copiedSchedules = 0;
+            
+            for (Class sourceClass : sourceClasses) {
+                // Create new class for current semester
+                Class newClass = Class.builder()
+                        .section(sourceClass.getSection())
+                        .courseId(sourceClass.getCourseId())
+                        .semesterId(currentSemesterId)
+                        .startDate(sourceClass.getStartDate())
+                        .endDate(sourceClass.getEndDate())
+                        .observation(sourceClass.getObservation() + " (Copiado del semestre " + sourceSemesterId + ")")
+                        .capacity(sourceClass.getCapacity())
+                        .statusId(sourceClass.getStatusId())
+                        .build();
+                
+                // Save the class first
+                Class savedClass = classRepository.save(newClass);
+                copiedClasses++;
+                
+                // Copy schedules
+                List<ClassSchedule> sourceSchedules = classScheduleRepository.findByClassId(sourceClass.getId());
+                for (ClassSchedule sourceSchedule : sourceSchedules) {
+                    ClassSchedule newSchedule = ClassSchedule.builder()
+                            .classId(savedClass.getId())
+                            .classroomId(sourceSchedule.getClassroomId())
+                            .day(sourceSchedule.getDay())
+                            .startTime(sourceSchedule.getStartTime())
+                            .endTime(sourceSchedule.getEndTime())
+                            .modalityId(sourceSchedule.getModalityId())
+                            .disability(sourceSchedule.getDisability())
+                            .build();
+                    
+                    classScheduleRepository.save(newSchedule);
+                    copiedSchedules++;
+                }
+            }
+            
+            return Map.of(
+                "success", true,
+                "message", "Planificación aplicada exitosamente",
+                "sourceSemesterId", sourceSemesterId,
+                "targetSemesterId", currentSemesterId,
+                "copiedClasses", copiedClasses,
+                "copiedSchedules", copiedSchedules
+            );
+            
+        } catch (Exception e) {
+            System.err.println("Error applying semester planning: " + e.getMessage());
+            return Map.of(
+                "success", false,
+                "message", "Error aplicando planificación: " + e.getMessage(),
+                "error", e.getMessage()
+            );
+        }
     }
 }

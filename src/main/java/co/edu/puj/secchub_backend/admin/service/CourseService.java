@@ -1,5 +1,6 @@
 package co.edu.puj.secchub_backend.admin.service;
 
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
 import co.edu.puj.secchub_backend.admin.dto.CourseRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.CourseResponseDTO;
 import co.edu.puj.secchub_backend.admin.exception.CourseNotFoundException;
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-public class CourseService {
+public class CourseService implements AdminModuleCourseContract {
     private final ModelMapper modelMapper;
     private final CourseRepository courseRepository;
     private final SectionService sectionService;
@@ -98,5 +99,16 @@ public class CourseService {
 
             return modelMapper.map(courseRepository.save(course), CourseResponseDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Implementation of AdminModuleCourseContract.
+     * Gets the course name by its ID.
+     */
+    @Override
+    public String getCourseName(Long courseId) {
+        return courseRepository.findById(courseId)
+                .map(Course::getName)
+                .orElse("Curso sin nombre");
     }
 }

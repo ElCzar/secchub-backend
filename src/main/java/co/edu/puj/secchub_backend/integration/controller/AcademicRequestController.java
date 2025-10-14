@@ -3,6 +3,7 @@ package co.edu.puj.secchub_backend.integration.controller;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestResponseDTO;
+import co.edu.puj.secchub_backend.integration.dto.ProcessPlanningRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.RequestScheduleRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.RequestScheduleResponseDTO;
 import co.edu.puj.secchub_backend.integration.service.AcademicRequestService;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.Map;
@@ -56,8 +58,9 @@ public class AcademicRequestController {
      */
     @GetMapping("/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<AcademicRequestResponseDTO> getCurrentSemesterAcademicRequests() {
-        return academicRequestService.findCurrentSemesterAcademicRequests();
+    public Mono<List<AcademicRequestResponseDTO>> getCurrentSemesterAcademicRequests() {
+        return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -66,8 +69,9 @@ public class AcademicRequestController {
      */
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<AcademicRequestResponseDTO> getAllAcademicRequests() {
-        return academicRequestService.findAllAcademicRequests();
+    public Mono<List<AcademicRequestResponseDTO>> getAllAcademicRequests() {
+        return Mono.fromCallable(() -> academicRequestService.findAllAcademicRequests())
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -119,8 +123,9 @@ public class AcademicRequestController {
      */
     @GetMapping("/{requestId}/schedules")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<RequestScheduleResponseDTO> getRequestSchedules(@PathVariable Long requestId) {
-        return academicRequestService.findRequestSchedulesByAcademicRequestId(requestId);
+    public Mono<List<RequestScheduleResponseDTO>> getRequestSchedules(@PathVariable Long requestId) {
+        return Mono.fromCallable(() -> academicRequestService.findRequestSchedulesByAcademicRequestId(requestId))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
@@ -170,5 +175,51 @@ public class AcademicRequestController {
             @RequestBody Map<String, Object> updates) {
         return academicRequestService.patchRequestSchedule(scheduleId, updates)
                 .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Processes planning requests by creating classes from combined and individual academic requests.
+     * @param processPlanningRequestDTO DTO containing combined and individual requests
+     * @return Response indicating success
+     */
+    @PostMapping("/process-planning")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Map<String, Object>>> processPlanningRequests(
+            @RequestBody ProcessPlanningRequestDTO processPlanningRequestDTO) {
+        return academicRequestService.processPlanningRequests(processPlanningRequestDTO)
+                .map(result -> ResponseEntity.ok(result));
+    }
+
+    /**
+     * Temporary debugging endpoint to check schedules
+     */
+    @GetMapping("/debug-schedules")
+    public Mono<ResponseEntity<Map<String, Object>>> debugSchedules() {
+        return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
+                .map(requests -> {
+                    System.out.println("🐛 DEBUG: Total requests found: " + requests.size());
+                    requests.forEach(request -> {
+                        System.out.println("🐛 Request ID: " + request.getId() + " has " + 
+                                (request.getSchedules() != null ? request.getSchedules().size() : 0) + " schedules");
+                        if (request.getSchedules() != null) {
+                            request.getSchedules().forEach(schedule -> {
+                                System.out.println("  📅 Schedule: " + schedule.getDay() + " " + 
+                                        schedule.getStartTime() + "-" + schedule.getEndTime());
+                            });
+                        }
+                    });
+                    return ResponseEntity.ok(Map.of("message", "Check console for debug info", "requests", requests));
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Temporary endpoint to create test data with schedules
+     */
+    @PostMapping("/create-test-data")
+    public Mono<ResponseEntity<Map<String, Object>>> createTestData() {
+        return Mono.fromCallable(() -> academicRequestService.createTestDataWithSchedules())
+                .map(result -> ResponseEntity.ok(Map.<String, Object>of("message", "Test data created", "result", result)))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 }

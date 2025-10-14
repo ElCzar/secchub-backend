@@ -1,6 +1,8 @@
 package co.edu.puj.secchub_backend.admin.service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.modelmapper.ModelMapper;
@@ -89,5 +91,31 @@ public class SemesterService implements AdminModuleSemesterContract {
                     .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class))
                     .toList();
         });
+    }
+
+    /**
+     * Implementation of AdminModuleSemesterContract.
+     * Gets all past semesters (excluding current active semester).
+     */
+    @Override
+    public List<Map<String, Object>> getPastSemesters() {
+        Long currentSemesterId = getCurrentSemesterId();
+        List<Semester> allSemesters = semesterRepository.findAll();
+        
+        return allSemesters.stream()
+                .filter(semester -> !semester.getId().equals(currentSemesterId))
+                .map(semester -> {
+                    Map<String, Object> semesterInfo = new HashMap<>();
+                    semesterInfo.put("id", semester.getId());
+                    // Generar nombre descriptivo basado en año y periodo
+                    String name = String.format("%d-%d", semester.getYear(), semester.getPeriod());
+                    semesterInfo.put("name", name);
+                    semesterInfo.put("year", semester.getYear());
+                    semesterInfo.put("period", semester.getPeriod());
+                    semesterInfo.put("startDate", semester.getStartDate());
+                    semesterInfo.put("endDate", semester.getEndDate());
+                    return semesterInfo;
+                })
+                .toList();
     }
 }

@@ -16,6 +16,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUsername(String username);
     Optional<User> findByEmail(String email);
 
+    // Find users by role id (e.g., 4 = ROLE_TEACHER)
+    java.util.List<User> findByRoleId(Long roleId);
+
     @Modifying
     @Transactional
     @Query("UPDATE User u SET u.lastAccess = CURRENT_TIMESTAMP WHERE u.email = :email")
