@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.security.service;
 
+import java.util.List;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -13,6 +15,7 @@ import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -41,6 +44,18 @@ public class UserService implements SecurityModuleUserContract {
         user.setPassword(passwordEncoderService.encode(user.getPassword()));
         User savedUser = userRepository.save(user);
         return savedUser.getId();
+    }
+
+    /**
+     * Gets all users information
+     * @return List<UserInformationResponseDTO> with list of users details
+     */
+    public Flux<UserInformationResponseDTO> getAllUsersInformation() {
+        return Flux.defer(() -> {
+            List<User> users = userRepository.findAll();
+            return Flux.fromIterable(users)
+                    .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
+        });
     }
 
     /**

@@ -35,7 +35,19 @@ public class UserController {
         return userService.getUserInformation()
                 .map(ResponseEntity::ok);
     }
-    
+
+    /**
+     * Get all users information.
+     * @return ResponseEntity<List<UserInformationResponseDTO>> with list of users and code 200
+     */
+    @GetMapping("/all")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<java.util.List<UserInformationResponseDTO>>> getAllUsersInformation() {
+        return userService.getAllUsersInformation()
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
+
     /**
      * Get user information by email.
      * @param email User email
