@@ -70,6 +70,7 @@ public class SecurityConfig {
                 "http://localhost:3001",
                 "http://localhost:4200",
                 "http://localhost:8080",
+                "http://10.43.102.3:8080",
                 "https://secchub.javeriana.edu.co",
                 "http://secchub.javeriana.edu.co:4200"
         ));
