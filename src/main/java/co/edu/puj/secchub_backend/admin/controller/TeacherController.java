@@ -13,10 +13,10 @@ import java.util.List;
 
 /**
  * REST controller for managing teachers.
- * Provides endpoints for teacher creation, retrieval, and updates.
+ * Provides endpoints for teacher retrieval, and updates.
  */
 @RestController
-@RequestMapping("/admin/teachers")
+@RequestMapping("/teachers")
 @RequiredArgsConstructor
 public class TeacherController {
 
