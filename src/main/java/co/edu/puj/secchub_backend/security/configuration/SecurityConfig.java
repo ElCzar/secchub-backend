@@ -71,7 +71,7 @@ public class SecurityConfig {
                 "http://localhost:4200",
                 "http://localhost:8080",
                 "https://secchub.javeriana.edu.co",
-                "http://secchub.javeriana.edu.co"
+                "http://secchub.javeriana.edu.co:4200"
         ));
         configuration.setAllowedMethods(Arrays.asList(
                 "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"
