@@ -44,8 +44,8 @@ public class StudentApplicationController {
      */
     @GetMapping("/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<StudentApplicationResponseDTO>> getCurrentSemesterStudentApplications() {
-        return ResponseEntity.ok(studentApplicationService.listCurrentSemesterStudentApplications());
+    public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getCurrentSemesterStudentApplications() {
+        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listCurrentSemesterStudentApplications()));
     }
 
     /**
@@ -54,8 +54,8 @@ public class StudentApplicationController {
      */
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<StudentApplicationResponseDTO>> getAllStudentApplications() {
-        return ResponseEntity.ok(studentApplicationService.listAllStudentApplications());
+    public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getAllStudentApplications() {
+        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listAllStudentApplications()));
     }
 
     /**
@@ -76,7 +76,7 @@ public class StudentApplicationController {
      * @param statusId Approval status ID
      * @return Response with ok status
      */
-    @PatchMapping("/{studentApplicationId}/approve")
+    @PutMapping("/{studentApplicationId}/approve")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> approveStudentApplication(@PathVariable Long studentApplicationId) {
         return studentApplicationService.approveStudentApplication(studentApplicationId)
@@ -89,7 +89,7 @@ public class StudentApplicationController {
      * @param statusId Rejection status ID
      * @return Response with ok status
      */
-    @PatchMapping("/{studentApplicationId}/reject")
+    @PutMapping("/{studentApplicationId}/reject")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> rejectStudentApplication(@PathVariable Long studentApplicationId) {
         return studentApplicationService.rejectStudentApplication(studentApplicationId)
@@ -103,8 +103,8 @@ public class StudentApplicationController {
      */
     @GetMapping("/status/{statusId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<StudentApplicationResponseDTO>> getStudentApplicationByStatus(@PathVariable Long statusId) {
-        return ResponseEntity.ok(studentApplicationService.listStudentApplicationsByStatus(statusId));
+    public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getStudentApplicationByStatus(@PathVariable Long statusId) {
+        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listStudentApplicationsByStatus(statusId)));
     }
 
     /**
@@ -114,7 +114,7 @@ public class StudentApplicationController {
      */
     @GetMapping("/section/{sectionId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<StudentApplicationResponseDTO>> getStudentApplicationBySection(@PathVariable Long sectionId) {
-        return ResponseEntity.ok(studentApplicationService.listStudentApplicationsForSection(sectionId));
+    public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getStudentApplicationBySection(@PathVariable Long sectionId) {
+        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listStudentApplicationsForSection(sectionId)));
     }
 }

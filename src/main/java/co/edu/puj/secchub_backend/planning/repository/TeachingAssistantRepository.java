@@ -63,4 +63,16 @@ public interface TeachingAssistantRepository extends JpaRepository<TeachingAssis
         @Param("classId") Long classId, 
         @Param("maxHours") Long maxHours
     );
+    
+    /**
+     * Find teaching assistants for the current semester through class relationship.
+     * @param semesterId the semester ID
+     * @return list of teaching assistants for the specified semester
+     */
+    @Query("""
+        SELECT ta FROM TeachingAssistant ta 
+        JOIN Class c ON ta.classId = c.id 
+        WHERE c.semesterId = :semesterId
+    """)
+    List<TeachingAssistant> findByCurrentSemester(@Param("semesterId") Long semesterId);
 }

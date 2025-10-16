@@ -27,8 +27,8 @@ public class SectionController {
      */
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public List<SectionResponseDTO> findAllSections() {
-        return sectionService.findAllSections();
+    public Mono<ResponseEntity<List<SectionResponseDTO>>> findAllSections() {
+        return Mono.fromCallable(() -> ResponseEntity.ok(sectionService.findAllSections()));
     }
 
     /**
@@ -50,7 +50,7 @@ public class SectionController {
      */
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public List<SectionResponseDTO> findSectionsByUserId(@PathVariable Long userId) {
-        return sectionService.findSectionsByUserId(userId);
+    public Mono<ResponseEntity<List<SectionResponseDTO>>> findSectionsByUserId(@PathVariable Long userId) {
+        return Mono.fromCallable(() -> ResponseEntity.ok(sectionService.findSectionsByUserId(userId)));
     }
 }

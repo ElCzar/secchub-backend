@@ -93,6 +93,21 @@ public class PlanningExceptionHandler {
     }
 
     /**
+     * Handles TeachingAssistantScheduleNotFoundException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the TeachingAssistantScheduleNotFoundException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(TeachingAssistantScheduleNotFoundException.class)
+    public Mono<ResponseEntity<Object>> handleTeachingAssistantScheduleNotFoundException(TeachingAssistantScheduleNotFoundException ex) {
+        log.warn("Teaching assistant schedule not found exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, NOT_FOUND_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
      * Handles ScheduleConflictException and returns a Mono<ResponseEntity<Object>>.
      * @param ex the ScheduleConflictException
      * @return a Mono<ResponseEntity<Object>> with the error details

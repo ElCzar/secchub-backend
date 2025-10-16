@@ -272,6 +272,18 @@ CREATE TABLE `teaching_assistant` (
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE `teaching_assistant_schedule` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `teaching_assistant_id` BIGINT UNSIGNED NULL,
+  `day` VARCHAR(20) NULL,
+  `start_time` TIME NULL,
+  `end_time` TIME NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_teaching_assistant_schedule_teaching_assistant`
+    FOREIGN KEY (`teaching_assistant_id`) REFERENCES `teaching_assistant` (`id`)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE `teacher_class` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `semester_id` BIGINT UNSIGNED NULL,
@@ -315,7 +327,7 @@ CREATE TABLE `student_application_schedule` (
 -- =========================
 CREATE TABLE `email_template` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `name` VARCHAR(150) NOT NULL UNIQUE,
+  `name` VARCHAR(150) NOT NULL,
   `subject` VARCHAR(255) NOT NULL,
   `body` TEXT NOT NULL,
   PRIMARY KEY (`id`)

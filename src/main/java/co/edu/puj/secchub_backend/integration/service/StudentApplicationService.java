@@ -190,12 +190,36 @@ public class StudentApplicationService {
      * @return StudentApplicationResponseDTO
      */
     private StudentApplicationResponseDTO mapToResponseDTO(StudentApplication studentApplication) {
-        StudentApplicationResponseDTO responseDTO = modelMapper.map(studentApplication, StudentApplicationResponseDTO.class);
+        // Manual mapping to avoid ModelMapper issues with Hibernate lazy collections
+        StudentApplicationResponseDTO responseDTO = StudentApplicationResponseDTO.builder()
+                .id(studentApplication.getId())
+                .userId(studentApplication.getUserId())
+                .courseId(studentApplication.getCourseId())
+                .sectionId(studentApplication.getSectionId())
+                .semesterId(studentApplication.getSemesterId())
+                .program(studentApplication.getProgram())
+                .studentSemester(studentApplication.getStudentSemester())
+                .academicAverage(studentApplication.getAcademicAverage())
+                .phoneNumber(studentApplication.getPhoneNumber())
+                .alternatePhoneNumber(studentApplication.getAlternatePhoneNumber())
+                .address(studentApplication.getAddress())
+                .personalEmail(studentApplication.getPersonalEmail())
+                .wasTeachingAssistant(studentApplication.getWasTeachingAssistant())
+                .courseAverage(studentApplication.getCourseAverage())
+                .courseTeacher(studentApplication.getCourseTeacher())
+                .statusId(studentApplication.getStatusId())
+                .build();
         
         // Map schedules
         List<StudentApplicationSchedule> schedules = requestScheduleRepository.findByStudentApplicationId(studentApplication.getId());
         List<StudentApplicationScheduleResponseDTO> scheduleDTOs = schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, StudentApplicationScheduleResponseDTO.class))
+                .map(schedule -> StudentApplicationScheduleResponseDTO.builder()
+                        .id(schedule.getId())
+                        .studentApplicationId(schedule.getStudentApplicationId())
+                        .day(schedule.getDay())
+                        .startTime(schedule.getStartTime() != null ? schedule.getStartTime().toString() : null)
+                        .endTime(schedule.getEndTime() != null ? schedule.getEndTime().toString() : null)
+                        .build())
                 .toList();
         
         responseDTO.setSchedules(scheduleDTOs);
