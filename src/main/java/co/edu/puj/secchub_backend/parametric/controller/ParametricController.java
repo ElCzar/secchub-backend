@@ -115,7 +115,7 @@ public class ParametricController {
      * @return List of all modality DTOs
      */
     @GetMapping("/modalities")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<ModalityDTO>>> getAllModalities() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllModalities()));
     }
@@ -136,7 +136,7 @@ public class ParametricController {
      * @return List of all classroom type DTOs
      */
     @GetMapping("/classroom-types")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<ClassroomTypeDTO>>> getAllClassroomTypes() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllClassroomTypes()));
     }

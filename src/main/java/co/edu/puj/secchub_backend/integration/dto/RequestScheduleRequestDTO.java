@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class RequestScheduleRequestDTO {
-    private Long classroomTypeId;
+    private Long classRoomTypeId;
     private String startTime;
     private String endTime;
     private String day;
