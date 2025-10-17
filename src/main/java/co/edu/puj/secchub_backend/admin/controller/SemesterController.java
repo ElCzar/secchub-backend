@@ -5,10 +5,12 @@ import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import co.edu.puj.secchub_backend.admin.dto.SemesterRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SemesterResponseDTO;
@@ -20,8 +22,8 @@ import reactor.core.publisher.Mono;
  * REST controller for managing semesters.
  * Provides endpoints to create, query, update and delete semesters.
  */
-@Controller
-@RequestMapping("/semesters")
+@RestController
+@RequestMapping("/api/semesters")
 @RequiredArgsConstructor
 public class SemesterController {
     private final SemesterService semesterService;
@@ -42,10 +44,25 @@ public class SemesterController {
      * Obtains current semester.
      * @return Current semester with status 200
      */
-    @RequestMapping("/current")
-    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/current")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<SemesterResponseDTO>> getCurrentSemester() {
         return semesterService.getCurrentSemester()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Obtains semester by year and period.
+     * @param year The year of the semester
+     * @param period The period of the semester (1 or 2)
+     * @return Semester matching the criteria with status 200
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
+    public Mono<ResponseEntity<SemesterResponseDTO>> getSemesterByYearAndPeriod(
+            @RequestParam Integer year, 
+            @RequestParam Integer period) {
+        return semesterService.getSemesterByYearAndPeriod(year, period)
                 .map(ResponseEntity::ok);
     }
 
@@ -53,7 +70,7 @@ public class SemesterController {
      * Obtains all semesters.
      * @return All semesters with status 200
      */
-    @RequestMapping
+    @GetMapping("/all")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<SemesterResponseDTO>>> getAllSemesters() {
         return semesterService.getAllSemesters()

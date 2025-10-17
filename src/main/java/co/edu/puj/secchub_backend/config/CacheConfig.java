@@ -21,6 +21,7 @@ public class CacheConfig {
     /**
      * Configures Caffeine cache manager for high-performance caching.
      * Optimized for parametric/lookup values that are frequently accessed but rarely change.
+     * Async mode enabled for reactive method support.
      */
     @Bean
     public CacheManager cacheManager() {
@@ -29,6 +30,7 @@ public class CacheConfig {
             .maximumSize(1000)                    // Max 1000 entries per cache
             .expireAfterWrite(2, TimeUnit.HOURS)  // Cache for 2 hours
             .recordStats());                      // Enable cache statistics
+        cacheManager.setAsyncCacheMode(true);     // Enable async mode for reactive methods
         return cacheManager;
     }
 }

@@ -94,6 +94,26 @@ public class AcademicRequestService {
     }
 
     /**
+     * Gets all academic requests for a specific semester filtered by the authenticated user.
+     * @param semesterId The semester ID to filter requests
+     * @return List of academic requests for the specified semester and user
+     */
+    public Mono<List<AcademicRequestResponseDTO>> findAcademicRequestsBySemesterAndUser(Long semesterId) {
+        return ReactiveSecurityContextHolder.getContext()
+                .flatMap(securityContext -> {
+                    String userEmail = securityContext.getAuthentication().getName();
+                    Long userId = userService.getUserIdByEmail(userEmail);
+                    
+                    List<AcademicRequestResponseDTO> requests = academicRequestRepository
+                            .findBySemesterIdAndUserId(semesterId, userId).stream()
+                            .map(this::mapToResponseDTO)
+                            .toList();
+                    
+                    return Mono.just(requests);
+                });
+    }
+
+    /**
      * Gets all academic requests
      * @return List of academic requests
      */
@@ -281,7 +301,7 @@ public class AcademicRequestService {
                     RequestScheduleResponseDTO dto = RequestScheduleResponseDTO.builder()
                             .id(schedule.getId())
                             .academicRequestId(schedule.getAcademicRequestId())
-                            .classRoomTypeId(schedule.getClassroomTypeId())  // Mapping field name correctly
+                            .classRoomTypeId(schedule.getClassroomTypeId())
                             .startTime(schedule.getStartTime() != null ? schedule.getStartTime().toString() : null)
                             .endTime(schedule.getEndTime() != null ? schedule.getEndTime().toString() : null)
                             .day(schedule.getDay())

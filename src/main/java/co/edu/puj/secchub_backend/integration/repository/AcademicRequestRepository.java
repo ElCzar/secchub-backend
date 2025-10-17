@@ -9,4 +9,5 @@ import java.util.List;
 public interface AcademicRequestRepository extends JpaRepository<AcademicRequest, Long> {
     List<AcademicRequest> findBySemesterId(Long semesterId);
     List<AcademicRequest> findByCourseId(Long courseId);
+    List<AcademicRequest> findBySemesterIdAndUserId(Long semesterId, Long userId);
 }

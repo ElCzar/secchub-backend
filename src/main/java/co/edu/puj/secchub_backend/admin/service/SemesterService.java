@@ -81,7 +81,7 @@ public class SemesterService implements AdminModuleSemesterContract {
     }
 
     /**
-     * Obtains all semesters.
+     * Gets all semesters.
      * @return List of semesterResponseDTO with all semesters data
      */
     public Mono<List<SemesterResponseDTO>> getAllSemesters() {
@@ -90,6 +90,20 @@ public class SemesterService implements AdminModuleSemesterContract {
             return semesters.stream()
                     .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class))
                     .toList();
+        });
+    }
+
+    /**
+     * Gets semester by year and period.
+     * @param year The year of the semester
+     * @param period The period of the semester (1 or 2)
+     * @return SemesterResponseDTO with semester data or null if not found
+     */
+    public Mono<SemesterResponseDTO> getSemesterByYearAndPeriod(Integer year, Integer period) {
+        return Mono.fromCallable(() -> {
+            Optional<Semester> semester = semesterRepository.findByYearAndPeriod(year, period);
+            return semester.map(s -> modelMapper.map(s, SemesterResponseDTO.class))
+                          .orElse(null);
         });
     }
 
