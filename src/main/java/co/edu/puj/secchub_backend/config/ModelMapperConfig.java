@@ -1,7 +1,5 @@
 package co.edu.puj.secchub_backend.config;
 
-import co.edu.puj.secchub_backend.integration.dto.RequestScheduleRequestDTO;
-import co.edu.puj.secchub_backend.integration.model.RequestSchedule;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.context.annotation.Bean;
@@ -29,11 +27,6 @@ public class ModelMapperConfig {
                 .setFieldAccessLevel(org.modelmapper.config.Configuration.AccessLevel.PRIVATE)
                 .setSourceNamingConvention(org.modelmapper.convention.NamingConventions.JAVABEANS_ACCESSOR)
                 .setDestinationNamingConvention(org.modelmapper.convention.NamingConventions.JAVABEANS_MUTATOR);
-        
-        // Fix field mapping for classRoomTypeId -> classroomTypeId
-        mapper.createTypeMap(RequestScheduleRequestDTO.class, RequestSchedule.class)
-                .addMapping(RequestScheduleRequestDTO::getClassRoomTypeId, RequestSchedule::setClassroomTypeId);
-        
         return mapper;
     }
 }
