@@ -1,5 +1,6 @@
 package co.edu.puj.secchub_backend.integration.controller;
 
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestResponseDTO;
@@ -27,6 +28,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AcademicRequestController {
     private final AcademicRequestService academicRequestService;
+    private final AdminModuleSemesterContract semesterService;
 
     /**
      * Creates a batch of academic requests with schedules.
@@ -59,7 +61,13 @@ public class AcademicRequestController {
     @GetMapping("/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<List<AcademicRequestResponseDTO>> getCurrentSemesterAcademicRequests() {
-        return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
+        System.out.println("🔵 [getCurrentSemesterAcademicRequests] Endpoint called");
+        return Mono.fromCallable(() -> {
+            List<AcademicRequestResponseDTO> requests = academicRequestService.findCurrentSemesterAcademicRequests();
+            System.out.println("🔵 [getCurrentSemesterAcademicRequests] Returning " + requests.size() + " requests");
+            requests.forEach(r -> System.out.println("   → Request ID: " + r.getId()));
+            return requests;
+        })
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -211,6 +219,55 @@ public class AcademicRequestController {
                     return ResponseEntity.ok(Map.of("message", "Check console for debug info", "requests", requests));
                 })
                 .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * DEBUG: Check which semester is marked as current and return all academic requests grouped by semester
+     */
+    @GetMapping("/debug-current-semester")
+    public Mono<ResponseEntity<Map<String, Object>>> debugCurrentSemester() {
+        return Mono.fromCallable(() -> {
+            Map<String, Object> debug = new java.util.HashMap<>();
+            
+            try {
+                // Get current semester ID
+                Long currentSemesterId = semesterService.getCurrentSemesterId();
+                debug.put("currentSemesterId", currentSemesterId);
+                
+                // Get current semester requests
+                List<AcademicRequestResponseDTO> currentSemesterRequests = 
+                    academicRequestService.findCurrentSemesterAcademicRequests();
+                debug.put("currentSemesterRequests", currentSemesterRequests);
+                debug.put("currentSemesterRequestCount", currentSemesterRequests.size());
+                
+                // Get all requests
+                List<AcademicRequestResponseDTO> allRequests = 
+                    academicRequestService.findAllAcademicRequests();
+                debug.put("allRequests", allRequests);
+                debug.put("allRequestsCount", allRequests.size());
+                
+                // Group by semester ID
+                Map<Long, java.util.List<AcademicRequestResponseDTO>> groupedBySemester = 
+                    allRequests.stream()
+                        .collect(java.util.stream.Collectors.groupingBy(AcademicRequestResponseDTO::getSemesterId));
+                debug.put("groupedBySemester", groupedBySemester);
+                
+                System.out.println("🐛 DEBUG CURRENT SEMESTER:");
+                System.out.println("   Current Semester ID: " + currentSemesterId);
+                System.out.println("   Current Semester Requests: " + currentSemesterRequests.size());
+                System.out.println("   All Requests: " + allRequests.size());
+                groupedBySemester.forEach((semesterId, requests) -> {
+                    System.out.println("   Semester " + semesterId + ": " + requests.size() + " requests");
+                    requests.forEach(r -> System.out.println("      - Request ID: " + r.getId()));
+                });
+                
+            } catch (Exception e) {
+                debug.put("error", e.getMessage());
+                e.printStackTrace();
+            }
+            
+            return ResponseEntity.ok(debug);
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
