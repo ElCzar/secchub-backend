@@ -1,7 +1,9 @@
 package co.edu.puj.secchub_backend.integration.controller;
 
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestResponseDTO;
+import co.edu.puj.secchub_backend.integration.dto.ProgramContextDTO;
 import co.edu.puj.secchub_backend.integration.service.AcademicRequestService;
+import co.edu.puj.secchub_backend.integration.service.ProgramContextService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,6 +22,7 @@ import java.util.List;
 public class ProgramController {
     
     private final AcademicRequestService academicRequestService;
+    private final ProgramContextService programContextService;
 
     /**
      * Gets all academic requests for a specific semester.
@@ -32,6 +35,17 @@ public class ProgramController {
     public Mono<ResponseEntity<List<AcademicRequestResponseDTO>>> getAcademicRequestsBySemester(
             @RequestParam Long semesterId) {
         return academicRequestService.findAcademicRequestsBySemesterAndUser(semesterId)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Gets the program context information for the authenticated user.
+     * @return ProgramContextDTO containing career name and current semester
+     */
+    @GetMapping("/context")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
+    public Mono<ResponseEntity<ProgramContextDTO>> getProgramContext() {
+        return programContextService.getProgramContext()
                 .map(ResponseEntity::ok);
     }
 }
