@@ -88,16 +88,10 @@ public class AcademicRequestService {
      */
     public List<AcademicRequestResponseDTO> findCurrentSemesterAcademicRequests() {
         Long currentSemesterId = semesterService.getCurrentSemesterId();
-        System.out.println("🐛 [findCurrentSemesterAcademicRequests] Current Semester ID: " + currentSemesterId);
         
-        List<AcademicRequestResponseDTO> result = academicRequestRepository.findBySemesterId(currentSemesterId).stream()
+        return academicRequestRepository.findBySemesterId(currentSemesterId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
-        
-        System.out.println("🐛 [findCurrentSemesterAcademicRequests] Found " + result.size() + " requests for semester " + currentSemesterId);
-        result.forEach(r -> System.out.println("   ✓ Request ID: " + r.getId() + ", Semester: " + r.getSemesterId() + ", Course: " + r.getCourseName()));
-        
-        return result;
     }
 
     /**
@@ -420,105 +414,13 @@ public class AcademicRequestService {
                     }
                 } catch (Exception e) {
                     // Log error but continue processing
-                    System.err.println("Error updating request " + sourceId + ": " + e.getMessage());
+                    // Error updating request, continuing with next request
                 }
             }
         }
     }
 
-    /**
-     * Creates test data with schedules for debugging purposes
-     */
-    @Transactional
-    public String createTestDataWithSchedules() {
-        try {
-            // Use a fixed semester ID for testing (assuming 1L exists)
-            Long currentSemesterId = 1L;
-            
-            // Create first academic request
-            AcademicRequest request1 = AcademicRequest.builder()
-                    .userId(1L)
-                    .courseId(1L)
-                    .semesterId(currentSemesterId)
-                    .startDate(LocalDate.now())
-                    .endDate(LocalDate.now().plusMonths(4))
-                    .capacity(15)
-                    .observation("Solicitud de prueba para Redes - Sistemas")
-                    .requestDate(LocalDate.now())
-                    .build();
-            
-            AcademicRequest savedRequest1 = academicRequestRepository.save(request1);
-            
-            // Create schedules for request1
-            RequestSchedule schedule1 = RequestSchedule.builder()
-                    .academicRequestId(savedRequest1.getId())
-                    .classroomTypeId(1L)
-                    .startTime(java.sql.Time.valueOf("08:00:00"))
-                    .endTime(java.sql.Time.valueOf("10:00:00"))
-                    .day("LUNES")
-                    .modalityId(1L)
-                    .disability(false)
-                    .build();
-            
-            RequestSchedule schedule2 = RequestSchedule.builder()
-                    .academicRequestId(savedRequest1.getId())
-                    .classroomTypeId(1L)
-                    .startTime(java.sql.Time.valueOf("14:00:00"))
-                    .endTime(java.sql.Time.valueOf("16:00:00"))
-                    .day("MIERCOLES")
-                    .modalityId(1L)
-                    .disability(false)
-                    .build();
-            
-            requestScheduleRepository.save(schedule1);
-            requestScheduleRepository.save(schedule2);
-            
-            // Create second academic request
-            AcademicRequest request2 = AcademicRequest.builder()
-                    .userId(2L)
-                    .courseId(1L)
-                    .semesterId(currentSemesterId)
-                    .startDate(LocalDate.now())
-                    .endDate(LocalDate.now().plusMonths(4))
-                    .capacity(10)
-                    .observation("Solicitud de prueba para Redes - Electrónica")
-                    .requestDate(LocalDate.now())
-                    .build();
-            
-            AcademicRequest savedRequest2 = academicRequestRepository.save(request2);
-            
-            // Create schedules for request2
-            RequestSchedule schedule3 = RequestSchedule.builder()
-                    .academicRequestId(savedRequest2.getId())
-                    .classroomTypeId(1L)
-                    .startTime(java.sql.Time.valueOf("10:00:00"))
-                    .endTime(java.sql.Time.valueOf("12:00:00"))
-                    .day("MARTES")
-                    .modalityId(1L)
-                    .disability(false)
-                    .build();
-            
-            RequestSchedule schedule4 = RequestSchedule.builder()
-                    .academicRequestId(savedRequest2.getId())
-                    .classroomTypeId(1L)
-                    .startTime(java.sql.Time.valueOf("16:00:00"))
-                    .endTime(java.sql.Time.valueOf("18:00:00"))
-                    .day("JUEVES")
-                    .modalityId(1L)
-                    .disability(false)
-                    .build();
-            
-            requestScheduleRepository.save(schedule3);
-            requestScheduleRepository.save(schedule4);
-            
-            return "Created test data: 2 academic requests with schedules";
-            
-        } catch (Exception e) {
-            System.err.println("Error creating test data: " + e.getMessage());
-            return "Error creating test data: " + e.getMessage();
-        }
-    }
-
+  
     /**
      * Método helper para obtener el nombre del usuario
      */

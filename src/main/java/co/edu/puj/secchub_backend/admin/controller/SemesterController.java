@@ -23,7 +23,7 @@ import reactor.core.publisher.Mono;
  * Provides endpoints to create, query, update and delete semesters.
  */
 @RestController
-@RequestMapping("/api/semesters")
+@RequestMapping("/semesters")
 @RequiredArgsConstructor
 public class SemesterController {
     private final SemesterService semesterService;

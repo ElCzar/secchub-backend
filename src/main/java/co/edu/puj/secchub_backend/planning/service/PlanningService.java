@@ -40,18 +40,14 @@ public class PlanningService {
     private final AdminModuleCourseContract courseService;
     private final JdbcTemplate jdbcTemplate;
 
-    /**
-     * Creates a new class.
+        /**
+     * Creates a new class with schedules.
      * @param classCreateRequestDTO DTO with class information
      * @return Created class DTO
      */
     @Transactional
     public Mono<ClassResponseDTO> createClass(ClassCreateRequestDTO classCreateRequestDTO) {
         return Mono.fromCallable(() -> {
-            System.out.println("=== CREANDO CLASE CON HORARIOS ===");
-            System.out.println("Request DTO: " + classCreateRequestDTO);
-            System.out.println("Horarios en request: " + classCreateRequestDTO.getSchedules());
-            
             Long currentSemesterId = semesterService.getCurrentSemesterId();
             
             // Mapear la clase base SIN horarios para evitar duplicación
@@ -61,7 +57,6 @@ public class PlanningService {
             
             // Guardar primero la clase para obtener el ID
             Class savedClass = classRepository.save(classEntity);
-            System.out.println("Clase guardada con ID: " + savedClass.getId());
             
             // Ahora manejar horarios con el ID de la clase
             if (classCreateRequestDTO.getSchedules() != null && !classCreateRequestDTO.getSchedules().isEmpty()) {
@@ -69,7 +64,6 @@ public class PlanningService {
                     .map(scheduleDTO -> {
                         ClassSchedule schedule = modelMapper.map(scheduleDTO, ClassSchedule.class);
                         schedule.setClassId(savedClass.getId()); // Usar el ID directo
-                        System.out.println("Horario mapeado con classId=" + savedClass.getId() + ": " + schedule);
                         return schedule;
                     })
                     .toList();
@@ -77,9 +71,6 @@ public class PlanningService {
                 // Guardar los horarios por separado
                 List<ClassSchedule> savedSchedules = classScheduleRepository.saveAll(schedules);
                 savedClass.setSchedules(savedSchedules);
-                System.out.println("Total horarios guardados: " + savedSchedules.size());
-            } else {
-                System.out.println("⚠️ No hay horarios en el request DTO");
             }
             
             return mapToResponseDTO(savedClass);
@@ -572,7 +563,7 @@ public class PlanningService {
             );
             
         } catch (Exception e) {
-            System.err.println("Error applying semester planning: " + e.getMessage());
+            // Error applying semester planning
             return Map.of(
                 "success", false,
                 "message", "Error aplicando planificación: " + e.getMessage(),

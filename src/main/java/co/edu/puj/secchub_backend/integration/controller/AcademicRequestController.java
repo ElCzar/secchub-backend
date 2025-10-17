@@ -61,13 +61,7 @@ public class AcademicRequestController {
     @GetMapping("/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<List<AcademicRequestResponseDTO>> getCurrentSemesterAcademicRequests() {
-        System.out.println("🔵 [getCurrentSemesterAcademicRequests] Endpoint called");
-        return Mono.fromCallable(() -> {
-            List<AcademicRequestResponseDTO> requests = academicRequestService.findCurrentSemesterAcademicRequests();
-            System.out.println("🔵 [getCurrentSemesterAcademicRequests] Returning " + requests.size() + " requests");
-            requests.forEach(r -> System.out.println("   → Request ID: " + r.getId()));
-            return requests;
-        })
+        return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
@@ -196,87 +190,5 @@ public class AcademicRequestController {
             @RequestBody ProcessPlanningRequestDTO processPlanningRequestDTO) {
         return academicRequestService.processPlanningRequests(processPlanningRequestDTO)
                 .map(result -> ResponseEntity.ok(result));
-    }
-
-    /**
-     * Temporary debugging endpoint to check schedules
-     */
-    @GetMapping("/debug-schedules")
-    public Mono<ResponseEntity<Map<String, Object>>> debugSchedules() {
-        return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
-                .map(requests -> {
-                    System.out.println("🐛 DEBUG: Total requests found: " + requests.size());
-                    requests.forEach(request -> {
-                        System.out.println("🐛 Request ID: " + request.getId() + " has " + 
-                                (request.getSchedules() != null ? request.getSchedules().size() : 0) + " schedules");
-                        if (request.getSchedules() != null) {
-                            request.getSchedules().forEach(schedule -> {
-                                System.out.println("  📅 Schedule: " + schedule.getDay() + " " + 
-                                        schedule.getStartTime() + "-" + schedule.getEndTime());
-                            });
-                        }
-                    });
-                    return ResponseEntity.ok(Map.of("message", "Check console for debug info", "requests", requests));
-                })
-                .subscribeOn(Schedulers.boundedElastic());
-    }
-
-    /**
-     * DEBUG: Check which semester is marked as current and return all academic requests grouped by semester
-     */
-    @GetMapping("/debug-current-semester")
-    public Mono<ResponseEntity<Map<String, Object>>> debugCurrentSemester() {
-        return Mono.fromCallable(() -> {
-            Map<String, Object> debug = new java.util.HashMap<>();
-            
-            try {
-                // Get current semester ID
-                Long currentSemesterId = semesterService.getCurrentSemesterId();
-                debug.put("currentSemesterId", currentSemesterId);
-                
-                // Get current semester requests
-                List<AcademicRequestResponseDTO> currentSemesterRequests = 
-                    academicRequestService.findCurrentSemesterAcademicRequests();
-                debug.put("currentSemesterRequests", currentSemesterRequests);
-                debug.put("currentSemesterRequestCount", currentSemesterRequests.size());
-                
-                // Get all requests
-                List<AcademicRequestResponseDTO> allRequests = 
-                    academicRequestService.findAllAcademicRequests();
-                debug.put("allRequests", allRequests);
-                debug.put("allRequestsCount", allRequests.size());
-                
-                // Group by semester ID
-                Map<Long, java.util.List<AcademicRequestResponseDTO>> groupedBySemester = 
-                    allRequests.stream()
-                        .collect(java.util.stream.Collectors.groupingBy(AcademicRequestResponseDTO::getSemesterId));
-                debug.put("groupedBySemester", groupedBySemester);
-                
-                System.out.println("🐛 DEBUG CURRENT SEMESTER:");
-                System.out.println("   Current Semester ID: " + currentSemesterId);
-                System.out.println("   Current Semester Requests: " + currentSemesterRequests.size());
-                System.out.println("   All Requests: " + allRequests.size());
-                groupedBySemester.forEach((semesterId, requests) -> {
-                    System.out.println("   Semester " + semesterId + ": " + requests.size() + " requests");
-                    requests.forEach(r -> System.out.println("      - Request ID: " + r.getId()));
-                });
-                
-            } catch (Exception e) {
-                debug.put("error", e.getMessage());
-                e.printStackTrace();
-            }
-            
-            return ResponseEntity.ok(debug);
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    /**
-     * Temporary endpoint to create test data with schedules
-     */
-    @PostMapping("/create-test-data")
-    public Mono<ResponseEntity<Map<String, Object>>> createTestData() {
-        return Mono.fromCallable(() -> academicRequestService.createTestDataWithSchedules())
-                .map(result -> ResponseEntity.ok(Map.<String, Object>of("message", "Test data created", "result", result)))
-                .subscribeOn(Schedulers.boundedElastic());
     }
 }
