@@ -28,8 +28,8 @@ public class TeacherController {
      */
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<TeacherResponseDTO>> getAllTeachers() {
-        return ResponseEntity.ok(teacherService.getAllTeachers());
+    public Mono<ResponseEntity<List<TeacherResponseDTO>>> getAllTeachers() {
+        return Mono.fromCallable(() -> ResponseEntity.ok(teacherService.getAllTeachers()));
     }
 
     /**
@@ -78,9 +78,9 @@ public class TeacherController {
      */
     @GetMapping("/employment-type/{employmentTypeId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<TeacherResponseDTO>> getTeachersByEmploymentType(
+    public Mono<ResponseEntity<List<TeacherResponseDTO>>> getTeachersByEmploymentType(
             @PathVariable Long employmentTypeId) {
-        return ResponseEntity.ok(teacherService.getTeachersByEmploymentType(employmentTypeId));
+        return Mono.fromCallable(() -> ResponseEntity.ok(teacherService.getTeachersByEmploymentType(employmentTypeId)));
     }
 
     /**
@@ -90,7 +90,7 @@ public class TeacherController {
      */
     @GetMapping("/min-hours/{minHours}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-    public ResponseEntity<List<TeacherResponseDTO>> getTeachersWithMinHours(@PathVariable Integer minHours) {
-        return ResponseEntity.ok(teacherService.getTeachersWithMinHours(minHours));
+    public Mono<ResponseEntity<List<TeacherResponseDTO>>> getTeachersWithMinHours(@PathVariable Integer minHours) {
+        return Mono.fromCallable(() -> ResponseEntity.ok(teacherService.getTeachersWithMinHours(minHours)));
     }
 }
