@@ -88,9 +88,16 @@ public class AcademicRequestService {
      */
     public List<AcademicRequestResponseDTO> findCurrentSemesterAcademicRequests() {
         Long currentSemesterId = semesterService.getCurrentSemesterId();
-        return academicRequestRepository.findBySemesterId(currentSemesterId).stream()
+        System.out.println("🐛 [findCurrentSemesterAcademicRequests] Current Semester ID: " + currentSemesterId);
+        
+        List<AcademicRequestResponseDTO> result = academicRequestRepository.findBySemesterId(currentSemesterId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
+        
+        System.out.println("🐛 [findCurrentSemesterAcademicRequests] Found " + result.size() + " requests for semester " + currentSemesterId);
+        result.forEach(r -> System.out.println("   ✓ Request ID: " + r.getId() + ", Semester: " + r.getSemesterId() + ", Course: " + r.getCourseName()));
+        
+        return result;
     }
 
     /**
