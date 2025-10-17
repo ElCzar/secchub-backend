@@ -20,7 +20,7 @@ import java.util.List;
  * Provides access to all parametric data: Status, Role, DocumentType, EmploymentType, and Modality.
  */
 @RestController
-@RequestMapping("/parametric")
+@RequestMapping("/api/parametric")
 @RequiredArgsConstructor
 public class ParametricController {
 
