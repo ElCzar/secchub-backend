@@ -21,7 +21,7 @@ import java.util.Map;
  * Provides endpoints for managing classes and schedules following reactive patterns.
  */
 @RestController
-@RequestMapping("/api/planning")
+@RequestMapping("/planning")
 @RequiredArgsConstructor
 public class PlanningController {
 

@@ -84,4 +84,16 @@ public class CourseController {
         return courseService.patchCourse(courseId, updates)
                 .map(ResponseEntity::ok);
     }
+
+    /**
+     * Deletes a course by its ID.
+     * @param courseId Course ID
+     * @return ResponseEntity with no content status
+     */
+    @DeleteMapping("/{courseId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<Void>> deleteCourse(@PathVariable Long courseId) {
+        return courseService.deleteCourse(courseId)
+                .then(Mono.just(ResponseEntity.noContent().build()));
+    }
 }

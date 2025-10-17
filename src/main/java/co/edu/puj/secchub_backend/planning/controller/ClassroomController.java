@@ -19,7 +19,7 @@ import java.util.List;
  * Provides endpoints for CRUD operations following integration module patterns.
  */
 @RestController
-@RequestMapping("/api/classrooms")
+@RequestMapping("/classrooms")
 @RequiredArgsConstructor
 @Slf4j
 public class ClassroomController {

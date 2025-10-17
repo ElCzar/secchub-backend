@@ -102,6 +102,20 @@ public class CourseService implements AdminModuleCourseContract {
     }
 
     /**
+     * Deletes a course by its ID.
+     * @param courseId Course ID
+     * @return Mono signaling completion
+     */
+    public Mono<Object> deleteCourse(Long courseId) {
+        return Mono.fromRunnable(() -> {
+            if (!courseRepository.existsById(courseId)) {
+                throw new CourseNotFoundException("Course not found for delete: " + courseId);
+            }
+            courseRepository.deleteById(courseId);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
      * Implementation of AdminModuleCourseContract.
      * Gets the course name by its ID.
      */
