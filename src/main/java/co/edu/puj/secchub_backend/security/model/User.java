@@ -43,7 +43,7 @@ public class User {
     private Long roleId;
 
     @Column(name = "document_type_id")
-    private Long documentType;
+    private Long documentTypeId;
 
     @Column(name = "document_number")
     private String documentNumber;

@@ -85,7 +85,7 @@ public class UserService implements SecurityModuleUserContract {
                 .email(user.getEmail())
                 .statusId(user.getStatusId())
                 .roleId(user.getRoleId())
-                .documentType(user.getDocumentType())
+                .documentType(user.getDocumentTypeId())
                 .documentNumber(user.getDocumentNumber())
                 .build();
                 
