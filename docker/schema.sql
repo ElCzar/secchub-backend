@@ -332,3 +332,15 @@ CREATE TABLE `email_template` (
   `body` TEXT NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE `audit_log` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `email` VARCHAR(150) NOT NULL,
+  `action` VARCHAR(50) NOT NULL,
+  `method_name` VARCHAR(150) NOT NULL,
+  `timestamp` DATETIME NOT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_email` (`email`),
+  INDEX `idx_action` (`action`),
+  INDEX `idx_timestamp` (`timestamp`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
