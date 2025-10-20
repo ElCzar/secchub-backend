@@ -59,21 +59,24 @@ public class StudentApplicationService {
                     student.setApplicationDate(LocalDate.now());
                     student.setStatusId(STATUS_PENDING_ID);
 
-                    StudentApplication saved = studentRepo.save(student);
-
-                    if (studentApplicationRequestDTO.getSchedules() == null) {
+                    if (studentApplicationRequestDTO.getSchedules() == null || studentApplicationRequestDTO.getSchedules().isEmpty()) {
                         throw new StudentApplicationBadRequestException("Schedules are required for the student application.");
                     }
 
+                    // Create schedules and establish bidirectional relationship
+                    List<StudentApplicationSchedule> schedules = new java.util.ArrayList<>();
                     for (StudentApplicationScheduleRequestDTO scheduleDTO : studentApplicationRequestDTO.getSchedules()) {
                         StudentApplicationSchedule studentSchedule = new StudentApplicationSchedule();
                         studentSchedule.setDay(scheduleDTO.getDay());
                         studentSchedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
                         studentSchedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
-                        studentSchedule.setStudentApplicationId(saved.getId());
-                        
-                        requestScheduleRepository.save(studentSchedule);
+                        studentSchedule.setStudentApplication(student);
+                        schedules.add(studentSchedule);
                     }
+                    student.setSchedules(schedules);
+
+                    // Save student application with cascading schedules
+                    StudentApplication saved = studentRepo.save(student);
 
                     return mapToResponseDTO(saved);
                 }).subscribeOn(Schedulers.boundedElastic()));

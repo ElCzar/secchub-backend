@@ -22,9 +22,6 @@ public class StudentApplicationSchedule {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "student_application_id", nullable = false)
-    private Long studentApplicationId;
-
     @Column(name = "day", nullable = false)
     private String day;
 
@@ -35,6 +32,13 @@ public class StudentApplicationSchedule {
     private Time endTime;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "student_application_id", insertable = false, updatable = false)
+    @JoinColumn(name = "student_application_id", nullable = false)
     private StudentApplication studentApplication;
+    
+    /**
+     * Convenience method to get the student application ID.
+     */
+    public Long getStudentApplicationId() {
+        return studentApplication != null ? studentApplication.getId() : null;
+    }
 }
