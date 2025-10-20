@@ -84,7 +84,7 @@ public class TeacherClassController {
      * @return List of teacher classes for the given class ID
      */
     @GetMapping("/classes/class/{classId}")
-    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getTeacherClassByClassId(@PathVariable Long classId) {
         return Mono.fromCallable(() -> service.listTeacherClassByClassId(classId))
                 .map(ResponseEntity::ok)

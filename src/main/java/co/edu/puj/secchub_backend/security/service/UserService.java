@@ -69,12 +69,35 @@ public class UserService implements SecurityModuleUserContract {
         return Mono.just(modelMapper.map(user, UserInformationResponseDTO.class));
     }
 
+    @Override
+    public Mono<co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO> getUserInformationByEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+        
+        // Mapear del modelo User al DTO del contrato
+        co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO contractDTO = 
+            co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .faculty(user.getFaculty())
+                .name(user.getName())
+                .lastName(user.getLastName())
+                .email(user.getEmail())
+                .statusId(user.getStatusId())
+                .roleId(user.getRoleId())
+                .documentType(user.getDocumentType())
+                .documentNumber(user.getDocumentNumber())
+                .build();
+                
+        return Mono.just(contractDTO);
+    }
+
     /**
-     * Gets the userInformation by email
+     * Gets the userInformation by email (internal version)
      * @param email the user email
      * @return UserInformationResponseDTO with user details
      */
-    public Mono<UserInformationResponseDTO> getUserInformationByEmail(String email) {
+    public Mono<UserInformationResponseDTO> getUserInformationByEmailInternal(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
         return Mono.just(modelMapper.map(user, UserInformationResponseDTO.class));

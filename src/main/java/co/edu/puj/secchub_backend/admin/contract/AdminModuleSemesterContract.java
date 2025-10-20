@@ -1,5 +1,8 @@
 package co.edu.puj.secchub_backend.admin.contract;
 
+import co.edu.puj.secchub_backend.admin.dto.SemesterResponseDTO;
+import reactor.core.publisher.Mono;
+
 import java.util.List;
 import java.util.Map;
 
@@ -13,6 +16,12 @@ public interface AdminModuleSemesterContract {
      * @return id of the current semester
      */
     Long getCurrentSemesterId();
+    
+    /**
+     * Obtains the current active semester with complete information.
+     * @return Mono containing current semester information
+     */
+    Mono<SemesterResponseDTO> getCurrentSemester();
     
     /**
      * Obtains all semesters that have already ended (past semesters).

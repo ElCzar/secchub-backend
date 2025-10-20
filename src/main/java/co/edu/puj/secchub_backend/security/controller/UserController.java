@@ -57,6 +57,7 @@ public class UserController {
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<UserInformationResponseDTO>> getUserInformationByEmail(@RequestParam String email) {
         return userService.getUserInformationByEmail(email)
+                .cast(UserInformationResponseDTO.class)
                 .map(ResponseEntity::ok);
     }
 
