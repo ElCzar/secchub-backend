@@ -228,3 +228,21 @@ INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time
 -- Information Security request
 (3, 2, '16:00:00', '18:00:00', 'Tuesday', 1, false),
 (3, 2, '16:00:00', '18:00:00', 'Friday', 1, false);
+
+-- Academic requests (for past semester 1 - Fall 2024)
+INSERT INTO academic_request (user_id, course_id, semester_id, start_date, end_date, capacity, request_date, observation) VALUES
+(4, 1, 1, '2024-08-15', '2024-12-15', 40, '2024-06-01', 'Request for Database Systems - Fall 2024'),
+(6, 2, 1, '2024-08-15', '2024-12-15', 35, '2024-06-03', 'Request for Software Engineering - Fall 2024'),
+(7, 3, 1, '2024-08-15', '2024-12-15', 50, '2024-06-05', 'Request for Computer Networks - Fall 2024');
+
+-- Request schedules for the Fall 2024 requests (paired entries)
+INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time, end_time, day, modality_id, disability) VALUES
+-- Database Systems (Fall 2024) request -> will be academic_request id 4
+(4, 1, '09:00:00', '11:00:00', 'Tuesday', 1, false),
+(4, 1, '09:00:00', '11:00:00', 'Thursday', 1, false),
+-- Software Engineering (Fall 2024) request -> id 5
+(5, 1, '14:00:00', '16:00:00', 'Monday', 1, false),
+(5, 1, '14:00:00', '16:00:00', 'Wednesday', 1, false),
+-- Computer Networks (Fall 2024) request -> id 6
+(6, 1, '14:00:00', '16:00:00', 'Monday', 1, false),
+(6, 1, '14:00:00', '16:00:00', 'Friday', 1, false);
