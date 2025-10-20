@@ -17,6 +17,7 @@ import co.edu.puj.secchub_backend.integration.model.RequestSchedule;
 import co.edu.puj.secchub_backend.integration.repository.AcademicRequestRepository;
 import co.edu.puj.secchub_backend.integration.repository.RequestScheduleRepository;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import lombok.RequiredArgsConstructor;
 
 import org.modelmapper.ModelMapper;
@@ -425,11 +426,7 @@ public class AcademicRequestService {
      * Método helper para obtener el nombre del usuario
      */
     private String getUserName(Long userId) {
-        // Por ahora, usamos un mapeo básico basado en los IDs conocidos
-        // En el futuro se puede mejorar con consultas reales a la BD
-        if (userId == 10) {
-            return "Programa Sistemas";
-        }
+
         return "Usuario " + userId;
     }
 
@@ -448,13 +445,108 @@ public class AcademicRequestService {
     }
 
     /**
+     * Gets the current user context including user name and current semester info.
+     * @return Map containing user context information
+     */
+    public Mono<Map<String, Object>> getCurrentUserContext() {
+        System.out.println("🔍 AcademicRequestService: Iniciando obtención de contexto del usuario");
+        
+        return ReactiveSecurityContextHolder.getContext()
+                .flatMap(securityContext -> {
+                    System.out.println("🔐 AcademicRequestService: SecurityContext obtenido");
+                    String userEmail = securityContext.getAuthentication().getName();
+                    System.out.println("📧 AcademicRequestService: Email del usuario autenticado: " + userEmail);
+                    
+                    return this.getUserContextByEmail(userEmail);
+                })
+                .onErrorResume(error -> {
+                    System.err.println("❌ AcademicRequestService: No hay usuario autenticado: " + error.getMessage());
+                    System.out.println("🔄 AcademicRequestService: Usando usuario por defecto (program@secchub.com)");
+                    
+                    // Usar usuario por defecto cuando no hay autenticación
+                    return this.getUserContextByEmail("program@secchub.com");
+                });
+    }
+    
+    /**
+     * Gets user context by email (helper method).
+     */
+    private Mono<Map<String, Object>> getUserContextByEmail(String userEmail) {
+        return Mono.fromCallable(() -> {
+            Long userId = userService.getUserIdByEmail(userEmail);
+            System.out.println("🆔 AcademicRequestService: ID del usuario: " + userId);
+            
+            // Obtener el nombre del usuario programa directamente
+            String programUserName = getUserNameByEmail(userEmail);
+            System.out.println("� AcademicRequestService: Nombre del usuario programa: " + programUserName);
+            
+            return new Object[]{userId, programUserName};
+        }).flatMap(userData -> {
+            Object[] data = (Object[]) userData;
+            Long userId = (Long) data[0];
+            String programUserName = (String) data[1];
+            
+            return semesterService.getCurrentSemester()
+                    .map(semester -> {
+                        System.out.println("📅 AcademicRequestService: Semestre actual: " + semester);
+                        
+                        Map<String, Object> context = new HashMap<>();
+                        context.put("careerId", "PROG" + userId);
+                        context.put("careerName", programUserName); // Aquí va el nombre del usuario programa
+                        context.put("semester", semester.getYear() + "-" + semester.getPeriod());
+                        context.put("semesterId", semester.getId());
+                        
+                        System.out.println("✅ AcademicRequestService: Contexto creado: " + context);
+                        return context;
+                    })
+                    .doOnError(error -> {
+                        System.err.println("❌ AcademicRequestService: Error obteniendo semestre: " + error.getMessage());
+                        error.printStackTrace();
+                    });
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+    
+    /**
+     * Método helper para obtener el nombre del usuario por email
+     */
+    private String getUserNameByEmail(String userEmail) {
+        try {
+            // Obtener el nombre real del usuario de la base de datos usando el UserService
+            UserInformationResponseDTO userInfo = userService.getUserInformationByEmail(userEmail).block();
+            
+            if (userInfo != null) {
+                // Construir el nombre completo usando los datos reales de la BD
+                String fullName = "";
+                if (userInfo.getName() != null && !userInfo.getName().trim().isEmpty()) {
+                    fullName += userInfo.getName().trim();
+                }
+                if (userInfo.getLastName() != null && !userInfo.getLastName().trim().isEmpty()) {
+                    if (!fullName.isEmpty()) {
+                        fullName += " ";
+                    }
+                    fullName += userInfo.getLastName().trim();
+                }
+                
+                // Si no hay nombre completo disponible, usar el username
+                if (fullName.trim().isEmpty()) {
+                    fullName = userInfo.getUsername() != null ? userInfo.getUsername() : "Usuario sin nombre";
+                }
+                
+                return fullName;
+            } else {
+                throw new RuntimeException("No se encontró información del usuario");
+            }
+            
+        } catch (Exception e) {
+            System.err.println("⚠️ Error obteniendo nombre de usuario: " + e.getMessage());
+            throw new RuntimeException("No se pudo obtener el nombre del usuario para email: " + userEmail, e);
+        }
+    }    /**
      * Método helper para obtener el nombre del programa
      */
     private String getProgramName(Long userId) {
-        // Por ahora, basado en el usuario conocido
-        if (userId == 10) {
-            return "Ingeniería de Sistemas";
-        }
+
+        
         return "Programa Desconocido";
     }
 }

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +31,26 @@ public class AcademicRequestController {
     private final AcademicRequestService academicRequestService;
     private final AdminModuleSemesterContract semesterService;
 
+    /**
+     * Gets the current user context for programs (faculty, semester info).
+     * @return User context with faculty and current semester
+     */
+    @GetMapping("/context")
+    @PreAuthorize("hasRole('ROLE_PROGRAM')") 
+    public Mono<ResponseEntity<Map<String, Object>>> getUserContext() {
+        System.out.println("🔍 AcademicRequestController: Recibida solicitud de contexto de usuario");
+        return academicRequestService.getCurrentUserContext()
+                .map(context -> {
+                    System.out.println("✅ AcademicRequestController: Contexto obtenido: " + context);
+                    return ResponseEntity.ok(context);
+                })
+                .doOnError(error -> {
+                    System.err.println("❌ AcademicRequestController: Error obteniendo contexto: " + error.getMessage());
+                    error.printStackTrace();
+                });
+    }
+
+   
     /**
      * Creates a batch of academic requests with schedules.
      * @param academicRequestBatchRequestDTO with batch request information
@@ -63,6 +84,18 @@ public class AcademicRequestController {
     public Mono<List<AcademicRequestResponseDTO>> getCurrentSemesterAcademicRequests() {
         return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
                 .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Gets academic requests for a specific semester filtered by the authenticated user.
+     * @param semesterId The semester ID to filter requests
+     * @return List of academic requests for the specified semester and user
+     */
+    @GetMapping("/by-semester")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_USER')")
+    public Mono<List<AcademicRequestResponseDTO>> getAcademicRequestsBySemester(
+            @RequestParam Long semesterId) {
+        return academicRequestService.findAcademicRequestsBySemesterAndUser(semesterId);
     }
 
     /**

@@ -66,9 +66,20 @@ public class SemesterService implements AdminModuleSemesterContract {
     @Cacheable("current-semester")
     public Mono<SemesterResponseDTO> getCurrentSemester() {
         return Mono.fromCallable(() -> {
+            System.out.println("🔍 SemesterService: Buscando semestre actual...");
             Semester currentSemester = semesterRepository.findByIsCurrentTrue()
                     .orElseThrow(() -> new SemesterBadRequestException("No current semester found"));
-            return modelMapper.map(currentSemester, SemesterResponseDTO.class);
+            
+            System.out.println("📅 SemesterService: Semestre encontrado - ID: " + currentSemester.getId());
+            System.out.println("📅 SemesterService: Año: " + currentSemester.getYear());
+            System.out.println("📅 SemesterService: Período: " + currentSemester.getPeriod());
+            System.out.println("📅 SemesterService: Fecha inicio: " + currentSemester.getStartDate());
+            System.out.println("📅 SemesterService: Fecha fin: " + currentSemester.getEndDate());
+            System.out.println("📅 SemesterService: Es actual: " + currentSemester.getIsCurrent());
+            
+            SemesterResponseDTO response = modelMapper.map(currentSemester, SemesterResponseDTO.class);
+            System.out.println("✅ SemesterService: DTO mapeado: " + response);
+            return response;
         });
     }
 
