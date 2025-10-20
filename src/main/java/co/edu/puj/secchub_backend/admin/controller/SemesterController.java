@@ -45,7 +45,7 @@ public class SemesterController {
      * @return Current semester with status 200
      */
     @GetMapping("/current")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<SemesterResponseDTO>> getCurrentSemester() {
         return semesterService.getCurrentSemester()
                 .map(ResponseEntity::ok);

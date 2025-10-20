@@ -31,7 +31,7 @@ public class ParametricController {
      * @return List of all status DTOs
      */
     @GetMapping("/statuses")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<StatusDTO>>> getAllStatuses() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllStatuses()));
     }
@@ -42,7 +42,7 @@ public class ParametricController {
      * @return Status name
      */
     @GetMapping("/statuses/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getStatusById(@PathVariable Long id) {
         return Mono.just(ResponseEntity.ok(parametricService.getStatusNameById(id)));
     }
@@ -52,7 +52,7 @@ public class ParametricController {
      * @return List of all role DTOs
      */
     @GetMapping("/roles")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<RoleDTO>>> getAllRoles() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllRoles()));
     }
@@ -63,7 +63,7 @@ public class ParametricController {
      * @return Role name
      */
     @GetMapping("/roles/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getRoleById(@PathVariable Long id) {
         return Mono.just(ResponseEntity.ok(parametricService.getRoleNameById(id)));
     }
@@ -73,7 +73,7 @@ public class ParametricController {
      * @return List of all document type DTOs
      */
     @GetMapping("/document-types")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<DocumentTypeDTO>>> getAllDocumentTypes() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllDocumentTypes()));
     }
@@ -84,7 +84,7 @@ public class ParametricController {
      * @return Document type name
      */
     @GetMapping("/document-types/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getDocumentTypeById(@PathVariable Long id) {
         return Mono.just(ResponseEntity.ok(parametricService.getDocumentTypeNameById(id)));
     }
@@ -94,7 +94,7 @@ public class ParametricController {
      * @return List of all employment type DTOs
      */
     @GetMapping("/employment-types")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<EmploymentTypeDTO>>> getAllEmploymentTypes() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllEmploymentTypes()));
     }
@@ -105,7 +105,7 @@ public class ParametricController {
      * @return Employment type name
      */
     @GetMapping("/employment-types/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getEmploymentTypeById(@PathVariable Long id) {
         return Mono.just(ResponseEntity.ok(parametricService.getEmploymentTypeNameById(id)));
     }
@@ -115,7 +115,7 @@ public class ParametricController {
      * @return List of all modality DTOs
      */
     @GetMapping("/modalities")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
+    @PreAuthorize("isAuthenticated() or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<ModalityDTO>>> getAllModalities() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllModalities()));
     }
@@ -126,7 +126,7 @@ public class ParametricController {
      * @return Modality name
      */
     @GetMapping("/modalities/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getModalityById(@PathVariable Long id) {
         return Mono.just(ResponseEntity.ok(parametricService.getModalityNameById(id)));
     }
@@ -136,7 +136,7 @@ public class ParametricController {
      * @return List of all classroom type DTOs
      */
     @GetMapping("/classroom-types")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_PROGRAM')")
+    @PreAuthorize("isAuthenticated() or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<ClassroomTypeDTO>>> getAllClassroomTypes() {
         return Mono.just(ResponseEntity.ok(parametricService.getAllClassroomTypes()));
     }
@@ -147,7 +147,7 @@ public class ParametricController {
      * @return Classroom type name
      */
     @GetMapping("/classroom-types/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getClassroomTypeById(@PathVariable Long id) {
         return Mono.just(ResponseEntity.ok(parametricService.getClassroomTypeNameById(id)));
     }

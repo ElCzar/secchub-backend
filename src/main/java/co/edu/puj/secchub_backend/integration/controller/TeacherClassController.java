@@ -49,6 +49,19 @@ public class TeacherClassController {
     }
 
     /**
+     * Get all teacher classes for a teacher in the current semester.
+     * @param teacherId Teacher ID
+     * @return List of teacher classes for the teacher in the current semester
+     */
+    @GetMapping("/classes/current-semester/{teacherId}")
+    @PreAuthorize("hasRole('ROLE_TEACHER')")
+    public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getCurrentSemesterTeacherClassesByTeacher(@PathVariable Long teacherId) {
+        return Mono.fromCallable(() -> service.listCurrentSemesterTeacherClassesByTeacher(teacherId))
+                .map(ResponseEntity::ok)
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+    }
+
+    /**
      * Get all classes assigned to a teacher.
      * @param teacherId Teacher ID
      * @return List of classes assigned to the teacher

@@ -7,7 +7,9 @@ import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.repository.TeacherClassRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
+import org.springframework.boot.actuate.endpoint.SecurityContext;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
@@ -57,6 +59,18 @@ public class TeacherClassService {
     public List<TeacherClassResponseDTO> listCurrentSemesterTeacherClasses() {
         Long currentSemesterId = semesterService.getCurrentSemesterId();
         return repository.findBySemesterId(currentSemesterId).stream()
+                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+                .toList();
+    }
+
+    /**
+     * Lists all teacher classes for a specific teacher in the current semester.
+     * @param teacherId Teacher IDfindBySemesterIdAndTeacherId
+     * @return List of TeacherClassResponseDTO for the teacher in the current semester
+     */
+    public List<TeacherClassResponseDTO> listCurrentSemesterTeacherClassesByTeacher(Long teacherId) {
+        Long currentSemesterId = semesterService.getCurrentSemesterId();
+        return repository.findBySemesterIdAndTeacherId(currentSemesterId, teacherId).stream()
                 .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
                 .toList();
     }

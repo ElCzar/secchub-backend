@@ -33,7 +33,7 @@ public class PlanningController {
      * @return ResponseEntity containing the created classResponseDTO and HTTP 201 status
      */
     @PostMapping("/classes")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<ClassResponseDTO>> createClass(@RequestBody ClassCreateRequestDTO classCreateRequestDTO) {
         return planningService.createClass(classCreateRequestDTO)
                 .map(createdClass -> ResponseEntity.status(HttpStatus.CREATED).body(createdClass));
@@ -67,7 +67,7 @@ public class PlanningController {
      * @return Class found
      */
     @GetMapping("/classes/{classId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_TEACHER')")
     public Mono<ResponseEntity<ClassResponseDTO>> getClassById(@PathVariable Long classId) {
         return planningService.findClassById(classId)
                 .map(ResponseEntity::ok);
@@ -80,7 +80,7 @@ public class PlanningController {
      * @return Updated class
      */
     @PutMapping("/classes/{classId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<ClassResponseDTO>> updateClass(
             @PathVariable Long classId,
             @RequestBody ClassCreateRequestDTO classCreateRequestDTO) {
@@ -94,7 +94,7 @@ public class PlanningController {
      * @return Empty response with no content code 204
      */
     @DeleteMapping("/classes/{classId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_TEACHER')")
     public Mono<ResponseEntity<Void>> deleteClass(@PathVariable Long classId) {
         return planningService.deleteClass(classId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
@@ -143,7 +143,7 @@ public class PlanningController {
      * @return Created schedule
      */
     @PostMapping("/classes/{classId}/schedules")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<ClassScheduleResponseDTO>> addClassSchedule(
             @PathVariable Long classId,
             @RequestBody ClassScheduleRequestDTO classScheduleRequestDTO) {
@@ -182,7 +182,7 @@ public class PlanningController {
      * @return Updated schedule
      */
     @PutMapping("/schedules/{scheduleId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<ClassScheduleResponseDTO>> updateClassSchedule(
             @PathVariable Long scheduleId,
             @RequestBody ClassScheduleRequestDTO classScheduleRequestDTO) {
@@ -196,7 +196,7 @@ public class PlanningController {
      * @return Empty response with no content code 204
      */
     @DeleteMapping("/schedules/{scheduleId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> deleteClassSchedule(@PathVariable Long scheduleId) {
         return planningService.deleteClassSchedule(scheduleId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));
@@ -209,7 +209,7 @@ public class PlanningController {
      * @return Partially updated schedule
      */
     @PatchMapping("/schedules/{scheduleId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<ClassScheduleResponseDTO>> patchClassSchedule(
             @PathVariable Long scheduleId,
             @RequestBody Map<String, Object> updates) {
@@ -266,7 +266,7 @@ public class PlanningController {
      * Validate a class payload before creating/updating. Returns conflicts if any.
      */
     @PostMapping("/classes/validate")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Map<String, Object>>> validateClass(@RequestBody ClassCreateRequestDTO classCreateRequestDTO) {
         return planningService.validateClass(classCreateRequestDTO)
                 .map(result -> ResponseEntity.ok(result));
@@ -287,7 +287,7 @@ public class PlanningController {
      * Query params: sourceSemesterId, targetSemesterId
      */
     @PostMapping("/duplicate")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public List<ClassResponseDTO> duplicateSemesterPlanning(@RequestParam Long sourceSemesterId, @RequestParam Long targetSemesterId) {
         return planningService.duplicateSemesterPlanning(sourceSemesterId, targetSemesterId);
     }
@@ -325,7 +325,7 @@ public class PlanningController {
     }
 
     @PostMapping("/teacher-assignments/assign")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Map<String, Object>>> assignTeacherToClass(
             @RequestParam Long teacherId,
             @RequestParam Long classId,
@@ -343,7 +343,7 @@ public class PlanningController {
     }
 
     @PutMapping("/teacher-assignments/class/{classId}/teacher")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Map<String, Object>>> changeTeacherForClassViaPlanning(
             @PathVariable Long classId,
             @RequestParam Long newTeacherId,
@@ -372,7 +372,7 @@ public class PlanningController {
      * TEMPORAL: Sin autenticación para pruebas
      */
     @GetMapping("/semesters/{semesterId}/preview")
-    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")  // Comentado temporalmente
+    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")  // Comentado temporalmente
     public Mono<ResponseEntity<Map<String, Object>>> getSemesterPlanningPreview(@PathVariable Long semesterId) {
         return Mono.fromCallable(() -> {
             List<ClassResponseDTO> classes = planningService.findClassesBySemesterId(semesterId);
@@ -390,7 +390,7 @@ public class PlanningController {
      * TEMPORAL: Sin autenticación para pruebas
      */
     @PostMapping("/semesters/{sourceSemesterId}/apply-to-current")
-    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")  // Comentado temporalmente
+    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")  // Comentado temporalmente
     public Mono<ResponseEntity<Map<String, Object>>> applySemesterPlanningToCurrent(@PathVariable Long sourceSemesterId) {
         return Mono.fromCallable(() -> {
             Map<String, Object> result = planningService.applySemesterPlanningToCurrent(sourceSemesterId);
@@ -404,7 +404,7 @@ public class PlanningController {
      * TEMPORAL: Sin autenticación para pruebas
      */
     @GetMapping("/semesters/past")
-    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_PLANNER')")  // Comentado temporalmente
+    // @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")  // Comentado temporalmente
     public Mono<ResponseEntity<List<Map<String, Object>>>> getPastSemesters() {
         return Mono.fromCallable(() -> {
             List<Map<String, Object>> pastSemesters = planningService.getPastSemesters();

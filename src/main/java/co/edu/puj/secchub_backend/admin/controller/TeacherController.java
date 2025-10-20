@@ -65,7 +65,7 @@ public class TeacherController {
      * @return Teacher associated with the user
      */
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_TEACHER')")
     public Mono<ResponseEntity<TeacherResponseDTO>> getTeacherByUserId(@PathVariable Long userId) {
         return teacherService.getTeacherByUserId(userId)
                 .map(ResponseEntity::ok);
