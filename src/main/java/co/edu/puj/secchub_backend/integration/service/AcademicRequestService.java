@@ -305,7 +305,7 @@ public class AcademicRequestService {
                     RequestScheduleResponseDTO dto = RequestScheduleResponseDTO.builder()
                             .id(schedule.getId())
                             .academicRequestId(schedule.getAcademicRequestId())
-                            .classRoomTypeId(schedule.getClassroomTypeId())
+                            .classRoomTypeId(schedule.getClassRoomTypeId())
                             .startTime(schedule.getStartTime() != null ? schedule.getStartTime().toString() : null)
                             .endTime(schedule.getEndTime() != null ? schedule.getEndTime().toString() : null)
                             .day(schedule.getDay())

@@ -22,7 +22,7 @@ public class RequestSchedule {
     private Long academicRequestId;
 
     @Column(name = "classroom_type_id")
-    private Long classroomTypeId;
+    private Long classRoomTypeId;
 
     @Column(name = "start_time")
     private java.sql.Time startTime;
