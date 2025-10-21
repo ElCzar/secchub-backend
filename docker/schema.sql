@@ -86,6 +86,7 @@ CREATE TABLE `section` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` BIGINT UNSIGNED NULL,
   `name` VARCHAR(150) NOT NULL,
+  `planning_closed` BOOLEAN NOT NULL DEFAULT FALSE,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_section_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)

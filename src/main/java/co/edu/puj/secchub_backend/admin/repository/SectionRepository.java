@@ -4,8 +4,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import co.edu.puj.secchub_backend.admin.model.Section;
 
-import java.util.List;
+import java.util.Optional;
 
 public interface SectionRepository extends JpaRepository<Section, Long> {
-    List<Section> findByUserId(Long userId);
+    Optional<Section> findByUserId(Long userId);
 }

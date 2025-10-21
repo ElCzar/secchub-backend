@@ -17,4 +17,5 @@ public class SectionResponseDTO {
     private Long id;
     private String name;
     private Long userId;
+    private boolean planningClosed;
 }

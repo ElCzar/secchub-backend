@@ -53,4 +53,26 @@ public class SectionController {
     public Mono<ResponseEntity<List<SectionResponseDTO>>> findSectionsByUserId(@PathVariable Long userId) {
         return Mono.fromCallable(() -> ResponseEntity.ok(sectionService.findSectionsByUserId(userId)));
     }
+
+    /**
+     * Close planning for current user's section
+     * @return Updated section
+     */
+    @PostMapping("/close-planning")
+    @PreAuthorize("hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<SectionResponseDTO>> closePlanningForCurrentUser() {
+        return sectionService.closePlanningForCurrentUser()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Gets if planning is closed for current user's section
+     * @return true if planning is closed, false otherwise
+     */
+    @GetMapping("/is-planning-closed")
+    @PreAuthorize("hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Boolean>> isPlanningClosedForCurrentUser() {
+        return sectionService.isPlanningClosedForCurrentUser()
+                .map(ResponseEntity::ok);
+    }
 }

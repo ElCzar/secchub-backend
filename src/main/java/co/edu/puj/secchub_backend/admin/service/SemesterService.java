@@ -30,9 +30,11 @@ public class SemesterService implements AdminModuleSemesterContract {
 
     private final SemesterRepository semesterRepository;
     private final ModelMapper modelMapper;
+    private final SectionService sectionService;
 
     /**
      * Creates a new semester and sets to false the last semester's active field.
+     * Also changes all sections' planningClosed field to false.
      * @param semesterRequestDTO with semester data
      * @return semesterResponseDTO with created semester data
      * @throws SemesterBadRequestException if semester data is invalid
@@ -54,6 +56,7 @@ public class SemesterService implements AdminModuleSemesterContract {
             Semester semester = modelMapper.map(semesterRequestDTO, Semester.class);
             semester.setIsCurrent(true);
             semesterRepository.save(semester);
+            sectionService.openPlanningForAllSections();
             return modelMapper.map(semester, SemesterResponseDTO.class);
         });
     }

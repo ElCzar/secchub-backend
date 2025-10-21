@@ -25,4 +25,7 @@ public class Section {
 
     @Column(nullable = false, length = 150)
     private String name;
+
+    @Column(name = "planning_closed", nullable = false)
+    private boolean planningClosed;
 }
