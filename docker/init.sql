@@ -55,7 +55,9 @@ VALUES
 ('carlos.lopez', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Carlos', 'Lopez', 'carlos.lopez@secchub.com', 1, 4, 1, '55555555'),
 ('ana.rodriguez', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Ana', 'Rodriguez', 'ana.rodriguez@secchub.com', 1, 3, 1, '66666666'),
 ('luis.martinez', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Luis', 'Martinez', 'luis.martinez@secchub.com', 1, 3, 1, '77777777'),
-('sofia.hernandez', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Sofia', 'Hernandez', 'sofia.hernandez@secchub.com', 1, 3, 1, '88888888');
+('sofia.hernandez', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Sofia', 'Hernandez', 'sofia.hernandez@secchub.com', 1, 3, 1, '88888888'),
+('user-is', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Regular', 'User', 'user-is@secchub.com', 1, 2, 1, '87654321'),
+('user-si', '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq', 'Regular', 'User', 'user-si@secchub.com', 1, 2, 1, '87654321');
 
 -- Teachers data --
 INSERT INTO teacher (user_id, employment_type_id, max_hours) VALUES
@@ -66,8 +68,8 @@ INSERT INTO teacher (user_id, employment_type_id, max_hours) VALUES
 -- Sections data --
 INSERT INTO section (user_id, name) VALUES
 (2, 'Computer Science'),
-(2, 'Information Systems'),
-(2, 'Software Engineering');
+(11, 'Information Systems'),
+(12, 'Software Engineering');
 
 -- Courses data --
 INSERT INTO course (section_id, name, credits, description, requirement, is_valid, recommendation, status_id) VALUES
