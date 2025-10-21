@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.integration.service;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestResponseDTO;
@@ -42,6 +43,7 @@ public class AcademicRequestService {
     private final RequestScheduleRepository requestScheduleRepository;
     private final SecurityModuleUserContract userService;
     private final AdminModuleSemesterContract semesterService;
+    private final AdminModuleCourseContract courseService;
 
     /**
      * Creates a batch of academic requests with their associated schedules.
@@ -434,13 +436,13 @@ public class AcademicRequestService {
      * Método helper para obtener el nombre del curso
      */
     private String getCourseName(Long courseId) {
-        // Por ahora, usamos un mapeo básico basado en los IDs conocidos
-        // En el futuro se puede mejorar con consultas reales a la BD
-        switch (courseId.intValue()) {
-            case 1: return "Database Systems";
-            case 2: return "Software Engineering";
-            case 3: return "Data Structures";
-            default: return "Curso " + courseId;
+        try {
+            // Delegar al servicio de cursos (implementación real que consulta la BD)
+            String name = courseService.getCourseName(courseId);
+            return name != null && !name.trim().isEmpty() ? name : "Curso " + courseId;
+        } catch (Exception e) {
+            // Fallback seguro si algo falla en la capa de cursos
+            return "Curso " + courseId;
         }
     }
 
