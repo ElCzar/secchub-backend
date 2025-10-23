@@ -181,6 +181,8 @@ CREATE TABLE `academic_request` (
   `capacity` INT NULL,
   `request_date` DATE NULL,
   `observation` TEXT NULL,
+  `accepted` BOOLEAN NULL,
+  `combined` BOOLEAN NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_academic_request_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)

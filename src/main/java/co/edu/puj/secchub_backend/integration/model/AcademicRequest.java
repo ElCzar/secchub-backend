@@ -43,6 +43,12 @@ public class AcademicRequest {
     @Column(name = "observation")
     private String observation;
 
+    @Column(name = "accepted")
+    private Boolean accepted;
+
+    @Column(name = "combined")
+    private Boolean combined;
+
     @OneToMany(mappedBy = "academicRequest", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<RequestSchedule> schedules;
@@ -50,5 +56,7 @@ public class AcademicRequest {
     @PrePersist
     public void onCreate() {
         if (requestDate == null) requestDate = LocalDate.now();
+        if (accepted == null) accepted = false;
+        if (combined == null) combined = false;
     }
 }
