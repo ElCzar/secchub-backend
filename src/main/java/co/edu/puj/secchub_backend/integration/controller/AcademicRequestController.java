@@ -91,7 +91,7 @@ public class AcademicRequestController {
      * @return List of academic requests for the specified semester and user
      */
     @GetMapping("/by-semester")
-    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
     public Mono<List<AcademicRequestResponseDTO>> getAcademicRequestsBySemester(
             @RequestParam Long semesterId) {
         return academicRequestService.findAcademicRequestsBySemesterAndUser(semesterId);
