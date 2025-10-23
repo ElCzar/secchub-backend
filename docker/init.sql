@@ -9,7 +9,12 @@ INSERT INTO status (id, name) VALUES
     (7, 'On Hold'),
     (8, 'Confirmed'),
     (9, 'Rejected'),
-    (10, 'Completed');
+    (10, 'Completed'),
+    (11, 'Created'),
+    (12, 'Change'),
+    (13, 'Deleted'),
+    (14,'Uploaded');
+    
 
 -- Roles based on user permissions --
 INSERT INTO role (id, name) VALUES 
