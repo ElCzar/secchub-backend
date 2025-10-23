@@ -175,4 +175,20 @@ public class TeacherClassService {
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
+    /**
+     * Deletes a teacher-class assignment by teacher ID and class ID.
+     * @param teacherId Teacher ID
+     * @param classId Class ID
+     * @return Mono<Void>
+     */
+    @Transactional
+    public Mono<Void> deleteTeacherClassByTeacherAndClass(Long teacherId, Long classId) {
+        return Mono.fromRunnable(() -> {
+            TeacherClass tc = repository.findByTeacherIdAndClassId(teacherId, classId)
+                    .orElseThrow(() -> new TeacherClassNotFoundException(
+                            "TeacherClass not found for teacherId: " + teacherId + " and classId: " + classId));
+            repository.delete(tc);
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
 }
