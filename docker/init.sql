@@ -121,43 +121,43 @@ INSERT INTO class (id, section, course_id, semester_id, start_date, end_date, ob
 -- Class schedules (in pairs as requested) --
 INSERT INTO class_schedule (class_id, classroom_id, day, start_time, end_time, modality_id, disability) VALUES
 -- 2024
--- Database Systems (Monday-Wednesday)
-(1, 1, 'Monday', '08:00:00', '10:00:00', 1, false),
-(1, 1, 'Wednesday', '08:00:00', '10:00:00', 1, false),
--- Software Engineering (Tuesday-Thursday)
-(2, 2, 'Tuesday', '10:00:00', '12:00:00', 1, false),
-(2, 2, 'Thursday', '10:00:00', '12:00:00', 1, false),
--- Computer Networks (Monday-Friday)
-(3, 3, 'Monday', '14:00:00', '16:00:00', 1, false),
-(3, 3, 'Friday', '14:00:00', '16:00:00', 1, false),
--- Information Security (Tuesday-Thursday)
-(4, 4, 'Tuesday', '16:00:00', '18:00:00', 1, false),
-(4, 4, 'Thursday', '16:00:00', '18:00:00', 1, false),
--- Data Analytics (Wednesday-Friday)
-(5, 5, 'Wednesday', '10:00:00', '12:00:00', 1, false),
-(5, 5, 'Friday', '10:00:00', '12:00:00', 1, false),
--- Agile Development (Monday-Wednesday)
-(6, 6, 'Monday', '16:00:00', '18:00:00', 1, false),
-(6, 6, 'Wednesday', '16:00:00', '18:00:00', 1, false),
+-- Database Systems (Lunes-Miercoles)
+(1, 1, 'Lunes', '08:00:00', '10:00:00', 1, false),
+(1, 1, 'Miercoles', '08:00:00', '10:00:00', 1, false),
+-- Software Engineering (Martes-Jueves)
+(2, 2, 'Martes', '10:00:00', '12:00:00', 1, false),
+(2, 2, 'Jueves', '10:00:00', '12:00:00', 1, false),
+-- Computer Networks (Lunes-Viernes)
+(3, 3, 'Lunes', '14:00:00', '16:00:00', 1, false),
+(3, 3, 'Viernes', '14:00:00', '16:00:00', 1, false),
+-- Information Security (Martes-Jueves)
+(4, 4, 'Martes', '16:00:00', '18:00:00', 1, false),
+(4, 4, 'Jueves', '16:00:00', '18:00:00', 1, false),
+-- Data Analytics (Miercoles-Viernes)
+(5, 5, 'Miercoles', '10:00:00', '12:00:00', 1, false),
+(5, 5, 'Viernes', '10:00:00', '12:00:00', 1, false),
+-- Agile Development (Lunes-Miercoles)
+(6, 6, 'Lunes', '16:00:00', '18:00:00', 1, false),
+(6, 6, 'Miercoles', '16:00:00', '18:00:00', 1, false),
 -- 2025
--- Database Systems (Monday-Wednesday)
-(7, 1, 'Monday', '08:00:00', '10:00:00', 1, false),
-(7, 1, 'Wednesday', '08:00:00', '10:00:00', 1, false),
--- Software Engineering (Tuesday-Thursday)
-(8, 2, 'Tuesday', '10:00:00', '12:00:00', 1, false),
-(8, 2, 'Thursday', '10:00:00', '12:00:00', 1, false),
--- Computer Networks (Monday-Friday)
-(9, 3, 'Monday', '14:00:00', '16:00:00', 1, false),
-(9, 3, 'Friday', '14:00:00', '16:00:00', 1, false),
--- Information Security (Tuesday-Thursday)
-(10, 4, 'Tuesday', '16:00:00', '18:00:00', 1, false),
-(10, 4, 'Thursday', '16:00:00', '18:00:00', 1, false),
--- Data Analytics (Wednesday-Friday)
-(11, 5, 'Wednesday', '10:00:00', '12:00:00', 1, false),
-(11, 5, 'Friday', '10:00:00', '12:00:00', 1, false),
--- Agile Development (Monday-Wednesday)
-(12, 6, 'Monday', '16:00:00', '18:00:00', 1, false),
-(12, 6, 'Wednesday', '16:00:00', '18:00:00', 1, false);
+-- Database Systems (Lunes-Miercoles)
+(7, 1, 'Lunes', '08:00:00', '10:00:00', 1, false),
+(7, 1, 'Miercoles', '08:00:00', '10:00:00', 1, false),
+-- Software Engineering (Martes-Jueves)
+(8, 2, 'Martes', '10:00:00', '12:00:00', 1, false),
+(8, 2, 'Jueves', '10:00:00', '12:00:00', 1, false),
+-- Computer Networks (Lunes-Viernes)
+(9, 3, 'Lunes', '14:00:00', '16:00:00', 1, false),
+(9, 3, 'Viernes', '14:00:00', '16:00:00', 1, false),
+-- Information Security (Martes-Jueves)
+(10, 4, 'Martes', '16:00:00', '18:00:00', 1, false),
+(10, 4, 'Jueves', '16:00:00', '18:00:00', 1, false),
+-- Data Analytics (Miercoles-Viernes)
+(11, 5, 'Miercoles', '10:00:00', '12:00:00', 1, false),
+(11, 5, 'Viernes', '10:00:00', '12:00:00', 1, false),
+-- Agile Development (Lunes-Miercoles)
+(12, 6, 'Lunes', '16:00:00', '18:00:00', 1, false),
+(12, 6, 'Miercoles', '16:00:00', '18:00:00', 1, false);
 
 -- Student applications --
 INSERT INTO student_application (user_id, course_id, section_id, semester_id, program, student_semester, academic_average, phone_number, alternate_phone_number, address, personal_email, was_teaching_assistant, course_average, course_teacher, application_date, status_id) VALUES
@@ -171,25 +171,25 @@ INSERT INTO student_application (user_id, course_id, section_id, semester_id, pr
 -- Student application schedules (in pairs) --
 INSERT INTO student_application_schedule (student_application_id, day, start_time, end_time) VALUES
 -- Ana Rodriguez availability (past semester, section_id = null)
-(1, 'Monday', '06:00:00', '08:00:00'),
-(1, 'Wednesday', '06:00:00', '08:00:00'),
-(1, 'Friday', '12:00:00', '14:00:00'),
-(1, 'Friday', '18:00:00', '20:00:00'),
+(1, 'Lunes', '06:00:00', '08:00:00'),
+(1, 'Miercoles', '06:00:00', '08:00:00'),
+(1, 'Viernes', '12:00:00', '14:00:00'),
+(1, 'Viernes', '18:00:00', '20:00:00'),
 -- Luis Martinez availability (past semester, course_id/average/teacher = null)
-(2, 'Tuesday', '08:00:00', '10:00:00'),
-(2, 'Thursday', '08:00:00', '10:00:00'),
-(2, 'Monday', '18:00:00', '20:00:00'),
-(2, 'Wednesday', '18:00:00', '20:00:00'),
+(2, 'Martes', '08:00:00', '10:00:00'),
+(2, 'Jueves', '08:00:00', '10:00:00'),
+(2, 'Lunes', '18:00:00', '20:00:00'),
+(2, 'Miercoles', '18:00:00', '20:00:00'),
 -- Sofia Hernandez availability (current semester)
-(3, 'Monday', '12:00:00', '14:00:00'),
-(3, 'Friday', '12:00:00', '14:00:00'),
-(3, 'Tuesday', '18:00:00', '20:00:00'),
-(3, 'Thursday', '18:00:00', '20:00:00'),
+(3, 'Lunes', '12:00:00', '14:00:00'),
+(3, 'Viernes', '12:00:00', '14:00:00'),
+(3, 'Martes', '18:00:00', '20:00:00'),
+(3, 'Jueves', '18:00:00', '20:00:00'),
 -- Student user availability (current semester)
-(4, 'Wednesday', '14:00:00', '16:00:00'),
-(4, 'Friday', '14:00:00', '16:00:00'),
-(4, 'Monday', '20:00:00', '22:00:00'),
-(4, 'Wednesday', '20:00:00', '22:00:00');
+(4, 'Miercoles', '14:00:00', '16:00:00'),
+(4, 'Viernes', '14:00:00', '16:00:00'),
+(4, 'Lunes', '20:00:00', '22:00:00'),
+(4, 'Miercoles', '20:00:00', '22:00:00');
 
 -- Teaching assistants (only for past semester applications) --
 INSERT INTO teaching_assistant (class_id, student_application_id, weekly_hours, weeks, total_hours) VALUES
@@ -199,15 +199,15 @@ INSERT INTO teaching_assistant (class_id, student_application_id, weekly_hours, 
 -- Teaching assistant schedules (in pairs) --
 INSERT INTO teaching_assistant_schedule (teaching_assistant_id, day, start_time, end_time) VALUES
 -- Ana Rodriguez TA schedule
-(1, 'Monday', '06:00:00', '08:00:00'),
-(1, 'Wednesday', '06:00:00', '08:00:00'),
-(1, 'Friday', '12:00:00', '14:00:00'),
-(1, 'Friday', '18:00:00', '20:00:00'),
+(1, 'Lunes', '06:00:00', '08:00:00'),
+(1, 'Miercoles', '06:00:00', '08:00:00'),
+(1, 'Viernes', '12:00:00', '14:00:00'),
+(1, 'Viernes', '18:00:00', '20:00:00'),
 -- Luis Martinez TA schedule
-(2, 'Tuesday', '08:00:00', '10:00:00'),
-(2, 'Thursday', '08:00:00', '10:00:00'),
-(2, 'Monday', '18:00:00', '20:00:00'),
-(2, 'Wednesday', '18:00:00', '20:00:00');
+(2, 'Martes', '08:00:00', '10:00:00'),
+(2, 'Jueves', '08:00:00', '10:00:00'),
+(2, 'Lunes', '18:00:00', '20:00:00'),
+(2, 'Miercoles', '18:00:00', '20:00:00');
 
 -- Teacher class assignments (only for past semester - Fall 2024) --
 INSERT INTO teacher_class (semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id) VALUES
@@ -227,14 +227,14 @@ INSERT INTO academic_request (user_id, course_id, semester_id, start_date, end_d
 -- Request schedules (in pairs) --
 INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time, end_time, day, modality_id, disability) VALUES
 -- Database Systems request
-(1, 1, '09:00:00', '11:00:00', 'Tuesday', 1, false),
-(1, 1, '09:00:00', '11:00:00', 'Thursday', 1, false),
+(1, 1, '09:00:00', '11:00:00', 'Martes', 1, false),
+(1, 1, '09:00:00', '11:00:00', 'Jueves', 1, false),
 -- Software Engineering request
-(2, 1, '14:00:00', '16:00:00', 'Monday', 1, false),
-(2, 1, '14:00:00', '16:00:00', 'Wednesday', 1, false),
+(2, 1, '14:00:00', '16:00:00', 'Lunes', 1, false),
+(2, 1, '14:00:00', '16:00:00', 'Miercoles', 1, false),
 -- Information Security request
-(3, 2, '16:00:00', '18:00:00', 'Tuesday', 1, false),
-(3, 2, '16:00:00', '18:00:00', 'Friday', 1, false);
+(3, 2, '16:00:00', '18:00:00', 'Martes', 1, false),
+(3, 2, '16:00:00', '18:00:00', 'Viernes', 1, false);
 
 -- Academic requests (for past semester 1 - Fall 2024)
 INSERT INTO academic_request (user_id, course_id, semester_id, start_date, end_date, capacity, request_date, observation) VALUES
@@ -245,11 +245,11 @@ INSERT INTO academic_request (user_id, course_id, semester_id, start_date, end_d
 -- Request schedules for the Fall 2024 requests (paired entries)
 INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time, end_time, day, modality_id, disability) VALUES
 -- Database Systems (Fall 2024) request -> will be academic_request id 4
-(4, 1, '09:00:00', '11:00:00', 'Tuesday', 1, false),
-(4, 1, '09:00:00', '11:00:00', 'Thursday', 1, false),
+(4, 1, '09:00:00', '11:00:00', 'Martes', 1, false),
+(4, 1, '09:00:00', '11:00:00', 'Jueves', 1, false),
 -- Software Engineering (Fall 2024) request -> id 5
-(5, 1, '14:00:00', '16:00:00', 'Monday', 1, false),
-(5, 1, '14:00:00', '16:00:00', 'Wednesday', 1, false),
+(5, 1, '14:00:00', '16:00:00', 'Lunes', 1, false),
+(5, 1, '14:00:00', '16:00:00', 'Miercoles', 1, false),
 -- Computer Networks (Fall 2024) request -> id 6
-(6, 1, '14:00:00', '16:00:00', 'Monday', 1, false),
-(6, 1, '14:00:00', '16:00:00', 'Friday', 1, false);
+(6, 1, '14:00:00', '16:00:00', 'Lunes', 1, false),
+(6, 1, '14:00:00', '16:00:00', 'Viernes', 1, false);
