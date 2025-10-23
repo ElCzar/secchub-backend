@@ -24,6 +24,21 @@ import java.util.Map;
 @RequestMapping("/planning")
 @RequiredArgsConstructor
 public class PlanningController {
+    /**
+     * Gets classes without assigned teachers for the authenticated section chief and current semester.
+     * The userId is extracted from the JWT of the authenticated user.
+     * @return List of classes without assigned teachers
+     */
+    private final co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract securityModuleUserContract;
+
+    @GetMapping("/classes/section-chief/without-teacher")
+    @PreAuthorize("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+    public Mono<List<ClassResponseDTO>> getClassesWithoutAssignedTeacherForSectionChief(org.springframework.security.core.Authentication authentication) {
+        String email = (String) authentication.getPrincipal();
+        Long userId = securityModuleUserContract.getUserIdByEmail(email);
+        return Mono.fromCallable(() -> planningService.findClassesWithoutAssignedTeacherForSectionChief(userId))
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 
     private final PlanningService planningService;
 

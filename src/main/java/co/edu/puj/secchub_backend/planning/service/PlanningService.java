@@ -33,11 +33,73 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class PlanningService {
+    // Eliminado: getUserIdByEmail. Ahora el controlador obtiene el userId directamente.
+    /**
+     * Returns classes for the authenticated section chief and current semester that do not have a teacher assigned.
+     * @param userId The user ID of the section chief
+     * @return List of ClassResponseDTO for classes without assigned teachers
+     */
+    public List<ClassResponseDTO> findClassesWithoutAssignedTeacherForSectionChief(Long userId) {
+            System.out.println("[DEBUG] userId recibido: " + userId);
+        // Find the section for the user
+        var sectionOpt = sectionRepository.findByUserId(userId);
+        if (sectionOpt.isEmpty()) {
+                System.out.println("[DEBUG] No se encontró sección para userId: " + userId);
+            return List.of();
+        }
+        Long sectionId = sectionOpt.get().getId();
+            System.out.println("[DEBUG] sectionId encontrado: " + sectionId);
+        // Get current semester
+        Long semesterId = semesterService.getCurrentSemesterId();
+            System.out.println("[DEBUG] semesterId actual: " + semesterId);
+        // Get all classes for this section and semester
+        List<Class> classes = classRepository.findBySection(sectionId).stream()
+            .filter(c -> semesterId.equals(c.getSemesterId()))
+            .toList();
+            System.out.println("[DEBUG] Clases encontradas para sección y semestre: " + classes.size());
+            for (Class c : classes) {
+                System.out.println("[DEBUG] Clase: id=" + c.getId() + ", section=" + c.getSection() + ", semester=" + c.getSemesterId());
+            }
+        // Only consider classes for this section and semester
+        List<Long> classIds = classes.stream().map(Class::getId).toList();
+        // Find which de estas clases tienen docente asignado (teacher_id NOT NULL)
+        List<Long> classIdsWithTeacher = teacherClassRepository.findBySemesterId(semesterId).stream()
+            .filter(tc -> tc.getTeacherId() != null)
+            .map(tc -> tc.getClassId())
+            .filter(classIds::contains)
+            .distinct()
+            .toList();
+        // Filtrar: solo las clases que NO tienen docente asignado (sin registro o con teacher_id NULL)
+        List<ClassResponseDTO> result = classes.stream()
+            .filter(c -> {
+                var teacherClassList = teacherClassRepository.findBySemesterId(semesterId).stream()
+                    .filter(tc -> c.getId().equals(tc.getClassId()))
+                    .toList();
+                if (teacherClassList.isEmpty()) {
+                    System.out.println("[DEBUG] Clase id=" + c.getId() + " SIN docente: NO hay registros en teacher_class");
+                    return true;
+                }
+                if (teacherClassList.stream().allMatch(tc -> tc.getTeacherId() == null)) {
+                    System.out.println("[DEBUG] Clase id=" + c.getId() + " SIN docente: TODOS los registros tienen teacher_id=NULL");
+                    return true;
+                }
+                return false;
+            })
+            .map(this::mapToResponseDTO)
+            .toList();
+        System.out.println("[DEBUG] Clases sin docente encontradas: " + result.size());
+        for (ClassResponseDTO dto : result) {
+            System.out.println("[DEBUG] Clase sin docente: id=" + dto.getId() + ", section=" + dto.getSection() + ", semester=" + dto.getSemesterId());
+        }
+        return result;
+    }
     private final ModelMapper modelMapper;
     private final ClassRepository classRepository;
     private final ClassScheduleRepository classScheduleRepository;
     private final AdminModuleSemesterContract semesterService;
     private final AdminModuleCourseContract courseService;
+    private final co.edu.puj.secchub_backend.admin.repository.SectionRepository sectionRepository;
+    private final co.edu.puj.secchub_backend.integration.repository.TeacherClassRepository teacherClassRepository;
     private final JdbcTemplate jdbcTemplate;
 
         /**
