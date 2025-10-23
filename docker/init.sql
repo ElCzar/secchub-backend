@@ -220,9 +220,9 @@ INSERT INTO teacher_class (semester_id, teacher_id, class_id, work_hours, full_t
 
 -- Academic requests (for semester 2 - Spring 2025) --
 INSERT INTO academic_request (user_id, course_id, semester_id, start_date, end_date, capacity, request_date, observation) VALUES
-(4, 1, 2, '2025-08-15', '2025-12-15', 45, '2025-06-01', 'Request for Database Systems - Spring 2025'),
-(6, 2, 2, '2025-08-15', '2025-12-15', 40, '2025-06-03', 'Request for Software Engineering - Spring 2025'),
-(7, 4, 2, '2025-08-15', '2025-12-15', 30, '2025-06-05', 'Request for Information Security - Spring 2025');
+(5, 1, 2, '2025-08-15', '2025-12-15', 45, '2025-06-01', 'Request for Database Systems - Spring 2025'),
+(5, 2, 2, '2025-08-15', '2025-12-15', 40, '2025-06-03', 'Request for Software Engineering - Spring 2025'),
+(5, 4, 2, '2025-08-15', '2025-12-15', 30, '2025-06-05', 'Request for Information Security - Spring 2025');
 
 -- Request schedules (in pairs) --
 INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time, end_time, day, modality_id, disability) VALUES
@@ -238,9 +238,9 @@ INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time
 
 -- Academic requests (for past semester 1 - Fall 2024)
 INSERT INTO academic_request (user_id, course_id, semester_id, start_date, end_date, capacity, request_date, observation) VALUES
-(4, 1, 1, '2024-08-15', '2024-12-15', 40, '2024-06-01', 'Request for Database Systems - Fall 2024'),
-(6, 2, 1, '2024-08-15', '2024-12-15', 35, '2024-06-03', 'Request for Software Engineering - Fall 2024'),
-(7, 3, 1, '2024-08-15', '2024-12-15', 50, '2024-06-05', 'Request for Computer Networks - Fall 2024');
+(5, 1, 1, '2024-08-15', '2024-12-15', 40, '2024-06-01', 'Request for Database Systems - Fall 2024'),
+(5, 2, 1, '2024-08-15', '2024-12-15', 35, '2024-06-03', 'Request for Software Engineering - Fall 2024'),
+(5, 3, 1, '2024-08-15', '2024-12-15', 50, '2024-06-05', 'Request for Computer Networks - Fall 2024');
 
 -- Request schedules for the Fall 2024 requests (paired entries)
 INSERT INTO request_schedule (academic_request_id, classroom_type_id, start_time, end_time, day, modality_id, disability) VALUES
