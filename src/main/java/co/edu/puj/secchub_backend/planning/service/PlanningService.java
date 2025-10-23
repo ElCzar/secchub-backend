@@ -33,6 +33,44 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class PlanningService {
+
+    /**
+     * Devuelve las clases de la sección del usuario y semestre actual que tienen al menos un horario presencial (modality_id=1) sin salón asignado (classroom_id NULL).
+     */
+    public List<ClassResponseDTO> findClassesWithoutAssignedRoomForSectionChief(Long userId) {
+        System.out.println("[DEBUG] userId recibido: " + userId);
+        var sectionOpt = sectionRepository.findByUserId(userId);
+        if (sectionOpt.isEmpty()) {
+            System.out.println("[DEBUG] No se encontró sección para userId: " + userId);
+            return List.of();
+        }
+        Long sectionId = sectionOpt.get().getId();
+        System.out.println("[DEBUG] sectionId encontrado: " + sectionId);
+        Long semesterId = semesterService.getCurrentSemesterId();
+        System.out.println("[DEBUG] semesterId actual: " + semesterId);
+        List<Class> classes = classRepository.findBySection(sectionId).stream()
+            .filter(c -> semesterId.equals(c.getSemesterId()))
+            .toList();
+        System.out.println("[DEBUG] Clases encontradas para sección y semestre: " + classes.size());
+        List<ClassResponseDTO> result = classes.stream()
+            .filter(c -> {
+                List<ClassSchedule> schedules = classScheduleRepository.findByClassId(c.getId());
+                // Al menos un horario presencial (modality_id=1) sin classroom_id
+                boolean hasMissingRoom = schedules.stream()
+                    .anyMatch(sch -> sch.getModalityId() != null && sch.getModalityId() == 1 && sch.getClassroomId() == null);
+                if (hasMissingRoom) {
+                    System.out.println("[DEBUG] Clase id=" + c.getId() + " SIN salón: al menos un horario presencial sin classroom_id");
+                }
+                return hasMissingRoom;
+            })
+            .map(this::mapToResponseDTO)
+            .toList();
+        System.out.println("[DEBUG] Clases sin salón encontradas: " + result.size());
+        for (ClassResponseDTO dto : result) {
+            System.out.println("[DEBUG] Clase sin salón: id=" + dto.getId() + ", section=" + dto.getSection() + ", semester=" + dto.getSemesterId());
+        }
+        return result;
+    }
     // Eliminado: getUserIdByEmail. Ahora el controlador obtiene el userId directamente.
     /**
      * Returns classes for the authenticated section chief and current semester that do not have a teacher assigned.
