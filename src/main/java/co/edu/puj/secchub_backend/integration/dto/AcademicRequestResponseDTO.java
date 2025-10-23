@@ -28,6 +28,10 @@ public class AcademicRequestResponseDTO {
     private String observation;
     private List<RequestScheduleResponseDTO> schedules;
     
+    // Campos de estado
+    private Boolean accepted;       // true si la solicitud fue aceptada y llevada a planificación
+    private Boolean combined;       // true si la solicitud fue combinada con otras
+    
     // Campos enriquecidos para el frontend
     private String userName;        // Nombre completo del usuario que hizo la solicitud
     private String courseName;      // Nombre del curso
