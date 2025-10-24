@@ -91,7 +91,7 @@ public class AcademicRequestController {
      * @return List of academic requests for the specified semester and user
      */
     @GetMapping("/by-semester")
-    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_USER')")
+    @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
     public Mono<List<AcademicRequestResponseDTO>> getAcademicRequestsBySemester(
             @RequestParam Long semesterId) {
         return academicRequestService.findAcademicRequestsBySemesterAndUser(semesterId);
@@ -222,5 +222,55 @@ public class AcademicRequestController {
             @RequestBody ProcessPlanningRequestDTO processPlanningRequestDTO) {
         return academicRequestService.processPlanningRequests(processPlanningRequestDTO)
                 .map(result -> ResponseEntity.ok(result));
+    }
+
+    /**
+     * Marks an academic request as accepted (moved to planning).
+     * @param requestId Request ID to mark as accepted
+     * @return Empty response
+     */
+    @PatchMapping("/{requestId}/accept")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> markAsAccepted(@PathVariable Long requestId) {
+        return academicRequestService.markAsAccepted(requestId)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    /**
+     * Marks an academic request as combined.
+     * @param requestId Request ID to mark as combined
+     * @return Empty response
+     */
+    @PatchMapping("/{requestId}/combine")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> markAsCombined(@PathVariable Long requestId) {
+        return academicRequestService.markAsCombined(requestId)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    /**
+     * Marks multiple academic requests as accepted.
+     * @param requestBody Map containing list of request IDs
+     * @return Empty response
+     */
+    @PatchMapping("/accept-multiple")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> markMultipleAsAccepted(@RequestBody Map<String, List<Long>> requestBody) {
+        List<Long> requestIds = requestBody.get("requestIds");
+        return academicRequestService.markMultipleAsAccepted(requestIds)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    /**
+     * Marks multiple academic requests as combined.
+     * @param requestBody Map containing list of request IDs
+     * @return Empty response
+     */
+    @PatchMapping("/combine-multiple")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> markMultipleAsCombined(@RequestBody Map<String, List<Long>> requestBody) {
+        List<Long> requestIds = requestBody.get("requestIds");
+        return academicRequestService.markMultipleAsCombined(requestIds)
+                .then(Mono.just(ResponseEntity.ok().<Void>build()));
     }
 }

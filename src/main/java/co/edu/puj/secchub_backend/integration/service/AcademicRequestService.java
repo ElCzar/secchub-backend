@@ -294,6 +294,9 @@ public class AcademicRequestService {
                 .userName(getUserName(academicRequest.getUserId()))
                 .courseName(getCourseName(academicRequest.getCourseId()))
                 .programName(getProgramName(academicRequest.getUserId()))
+                // Agregar campos de estado
+                .accepted(academicRequest.getAccepted())
+                .combined(academicRequest.getCombined())
                 .build();
         
         // Load schedules separately to avoid lazy loading issues
@@ -550,5 +553,95 @@ public class AcademicRequestService {
 
         
         return "Programa Desconocido";
+    }
+
+    /**
+     * Marks an academic request as accepted (moved to planning).
+     * @param requestId Request ID to mark as accepted
+     * @return Mono indicating completion
+     */
+    @Transactional
+    public Mono<Void> markAsAccepted(Long requestId) {
+        return Mono.fromRunnable(() -> {
+            AcademicRequest request = academicRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new AcademicRequestNotFound("Academic request not found with ID: " + requestId));
+            
+            request.setAccepted(true);
+            academicRequestRepository.save(request);
+            
+            System.out.println("✅ Solicitud marcada como aceptada: " + requestId);
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    /**
+     * Marks an academic request as combined.
+     * @param requestId Request ID to mark as combined
+     * @return Mono indicating completion
+     */
+    @Transactional
+    public Mono<Void> markAsCombined(Long requestId) {
+        return Mono.fromRunnable(() -> {
+            AcademicRequest request = academicRequestRepository.findById(requestId)
+                    .orElseThrow(() -> new AcademicRequestNotFound("Academic request not found with ID: " + requestId));
+            
+            request.setCombined(true);
+            academicRequestRepository.save(request);
+            
+            System.out.println("✅ Solicitud marcada como combinada: " + requestId);
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    /**
+     * Marks multiple academic requests as accepted.
+     * @param requestIds List of request IDs to mark as accepted
+     * @return Mono indicating completion
+     */
+    @Transactional
+    public Mono<Void> markMultipleAsAccepted(List<Long> requestIds) {
+        return Mono.fromRunnable(() -> {
+            if (requestIds == null || requestIds.isEmpty()) {
+                System.out.println("⚠️ No hay IDs para marcar como aceptadas");
+                return;
+            }
+
+            List<AcademicRequest> requests = academicRequestRepository.findAllById(requestIds);
+            
+            if (requests.isEmpty()) {
+                System.out.println("⚠️ No se encontraron solicitudes con los IDs proporcionados");
+                return;
+            }
+
+            requests.forEach(request -> request.setAccepted(true));
+            academicRequestRepository.saveAll(requests);
+            
+            System.out.println("✅ " + requests.size() + " solicitudes marcadas como aceptadas");
+        }).subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
+    /**
+     * Marks multiple academic requests as combined.
+     * @param requestIds List of request IDs to mark as combined
+     * @return Mono indicating completion
+     */
+    @Transactional
+    public Mono<Void> markMultipleAsCombined(List<Long> requestIds) {
+        return Mono.fromRunnable(() -> {
+            if (requestIds == null || requestIds.isEmpty()) {
+                System.out.println("⚠️ No hay IDs para marcar como combinadas");
+                return;
+            }
+
+            List<AcademicRequest> requests = academicRequestRepository.findAllById(requestIds);
+            
+            if (requests.isEmpty()) {
+                System.out.println("⚠️ No se encontraron solicitudes con los IDs proporcionados");
+                return;
+            }
+
+            requests.forEach(request -> request.setCombined(true));
+            academicRequestRepository.saveAll(requests);
+            
+            System.out.println("✅ " + requests.size() + " solicitudes marcadas como combinadas");
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 }

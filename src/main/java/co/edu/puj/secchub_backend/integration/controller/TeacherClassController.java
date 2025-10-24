@@ -136,4 +136,19 @@ public class TeacherClassController {
                 .map(ResponseEntity::ok);
     }
 
+    /**
+     * Delete a teacher-class assignment by teacher ID and class ID.
+     * @param teacherId Teacher ID
+     * @param classId Class ID
+     * @return ResponseEntity with no content
+     */
+    @DeleteMapping("/classes/teacher/{teacherId}/class/{classId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> deleteTeacherClass(
+            @PathVariable Long teacherId,
+            @PathVariable Long classId) {
+        return service.deleteTeacherClassByTeacherAndClass(teacherId, classId)
+                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+    }
+
 }
