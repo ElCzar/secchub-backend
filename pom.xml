@@ -146,6 +146,27 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>5.14.0</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-mysql</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 	<dependencyManagement>
 		<dependencies>
@@ -153,6 +174,13 @@
 				<groupId>org.springframework.modulith</groupId>
 				<artifactId>spring-modulith-bom</artifactId>
 				<version>${spring-modulith.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<dependency>
+				<groupId>org.testcontainers</groupId>
+				<artifactId>testcontainers-bom</artifactId>
+				<version>2.0.1</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -172,6 +200,30 @@
 						</path>
 					</annotationProcessorPaths>
 				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-resources-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>copy-docker-resources</id>
+						<phase>generate-test-resources</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${project.build.testOutputDirectory}</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${project.basedir}/docker</directory>
+									<includes>
+										<include>schema.sql</include>
+									</includes>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
 			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
