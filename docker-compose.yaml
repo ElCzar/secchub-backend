@@ -23,7 +23,8 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./docker/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
-      - ./docker/init.sql:/docker-entrypoint-initdb.d/02-init.sql
+      - ./docker/init-parameters.sql:/docker-entrypoint-initdb.d/02-init.sql
+      - ./docker/init-mock-data.sql:/docker-entrypoint-initdb.d/03-init.sql
     network_mode: "host"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]

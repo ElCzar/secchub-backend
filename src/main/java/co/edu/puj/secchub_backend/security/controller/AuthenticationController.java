@@ -34,7 +34,7 @@ public class AuthenticationController {
 	@PostMapping("/login")
 	@PreAuthorize("permitAll()")
 	public Mono<ResponseEntity<AuthTokenResponseDTO>> login(@RequestBody LoginRequestDTO loginRequestDTO) {
-		return Mono.fromCallable(() -> authenticationService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()))
+		return Mono.fromCallable(() -> authenticationService.authenticate(loginRequestDTO))
 				.map(ResponseEntity::ok);
 	}
 

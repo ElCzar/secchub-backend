@@ -13,8 +13,9 @@ public abstract class DatabaseIntegrationTest {
     
 	@SuppressWarnings("resource")
     @Container
-	private static MySQLContainer mysqlContainer = new MySQLContainer("mysql:8.4.6")
-		.withInitScript("schema.sql");
+	protected static MySQLContainer mysqlContainer = new MySQLContainer("mysql:8.4.6")
+		.withInitScripts("schema.sql", "init-parameters.sql")
+		.withReuse(true);
 	
 	@DynamicPropertySource
 	static void configureProperties(DynamicPropertyRegistry registry) {

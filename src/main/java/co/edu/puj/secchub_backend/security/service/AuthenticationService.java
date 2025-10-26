@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import co.edu.puj.secchub_backend.parametric.contracts.ParametricContract;
 import co.edu.puj.secchub_backend.security.dto.AuthTokenResponseDTO;
+import co.edu.puj.secchub_backend.security.dto.LoginRequestDTO;
 import co.edu.puj.secchub_backend.security.dto.RefreshTokenRequestDTO;
 import co.edu.puj.secchub_backend.security.exception.JwtAuthenticationException;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
@@ -25,14 +26,26 @@ public class AuthenticationService {
 
     /**
      * Authenticates a user based on email and password.
-     * @param email the user's email
-     * @param password the user's password
+     * @param loginRequestDTO the login request DTO containing email and password
      * @return AuthTokenResponseDTO containing the authentication token if successful
      * @throws JwtAuthenticationException if authentication fails
      */
-    public AuthTokenResponseDTO authenticate(String email, String password) throws JwtAuthenticationException {
+    public AuthTokenResponseDTO authenticate(LoginRequestDTO loginRequestDTO) throws JwtAuthenticationException {
+        if (loginRequestDTO == null || loginRequestDTO.getEmail() == null || loginRequestDTO.getPassword() == null) {
+            log.warn("Authentication failed: Missing email or password");
+            throw new JwtAuthenticationException("Email and password must be provided");
+        }
+        String email = loginRequestDTO.getEmail();
+        String password = loginRequestDTO.getPassword();
         log.info("Attempting to authenticate user with email: {}", email);
-        Optional<User> userOptional = userRepository.findByEmail(email);
+        Optional<User> userOptional;
+
+        try {
+            userOptional = userRepository.findByEmail(email);
+        } catch (Exception e) {
+            log.error("Unexpected error during authentication for email: {}", email, e);
+            throw new JwtAuthenticationException("Authentication failed due to an internal error");
+        }
 
         if (userOptional.isEmpty()) {
             log.warn("Authentication failed: User not found for email: {}", email);
@@ -46,8 +59,13 @@ public class AuthenticationService {
             throw new JwtAuthenticationException("Invalid email or password");
         }
 
-        userRepository.updateLastAccess(user.getEmail());
-
+        try {
+            userRepository.updateLastAccess(user.getEmail());
+        } catch (Exception e) {
+            log.warn("Authentication failed: User status invalid for email: {}: {}", email, e.getMessage());
+            throw new JwtAuthenticationException("User account is not active");
+        }
+        
         String token = jwtTokenProvider.generateToken(user.getEmail(), parametricService.getRoleNameById(user.getRoleId()));
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getEmail());
         log.info("Authentication successful for email: {}", email);
@@ -77,7 +95,14 @@ public class AuthenticationService {
             throw new JwtAuthenticationException("Invalid refresh token");
         }
 
-        Optional<User> userOptional = userRepository.findByEmail(email);
+        Optional<User> userOptional;
+
+        try {
+            userOptional = userRepository.findByEmail(email);
+        } catch (Exception e) {
+            log.error("Unexpected error during user lookup for email: {}", email, e);
+            throw new JwtAuthenticationException("Authentication failed due to an internal error");
+        }
 
         if (userOptional.isEmpty()) {
             log.warn("Refresh token is invalid: User not found for email: {}", email);

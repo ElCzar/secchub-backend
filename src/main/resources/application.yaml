@@ -25,9 +25,11 @@ spring:
         password: ${DB_PASSWORD:password}  # WARNING: Change default password in production
         driver-class-name: com.mysql.cj.jdbc.Driver
         hikari:
-            connection-timeout: 30000  # 30 seconds timeout for database connections
-            maximum-pool-size: 10      # Maximum number of connections in the pool
-
+            connection-timeout: 30000       # 30 seconds timeout for database connections
+            maximum-pool-size: 10           # Maximum number of connections in the pool
+            idle-timeout: 300000            # 5 minutes before an idle connection is removed
+            max-lifetime: 1200000           # 20 minutes maximum lifetime for a connection
+            connection-test-query: SELECT 1 # Simple query to test connection validity
     # ==============================================================================
     # SPRING EMAIL CONFIGURATION
     # ==============================================================================
