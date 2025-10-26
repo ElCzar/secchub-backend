@@ -83,7 +83,10 @@ public class AuthenticationService {
         String email;
         
         try {
-            jwtTokenProvider.validateRefreshToken(refreshToken.getRefreshToken());
+            if (!jwtTokenProvider.validateRefreshToken(refreshToken.getRefreshToken())) {
+                log.warn("Refresh token validation failed");
+                throw new JwtAuthenticationException("Invalid refresh token");
+            }
             email = jwtTokenProvider.getEmailFromToken(refreshToken.getRefreshToken());
         } catch (Exception e) {
             log.warn("Refresh token validation failed: {}", e.getMessage());

@@ -436,4 +436,68 @@ class AuthenticationServiceTest {
         // Verify no further calls were made
         verify(jwtTokenProvider, never()).generateToken(any());
     }
+
+    @Test
+    @DisplayName("Refresh token that has no email should fail")
+    void refreshTokenWithNoEmailShouldFail() {
+        // Given
+        String refreshTokenString = "not-valid-refresh-token";
+
+        when(jwtTokenProvider.validateRefreshToken(refreshTokenString)).thenReturn(true);
+        when(jwtTokenProvider.getEmailFromToken(refreshTokenString)).thenReturn(null);
+
+        RefreshTokenRequestDTO refreshTokenRequestDTO = new RefreshTokenRequestDTO();
+        refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
+
+        // When
+        assertThrows(JwtAuthenticationException.class,
+            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            "JwtAuthenticationException should be thrown for missing email in token");
+
+        // Verify no further calls were made
+        verify(jwtTokenProvider, never()).generateToken(any());
+    }
+
+    @Test
+    @DisplayName("Refresh token with non-existent user should fail")
+    void refreshTokenWithNonExistentUserShouldFail() {
+        // Given
+        String refreshTokenString = "valid-refresh-token";
+
+        when(jwtTokenProvider.validateRefreshToken(refreshTokenString)).thenReturn(true);
+        when(jwtTokenProvider.getEmailFromToken(refreshTokenString)).thenReturn("test@example.com");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+
+        RefreshTokenRequestDTO refreshTokenRequestDTO = new RefreshTokenRequestDTO();
+        refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
+
+        // When
+        assertThrows(JwtAuthenticationException.class,
+            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            "JwtAuthenticationException should be thrown for non-existent user");
+
+        // Verify no further calls were made
+        verify(jwtTokenProvider, never()).generateToken(any());
+    }
+
+    @Test
+    @DisplayName("Access token provided instead of refresh token should fail")
+    void accessTokenProvidedInsteadOfRefreshTokenShouldFail() {
+        // Given
+        String accessTokenString = "valid-access-token";
+
+        when(jwtTokenProvider.validateRefreshToken(accessTokenString)).thenReturn(false);
+
+        RefreshTokenRequestDTO refreshTokenRequestDTO = new RefreshTokenRequestDTO();
+        refreshTokenRequestDTO.setRefreshToken(accessTokenString);
+
+        // When
+        assertThrows(JwtAuthenticationException.class,
+            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            "JwtAuthenticationException should be thrown for access token used as refresh token");
+
+        // Verify no further calls were made
+        verify(userRepository, never()).findByEmail(anyString());
+        verify(jwtTokenProvider, never()).generateToken(any());
+    }
 }

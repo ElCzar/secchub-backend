@@ -18,7 +18,7 @@ import co.edu.puj.secchub_backend.DatabaseIntegrationTest;
  * Test class for PasswordEncoderService
  */
 @SpringBootTest
-@DisplayName("PasswordEncoderService tests")
+@DisplayName("PasswordEncoderService Integration Test")
 class PasswordEncoderServiceTest extends DatabaseIntegrationTest {
     @Autowired
     private PasswordEncoderService passwordEncoderService;

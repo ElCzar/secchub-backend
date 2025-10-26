@@ -34,7 +34,7 @@ public class UserService implements SecurityModuleUserContract {
         log.debug("Getting user id by email: {}", email);
         return userRepository.findByEmail(email)
                 .map(User::getId)
-                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+                .orElseThrow(() -> new UserNotFoundException("User id not found for email: " + email));
     }
 
     @Override
@@ -72,7 +72,7 @@ public class UserService implements SecurityModuleUserContract {
     @Override
     public Mono<co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO> getUserInformationByEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+                .orElseThrow(() -> new UserNotFoundException("User information not found for email: " + email));
         
         // Mapear del modelo User al DTO del contrato
         co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO contractDTO = 
@@ -99,7 +99,7 @@ public class UserService implements SecurityModuleUserContract {
      */
     public Mono<UserInformationResponseDTO> getUserInformationByEmailInternal(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+                .orElseThrow(() -> new UserNotFoundException("User information internally not found for email: " + email));
         return Mono.just(modelMapper.map(user, UserInformationResponseDTO.class));
     }
 
@@ -112,7 +112,7 @@ public class UserService implements SecurityModuleUserContract {
                 .flatMap(securityContext -> Mono.fromCallable(() ->{
                     String authenticatedUserId = securityContext.getAuthentication().getName();
                     User user = userRepository.findByEmail(authenticatedUserId)
-                            .orElseThrow(() -> new UserNotFoundException("User not found for email: " + authenticatedUserId));
+                            .orElseThrow(() -> new UserNotFoundException("User information not found for authenticated user: " + authenticatedUserId));
                     return modelMapper.map(user, UserInformationResponseDTO.class);
                 }).subscribeOn(Schedulers.boundedElastic()));
     }
