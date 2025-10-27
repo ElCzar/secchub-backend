@@ -56,4 +56,19 @@ public class SecurityExceptionHandler {
                 MESSAGE_KEY, ex.getMessage()
         )));
     }
+
+    /**
+     * Handles JwtAuthenticationManagerException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the JwtAuthenticationManagerException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(JwtAuthenticationManagerException.class)
+    public Mono<ResponseEntity<Object>> handleJwtAuthenticationManagerException(JwtAuthenticationManagerException ex) {
+        log.warn("JWT authentication manager exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, UNAUTHORIZED_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
 }

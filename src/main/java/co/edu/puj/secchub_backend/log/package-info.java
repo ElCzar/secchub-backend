@@ -11,7 +11,9 @@
  *   <li>{@link co.edu.puj.secchub_backend.log.controller.AuditLogController} - REST controller for audit log endpoints</li>
  * </ul>
  *
- * @since 1.0
- * @author SecHub Backend Team
  */
+@org.springframework.modulith.ApplicationModule(
+    displayName = "Audit Logging Module",
+    allowedDependencies = {}
+)
 package co.edu.puj.secchub_backend.log;

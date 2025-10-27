@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import co.edu.puj.secchub_backend.security.contract.UserCreationRequestDTO;
-import co.edu.puj.secchub_backend.security.dto.UserInformationResponseDTO;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import co.edu.puj.secchub_backend.security.exception.UserNotFoundException;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
@@ -70,13 +70,13 @@ public class UserService implements SecurityModuleUserContract {
     }
 
     @Override
-    public Mono<co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO> getUserInformationByEmail(String email) {
+    public Mono<UserInformationResponseDTO> getUserInformationByEmail(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User information not found for email: " + email));
         
         // Mapear del modelo User al DTO del contrato
-        co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO contractDTO = 
-            co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO.builder()
+        UserInformationResponseDTO contractDTO = 
+            UserInformationResponseDTO.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .faculty(user.getFaculty())
@@ -85,7 +85,7 @@ public class UserService implements SecurityModuleUserContract {
                 .email(user.getEmail())
                 .statusId(user.getStatusId())
                 .roleId(user.getRoleId())
-                .documentType(user.getDocumentTypeId())
+                .documentTypeId(user.getDocumentTypeId())
                 .documentNumber(user.getDocumentNumber())
                 .build();
                 

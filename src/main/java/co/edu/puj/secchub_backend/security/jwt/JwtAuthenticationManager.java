@@ -6,6 +6,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
+import co.edu.puj.secchub_backend.security.exception.JwtAuthenticationManagerException;
 import co.edu.puj.secchub_backend.security.service.ReactiveUserDetailsServiceImpl;
 import reactor.core.publisher.Mono;
 
@@ -27,7 +28,8 @@ public class JwtAuthenticationManager implements ReactiveAuthenticationManager {
         String email = tokenProvider.getEmailFromToken(token);
 
         return userDetailsService.findByEmail(email)
-                .map(userDetails -> createAuthenticationToken(userDetails, token));
+            .switchIfEmpty(Mono.error(new JwtAuthenticationManagerException("User not found for email: " + email)))
+            .map(userDetails -> createAuthenticationToken(userDetails, token));
     }
 
     /**

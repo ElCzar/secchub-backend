@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import co.edu.puj.secchub_backend.DatabaseIntegrationTest;
+import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
 
 
 /**
@@ -19,7 +19,7 @@ import co.edu.puj.secchub_backend.DatabaseIntegrationTest;
  */
 @SpringBootTest
 @DisplayName("PasswordEncoderService Integration Test")
-class PasswordEncoderServiceTest extends DatabaseIntegrationTest {
+class PasswordEncoderServiceTest extends DatabaseContainerIntegration {
     @Autowired
     private PasswordEncoderService passwordEncoderService;
     @Autowired

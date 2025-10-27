@@ -22,7 +22,7 @@ import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 
 import co.edu.puj.secchub_backend.security.contract.UserCreationRequestDTO;
-import co.edu.puj.secchub_backend.security.dto.UserInformationResponseDTO;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import co.edu.puj.secchub_backend.security.exception.UserNotFoundException;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
@@ -149,7 +149,7 @@ class UserServiceTest {
 
         when(userRepository.findByEmail("u@p.com")).thenReturn(Optional.of(user));
 
-        co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO contractDTO =
+        UserInformationResponseDTO contractDTO =
                 userService.getUserInformationByEmail("u@p.com").block();
 
         assertNotNull(contractDTO);

@@ -1,6 +1,6 @@
 package co.edu.puj.secchub_backend.security.controller;
 
-import co.edu.puj.secchub_backend.DatabaseIntegrationTest;
+import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
 import co.edu.puj.secchub_backend.security.dto.AuthTokenResponseDTO;
 import co.edu.puj.secchub_backend.security.dto.LoginRequestDTO;
 import co.edu.puj.secchub_backend.security.dto.RefreshTokenRequestDTO;
@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 @Sql(scripts = "/test-cleanup.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/test-users.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/test-cleanup.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-class AuthenticationControllerIntegrationTest extends DatabaseIntegrationTest {
+class AuthenticationControllerIntegrationTest extends DatabaseContainerIntegration {
 
     @Autowired
     private WebTestClient webTestClient;

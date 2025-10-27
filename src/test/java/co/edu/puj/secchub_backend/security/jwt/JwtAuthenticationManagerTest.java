@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import co.edu.puj.secchub_backend.security.exception.JwtAuthenticationManagerException;
 import co.edu.puj.secchub_backend.security.service.ReactiveUserDetailsServiceImpl;
 import reactor.core.publisher.Mono;
 
@@ -56,25 +57,6 @@ class JwtAuthenticationManagerTest {
     }
 
     @Test
-    @DisplayName("authenticate - When user not found returns empty Mono (null on block)")
-    void authenticate_UserNotFound_ReturnsEmpty() {
-        String token = "someToken";
-        String email = "notfound@example.com";
-
-        when(tokenProvider.getEmailFromToken(token)).thenReturn(email);
-        when(userDetailsService.findByEmail(email)).thenReturn(Mono.empty());
-
-        JwtAuthenticationManager manager = new JwtAuthenticationManager(tokenProvider, userDetailsService);
-
-        Authentication result = manager.authenticate(new UsernamePasswordAuthenticationToken(null, token)).block();
-
-        assertNull(result);
-
-        verify(tokenProvider).getEmailFromToken(token);
-        verify(userDetailsService).findByEmail(email);
-    }
-
-    @Test
     @DisplayName("authenticate - When userDetailsService errors the Mono should propagate error")
     void authenticate_UserServiceError_PropagatesError() {
         String token = "errToken";
@@ -88,6 +70,25 @@ class JwtAuthenticationManagerTest {
         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(null, token);
         Mono<Authentication> resultMono = manager.authenticate(authToken);
         assertThrows(RuntimeException.class, resultMono::block);
+
+        verify(tokenProvider).getEmailFromToken(token);
+        verify(userDetailsService).findByEmail(email);
+    }
+
+    @Test
+    @DisplayName("authenticate - When userDetailsService returns empty Mono, the authenticate method should throw JwtAuthenticationManagerException")
+    void authenticate_UserDetailsServiceReturnsEmpty_ThrowsJwtAuthenticationManagerException() {
+        String token = "emptyToken";
+        String email = "empty@example.com";
+
+        when(tokenProvider.getEmailFromToken(token)).thenReturn(email);
+        when(userDetailsService.findByEmail(email)).thenReturn(Mono.empty());
+
+        JwtAuthenticationManager manager = new JwtAuthenticationManager(tokenProvider, userDetailsService);
+
+        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(null, token);
+        Mono<Authentication> resultMono = manager.authenticate(authToken);
+        assertThrows(JwtAuthenticationManagerException.class, resultMono::block);
 
         verify(tokenProvider).getEmailFromToken(token);
         verify(userDetailsService).findByEmail(email);

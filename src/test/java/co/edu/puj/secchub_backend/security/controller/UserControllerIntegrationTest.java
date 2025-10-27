@@ -1,10 +1,17 @@
 package co.edu.puj.secchub_backend.security.controller;
 
-import co.edu.puj.secchub_backend.DatabaseIntegrationTest;
-import co.edu.puj.secchub_backend.security.dto.UserInformationResponseDTO;
-import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.util.List;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,9 +21,11 @@ import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.List;
+import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
+import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
+import co.edu.puj.secchub_backend.security.model.User;
+import co.edu.puj.secchub_backend.security.repository.UserRepository;
 
 @SpringBootTest
 @AutoConfigureWebTestClient
@@ -25,7 +34,7 @@ import java.util.List;
 @Sql(scripts = "/test-cleanup.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/test-users.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 @Sql(scripts = "/test-cleanup.sql", executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
-class UserControllerTest extends DatabaseIntegrationTest {
+class UserControllerIntegrationTest extends DatabaseContainerIntegration {
 
     @Autowired
     private WebTestClient webTestClient;
@@ -34,18 +43,19 @@ class UserControllerTest extends DatabaseIntegrationTest {
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
-    private JwtTokenProvider jwtTokenProvider;
+    private UserRepository userRepository;
 
-    private static final String ADMIN_EMAIL = "testAdmin@example.com";
-    private static final String USER_EMAIL = "testUser@example.com";
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
 
     // ==========================================
     // Logged-in User Tests
     // ==========================================
-    @Test
+    @ParameterizedTest(name = "GET /user authenticated as {0} returns own information")
+    @MethodSource("userAuthenticationProvider")
     @DisplayName("GET /user authenticated user should receive own information")
-    void getUserInformation_authenticatedUser_returnsUser() {
-        String token = jwtTokenProvider.generateToken(USER_EMAIL, "ROLE_USER");
+    void getUserInformation_authenticatedUser_returnsUser(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
 
         UserInformationResponseDTO dto = webTestClient.get()
                 .uri("/user")
@@ -58,14 +68,78 @@ class UserControllerTest extends DatabaseIntegrationTest {
                 .getResponseBody();
 
         assertNotNull(dto, "Response DTO should not be null");
-        assertEquals(USER_EMAIL, dto.getEmail(), "Returned email should match the authenticated user's email");
-        assertNotNull(dto.getUsername(), "Username should be present");
+
+        // Gets all user info from DB to compare
+        User user;
+        try {
+            user = userRepository.findByEmail(email).orElseThrow();
+            assertNotNull(user, "User should exist in the database");
+        } catch (Exception e) {
+            fail("User with email " + email + " should exist in the database");
+            return;
+        }
+        
+        assertEquals(user.getId(), dto.getId(), "User ID should match");
+        assertEquals(user.getUsername(), dto.getUsername(), "Username should match");
+        assertEquals(user.getFaculty(), dto.getFaculty(), "User faculty should match");
+        assertEquals(user.getName(), dto.getName(), "User name should match");
+        assertEquals(user.getLastName(), dto.getLastName(), "User last name should match");
+        assertEquals(user.getEmail(), dto.getEmail(), "User email should match");
+        assertEquals(user.getStatusId(), dto.getStatusId(), "User status ID should match");
+        assertEquals(user.getRoleId(), dto.getRoleId(), "User role ID should match");
+        assertEquals(user.getDocumentTypeId(), dto.getDocumentTypeId(), "User document type ID should match");
+        assertEquals(user.getDocumentNumber(), dto.getDocumentNumber(), "User document number should match");
+    }
+
+    private static Stream<Arguments> userAuthenticationProvider() {
+        return Stream.of(
+                Arguments.of("testAdmin@example.com", "ROLE_ADMIN"),
+                Arguments.of("testUser@example.com", "ROLE_USER"),
+                Arguments.of("testTeacher@example.com", "ROLE_TEACHER"),
+                Arguments.of("testProgram@example.com", "ROLE_PROGRAM"),
+                Arguments.of("testStudent@example.com", "ROLE_STUDENT")
+        );
     }
 
     @Test
+    @DisplayName("GET /user authenticated with invalid token should return 401 Unauthorized")
+    void getUserInformation_invalidToken_returns401() {
+        String invalidToken = "invalid.token.value";
+
+        webTestClient.get()
+                .uri("/user")
+                .header("Authorization", "Bearer " + invalidToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("GET /user authenticated user deleted from database should return 401 Unauthorized")
+    void getUserInformation_deletedUser_returns401() {
+        String email = "testUser@example.com";
+        String role = "ROLE_USER";
+        String token = jwtTokenProvider.generateToken(email, role);
+
+        // Simulate user deletion
+        jdbcTemplate.update("DELETE FROM users WHERE email = ?", email);
+
+        // Print stack trace for debugging
+        webTestClient.get()
+                .uri("/user")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    // ==========================================
+    // Obtain All Users Tests
+    // ==========================================
+    @Test
     @DisplayName("GET /user/all admin should receive all users list")
     void getAllUsersInformation_asAdmin_returnsList() {
-        String adminToken = jwtTokenProvider.generateToken(ADMIN_EMAIL, "ROLE_ADMIN");
+        String adminToken = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
 
         Integer userCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM users", Integer.class);
         assertNotNull(userCount, "User count from DB should not be null");
@@ -84,14 +158,52 @@ class UserControllerTest extends DatabaseIntegrationTest {
         assertEquals(userCount.intValue(), list.size(), "Returned user list size should match DB count");
     }
 
+    @ParameterizedTest(name = "GET /user/all non-admin as {0} should return 403 Forbidden")
+    @MethodSource("nonAdminRolesProvider")
+    @DisplayName("GET /user/all non-admin should return 403 Forbidden")
+    void getAllUsersInformation_asNonAdmin_returns403(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+
+        webTestClient.get()
+                .uri("/user/all")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    private static Stream<Arguments> nonAdminRolesProvider() {
+        return Stream.of(
+                Arguments.of("testUser@example.com", "ROLE_USER"),
+                Arguments.of("testTeacher@example.com", "ROLE_TEACHER"),
+                Arguments.of("testProgram@example.com", "ROLE_PROGRAM"),
+                Arguments.of("testStudent@example.com", "ROLE_STUDENT")
+        );
+    }
+
     @Test
-    @DisplayName("GET /user/email admin should fetch user by email")
-    void getUserInformationByEmail_asAdmin_returnsUser() {
-        String adminToken = jwtTokenProvider.generateToken(ADMIN_EMAIL, "ROLE_ADMIN");
+    @DisplayName("GET /user/all with no token should return 401 Unauthorized")
+    void getAllUsersInformation_noToken_returns401() {
+        webTestClient.get()
+                .uri("/user/all")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    // ==========================================
+    // Obtain User by Email and ID Tests
+    // ==========================================
+
+    @ParameterizedTest(name = "GET /user/email authorized as {0} should fetch user by email")
+    @MethodSource("userOrAdminRolesProvider")
+    @DisplayName("GET /user/email authorized should fetch user by email")
+    void getUserInformationByEmail_asAdmin_returnsUser(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
 
         UserInformationResponseDTO dto = webTestClient.get()
-                .uri(uriBuilder -> uriBuilder.path("/user/email").queryParam("email", USER_EMAIL).build())
-                .header("Authorization", "Bearer " + adminToken)
+                .uri(uriBuilder -> uriBuilder.path("/user/email").queryParam("email", email).build())
+                .header("Authorization", "Bearer " + token)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isOk()
@@ -100,17 +212,18 @@ class UserControllerTest extends DatabaseIntegrationTest {
                 .getResponseBody();
 
         assertNotNull(dto);
-        assertEquals(USER_EMAIL, dto.getEmail());
+        assertEquals(email, dto.getEmail());
     }
 
-    @Test
-    @DisplayName("GET /user/id/{id} admin should fetch user by id")
-    void getUserInformationById_asAdmin_returnsUser() {
-        // Query DB for a user id for USER_EMAIL
-        Long id = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ? LIMIT 1", Long.class, USER_EMAIL);
+    @ParameterizedTest(name = "GET /user/id/user:id admin should fetch user by id")
+    @MethodSource("userOrAdminRolesProvider")
+    @DisplayName("GET /user/id/user:id authorized should fetch user by id")
+    void getUserInformationById_asAdmin_returnsUser(String email, String role) {
+        // Query DB for a user id for the given email
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ? LIMIT 1", Long.class, email);
         assertNotNull(id, "User id should exist in test data");
 
-        String adminToken = jwtTokenProvider.generateToken(ADMIN_EMAIL, "ROLE_ADMIN");
+        String adminToken = jwtTokenProvider.generateToken(email, role);
 
         UserInformationResponseDTO dto = webTestClient.get()
                 .uri("/user/id/{id}", id)
@@ -126,26 +239,101 @@ class UserControllerTest extends DatabaseIntegrationTest {
         assertEquals(id, dto.getId());
     }
 
+    private static Stream<Arguments> userOrAdminRolesProvider() {
+        return Stream.of(
+                Arguments.of("testUser@example.com", "ROLE_USER"),
+                Arguments.of("testAdmin@example.com", "ROLE_ADMIN")
+        );
+    }
+
     @Test
-    @DisplayName("GET /user without token should return 401 Unauthorized")
-    void unauthorized_withoutToken_returns401() {
+    @DisplayName("GET /user/id/user:id with non-existing id should return 404 Not Found")
+    void getUserInformationById_nonExistingId_returns404() {
+        String adminToken = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
         webTestClient.get()
-                .uri("/user")
+                .uri("/user/id/{id}", Long.MAX_VALUE)
+                .header("Authorization", "Bearer " + adminToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    @DisplayName("GET /user/email with non-existing email should return 404 Not Found")
+    void getUserInformationByEmail_nonExistingEmail_returns404() {
+        String adminToken = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/user/email").queryParam("email", "nonexistent@example.com").build())
+                .header("Authorization", "Bearer " + adminToken)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @ParameterizedTest(name = "GET /user/email without token as {0} should return 403 Forbidden")
+    @MethodSource("nonUserOrAdminRolesProvider")
+    @DisplayName("GET /user/email without required role should return 403 Forbidden")
+    void unauthorized_withoutToken_returns403(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+
+        webTestClient.get()
+                .uri(uriBuilder -> uriBuilder.path("/user/email").queryParam("email", email).build())
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @ParameterizedTest(name = "GET /user/id/user:id without token as {0} should return 403 Forbidden")
+    @MethodSource("nonUserOrAdminRolesProvider")
+    @DisplayName("GET /user/id/user:id without required role should return 403 Forbidden")
+    void getUserInformationById_unauthorized_withoutToken_returns403(String email, String role) {
+        // Query DB for a user id for the given email
+        Long id = jdbcTemplate.queryForObject("SELECT id FROM users WHERE email = ? LIMIT 1", Long.class, email);
+        assertNotNull(id, "User id should exist in test data");
+
+        String token = jwtTokenProvider.generateToken(email, role);
+
+        webTestClient.get()
+                .uri("/user/id/{id}", id)
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    private static Stream<Arguments> nonUserOrAdminRolesProvider() {
+        return Stream.of(
+                Arguments.of("testStudent@example.com", "ROLE_STUDENT"),
+                Arguments.of("testProgram@example.com", "ROLE_PROGRAM"),
+                Arguments.of("testTeacher@example.com", "ROLE_TEACHER")
+        );
+    }
+
+    @Test
+    @DisplayName("GET /user/id/user:id with no token should return 401 Unauthorized")
+    void getUserInformationById_noToken_returns401() {
+        // Using any valid user id from test data
+        Long id = 1L;
+
+        webTestClient.get()
+                .uri("/user/id/{id}", id)
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
 
     @Test
-    @DisplayName("GET /user/all with non-admin should return 403 Forbidden")
-    void forbidden_nonAdmin_access_all_returns403() {
-        String userToken = jwtTokenProvider.generateToken(USER_EMAIL, "ROLE_USER");
+    @DisplayName("GET /user/email with no token should return 401 Unauthorized")
+    void getUserInformationByEmail_noToken_returns401() {
+        String email = "testUser@example.com";
 
         webTestClient.get()
-                .uri("/user/all")
-                .header("Authorization", "Bearer " + userToken)
+                .uri(uriBuilder -> uriBuilder.path("/user/email").queryParam("email", email).build())
                 .accept(MediaType.APPLICATION_JSON)
                 .exchange()
-                .expectStatus().isForbidden();
+                .expectStatus().isUnauthorized();
     }
 }
