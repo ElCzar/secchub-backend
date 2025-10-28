@@ -55,11 +55,11 @@ public class ClassroomController {
      * @return Mono containing ResponseEntity with created classroom response DTO
      */
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<ClassroomResponseDTO>> createClassroom(
+    public Mono<ClassroomResponseDTO> createClassroom(
             @RequestBody ClassroomRequestDTO classroomRequestDTO) {
-        return classroomService.createClassroom(classroomRequestDTO)
-                .map(classroom -> ResponseEntity.status(HttpStatus.CREATED).body(classroom));
+        return Mono.fromCallable(() -> classroomService.createClassroom(classroomRequestDTO));
     }
 
     /**
@@ -69,12 +69,12 @@ public class ClassroomController {
      * @return Mono containing ResponseEntity with updated classroom response DTO
      */
     @PutMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<ClassroomResponseDTO>> updateClassroom(
+    public Mono<ClassroomResponseDTO> updateClassroom(
             @PathVariable Long id,
             @RequestBody ClassroomRequestDTO classroomRequestDTO) {
-        return classroomService.updateClassroom(id, classroomRequestDTO)
-                .map(ResponseEntity::ok);
+        return Mono.fromCallable(() -> classroomService.updateClassroom(id, classroomRequestDTO));
     }
 
     /**

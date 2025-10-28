@@ -2,13 +2,6 @@
 -- Test Users Data - Insert sample users
 -- ============================================
 -- Purpose: Provides test users for integration testing of the academic system
--- 
--- User Roles:
--- 1 = Admin (Full system access)
--- 2 = Regular User (Standard privileges)
--- 3 = Student (Can apply as teaching assistant)
--- 4 = Teacher (Creates academic requests, teaches classes)
--- 5 = Program Coordinator (Manages sections and courses)
 --
 -- Common Test Data:
 -- - Password: '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq' (BCrypt encoded - same for all test users)
@@ -34,8 +27,6 @@ INSERT INTO users (
 -- 1. Administrator
 -- ==================
 -- Email: testAdmin@example.com
--- Purpose: System administration, full access to all features
--- Use in tests: Authorization tests, admin-only endpoint tests
 (
     'adminuser',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
@@ -51,11 +42,9 @@ INSERT INTO users (
 ),
 
 -- ==================
--- 2. Regular User
+-- 2. Section Standard User
 -- ==================
 -- Email: testUser@example.com
--- Purpose: Standard user without special privileges
--- Use in tests: Basic authentication, standard user access tests
 (
     'regularuser',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
@@ -74,8 +63,6 @@ INSERT INTO users (
 -- 3. Student
 -- ==================
 -- Email: testStudent@example.com
--- Purpose: Student who can apply for teaching assistant positions
--- Use in tests: Student application tests, TA assignment tests
 (
     'student',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
@@ -94,8 +81,6 @@ INSERT INTO users (
 -- 4. Teacher
 -- ==================
 -- Email: testTeacher@example.com
--- Purpose: Faculty member who creates academic requests and teaches classes
--- Use in tests: Academic request tests, class assignment tests, teacher schedules
 (
     'teacher',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
@@ -111,11 +96,9 @@ INSERT INTO users (
 ),
 
 -- ==================
--- 5. Program Coordinator
+-- 5. Program
 -- ==================
 -- Email: testProgram@example.com
--- Purpose: Manages academic programs, sections, and course offerings
--- Use in tests: Section management, course approval, program coordination
 (
     'programuser',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',

@@ -27,7 +27,7 @@ class SecchubBackendApplicationTests extends DatabaseContainerIntegration {
         new Documenter(modules)
             .writeModulesAsPlantUml()           // Generates PlantUML diagrams
             .writeIndividualModulesAsPlantUml() // Generates individual module diagrams
-            .writeModuleCanvases();              // Generates module canvases
+            .writeModuleCanvases();             // Generates module canvases
         
         assertTrue(true);
     }

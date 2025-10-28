@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import co.edu.puj.secchub_backend.planning.dto.ClassroomRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassroomResponseDTO;
+import co.edu.puj.secchub_backend.planning.exception.ClassroomBadRequestException;
 import co.edu.puj.secchub_backend.planning.exception.ClassroomNotFoundException;
 import co.edu.puj.secchub_backend.planning.model.Classroom;
 import co.edu.puj.secchub_backend.planning.repository.ClassroomRepository;
@@ -59,42 +60,46 @@ public class ClassroomService {
     /**
      * Creates a new classroom.
      * @param classroomRequestDTO the classroom request data
-     * @return Mono containing the created classroom response DTO
+     * @return The created classroom response DTO
      */
     @Transactional
-    public Mono<ClassroomResponseDTO> createClassroom(ClassroomRequestDTO classroomRequestDTO) {
+    public ClassroomResponseDTO createClassroom(ClassroomRequestDTO classroomRequestDTO) {
+        if (classroomRequestDTO.getClassroomTypeId() == null ||
+            classroomRequestDTO.getCampus() == null ||
+            classroomRequestDTO.getLocation() == null ||
+            classroomRequestDTO.getRoom() == null ||
+            classroomRequestDTO.getCapacity() == null || classroomRequestDTO.getCapacity() <= 0) {
+            throw new ClassroomBadRequestException("Invalid classroom data provided");
+        }
         log.debug("Creating new classroom: {}", classroomRequestDTO.getRoom());
-        return Mono.fromCallable(() -> {
-            Classroom classroom = mapToEntity(classroomRequestDTO);
-            Classroom savedClassroom = classroomRepository.save(classroom);
-            return mapToResponseDTO(savedClassroom);
-        });
+        
+        Classroom classroom = mapToEntity(classroomRequestDTO);
+        Classroom savedClassroom = classroomRepository.save(classroom);
+        return mapToResponseDTO(savedClassroom);
     }
 
     /**
      * Updates an existing classroom.
      * @param id the classroom ID
      * @param classroomRequestDTO the updated classroom data
-     * @return Mono containing the updated classroom response DTO
+     * @return The updated classroom response DTO
      * @throws ClassroomNotFoundException if classroom not found
      */
     @Transactional
-    public Mono<ClassroomResponseDTO> updateClassroom(Long id, ClassroomRequestDTO classroomRequestDTO) {
+    public ClassroomResponseDTO updateClassroom(Long id, ClassroomRequestDTO classroomRequestDTO) {
         log.debug("Updating classroom with ID: {}", id);
-        return Mono.fromCallable(() -> {
-            Classroom existingClassroom = classroomRepository.findById(id)
-                .orElseThrow(() -> new ClassroomNotFoundException("Classroom not found for ID: " + id));
-            
-            // Update fields
-            existingClassroom.setClassroomTypeId(classroomRequestDTO.getClassroomTypeId());
-            existingClassroom.setCampus(classroomRequestDTO.getCampus());
-            existingClassroom.setLocation(classroomRequestDTO.getLocation());
-            existingClassroom.setRoom(classroomRequestDTO.getRoom());
-            existingClassroom.setCapacity(classroomRequestDTO.getCapacity());
-            
-            Classroom updatedClassroom = classroomRepository.save(existingClassroom);
-            return mapToResponseDTO(updatedClassroom);
-        });
+        Classroom existingClassroom = classroomRepository.findById(id)
+            .orElseThrow(() -> new ClassroomNotFoundException("Classroom not found for ID: " + id));
+        
+        // Update fields
+        existingClassroom.setClassroomTypeId(classroomRequestDTO.getClassroomTypeId() != null ? classroomRequestDTO.getClassroomTypeId() : existingClassroom.getClassroomTypeId());
+        existingClassroom.setCampus(classroomRequestDTO.getCampus() != null ? classroomRequestDTO.getCampus() : existingClassroom.getCampus());
+        existingClassroom.setLocation(classroomRequestDTO.getLocation() != null ? classroomRequestDTO.getLocation() : existingClassroom.getLocation());
+        existingClassroom.setRoom(classroomRequestDTO.getRoom() != null ? classroomRequestDTO.getRoom() : existingClassroom.getRoom());
+        existingClassroom.setCapacity(classroomRequestDTO.getCapacity() != null && classroomRequestDTO.getCapacity() > 0 ? classroomRequestDTO.getCapacity() : existingClassroom.getCapacity());
+
+        Classroom updatedClassroom = classroomRepository.save(existingClassroom);
+        return mapToResponseDTO(updatedClassroom);
     }
 
     /**

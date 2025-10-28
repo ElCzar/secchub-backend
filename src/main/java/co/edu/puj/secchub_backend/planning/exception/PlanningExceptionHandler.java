@@ -136,4 +136,19 @@ public class PlanningExceptionHandler {
                 MESSAGE_KEY, ex.getMessage()
         )));
     }
+
+    /**
+     * Handles ClassroomBadRequestException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the ClassroomBadRequestException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(ClassroomBadRequestException.class)
+    public Mono<ResponseEntity<Object>> handleClassroomBadRequestException(ClassroomBadRequestException ex) {
+        log.warn("Classroom bad request exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, BAD_REQUEST_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
 }
