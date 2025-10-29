@@ -298,6 +298,8 @@ CREATE TABLE `teacher_class` (
   `decision` BOOLEAN NULL,
   `observation` TEXT NULL,
   `status_id` BIGINT UNSIGNED NULL,
+  `start_date` DATE NULL,
+  `end_date` DATE NULL,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_teacher_class_semester`
     FOREIGN KEY (`semester_id`) REFERENCES `semester` (`id`)

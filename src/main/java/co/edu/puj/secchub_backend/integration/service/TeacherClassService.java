@@ -107,7 +107,7 @@ public class TeacherClassService {
         String sql = """
             SELECT tc.id, tc.semester_id, tc.teacher_id, tc.class_id, tc.work_hours,
                    tc.full_time_extra_hours, tc.adjunct_extra_hours, tc.decision, 
-                   tc.observation, tc.status_id,
+                   tc.observation, tc.status_id, tc.start_date, tc.end_date,
                    u.name as teacher_name, u.last_name as teacher_last_name, 
                    u.email as teacher_email, t.max_hours as teacher_max_hours
             FROM teacher_class tc
@@ -128,6 +128,8 @@ public class TeacherClassService {
                 .decision((Boolean) rs.getObject("decision"))
                 .observation(rs.getString("observation"))
                 .statusId(rs.getLong("status_id"))
+                .startDate(rs.getDate("start_date") != null ? rs.getDate("start_date").toLocalDate() : null)
+                .endDate(rs.getDate("end_date") != null ? rs.getDate("end_date").toLocalDate() : null)
                 .teacherName(rs.getString("teacher_name"))
                 .teacherLastName(rs.getString("teacher_last_name"))
                 .teacherEmail(rs.getString("teacher_email"))
@@ -172,6 +174,40 @@ public class TeacherClassService {
             tc.setObservation(observation);
             TeacherClass saved = repository.save(tc);
             return modelMapper.map(saved, TeacherClassResponseDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Updates the teaching dates (start and end date) for a teacher-class assignment.
+     * @param teacherClassId relation id
+     * @param startDate new start date for the teacher
+     * @param endDate new end date for the teacher
+     * @return updated TeacherClassResponseDTO
+     */
+    @Transactional
+    public Mono<TeacherClassResponseDTO> updateTeachingDates(Long teacherClassId, java.time.LocalDate startDate, java.time.LocalDate endDate) {
+        return Mono.fromCallable(() -> {
+            TeacherClass tc = repository.findById(teacherClassId)
+                    .orElseThrow(() -> new TeacherClassNotFoundException("TeacherClass not found for date update: " + teacherClassId));
+            tc.setStartDate(startDate);
+            tc.setEndDate(endDate);
+            TeacherClass saved = repository.save(tc);
+            return modelMapper.map(saved, TeacherClassResponseDTO.class);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Gets a teacher-class assignment by teacher ID and class ID.
+     * @param teacherId Teacher ID
+     * @param classId Class ID
+     * @return Mono<TeacherClassResponseDTO>
+     */
+    public Mono<TeacherClassResponseDTO> getTeacherClassByTeacherAndClass(Long teacherId, Long classId) {
+        return Mono.fromCallable(() -> {
+            TeacherClass tc = repository.findByTeacherIdAndClassId(teacherId, classId)
+                    .orElseThrow(() -> new TeacherClassNotFoundException(
+                            "TeacherClass not found for teacherId: " + teacherId + " and classId: " + classId));
+            return modelMapper.map(tc, TeacherClassResponseDTO.class);
         }).subscribeOn(Schedulers.boundedElastic());
     }
 

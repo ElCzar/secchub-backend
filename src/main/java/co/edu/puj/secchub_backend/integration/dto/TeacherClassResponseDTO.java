@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 
 /**
  * DTO that represents a response containing information about a TeacherClass entity.
@@ -24,6 +25,8 @@ public class TeacherClassResponseDTO {
     private Boolean decision;
     private String observation;
     private Long statusId;
+    private LocalDate startDate;
+    private LocalDate endDate;
     
     // Teacher information fields
     private String teacherName;

@@ -2,6 +2,7 @@ package co.edu.puj.secchub_backend.integration.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.LocalDate;
 
 /**
  * Entity mapped to 'teacher_class'.
@@ -43,4 +44,10 @@ public class TeacherClass {
     
     @Column(name = "status_id")
     private Long statusId;
+
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    @Column(name = "end_date")
+    private LocalDate endDate;
 }

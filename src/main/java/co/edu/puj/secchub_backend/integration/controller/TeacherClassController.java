@@ -105,6 +105,22 @@ public class TeacherClassController {
     }
 
     /**
+     * Get teacherclass by teacher ID and class ID
+     * @param teacherId Teacher ID
+     * @param classId Class ID
+     * @return Teacher class assignment for the given teacher and class
+     */
+    @GetMapping("/{teacherId}/classes/{classId}")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeacherClassResponseDTO>> getTeacherClassByTeacherAndClass(
+            @PathVariable Long teacherId, 
+            @PathVariable Long classId) {
+        return service.getTeacherClassByTeacherAndClass(teacherId, classId)
+                .map(ResponseEntity::ok)
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+    }
+
+    /**
      * Accept a class assignment for a teacher with an optional observation.
      * @param teacherClassId Class ID
      * @param body Request body containing the observation
@@ -133,6 +149,21 @@ public class TeacherClassController {
             @RequestBody(required = false) Map<String, String> body) {
         String observation = body != null ? body.get("observation") : null;
         return service.rejectTeacherClass(teacherClassId, observation)
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Update the teaching dates (start and end date) for a teacher-class assignment.
+     * @param teacherClassId Teacher-Class assignment ID
+     * @param request Request body containing the new dates
+     * @return Updated teacher-class assignment
+     */
+    @PatchMapping("/classes/{teacherClassId}/dates")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeacherClassResponseDTO>> updateTeachingDates(
+            @PathVariable Long teacherClassId,
+            @RequestBody TeacherClassRequestDTO request) {
+        return service.updateTeachingDates(teacherClassId, request.getStartDate(), request.getEndDate())
                 .map(ResponseEntity::ok);
     }
 

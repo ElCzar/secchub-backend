@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import java.time.LocalDate;
 
 /**
  * DTO that represents a request to create or update a TeacherClass entity.
@@ -20,4 +21,6 @@ public class TeacherClassRequestDTO {
     private Integer fullTimeExtraHours;
     private Integer adjunctExtraHours;
     private String observation;
+    private LocalDate startDate;
+    private LocalDate endDate;
 }
