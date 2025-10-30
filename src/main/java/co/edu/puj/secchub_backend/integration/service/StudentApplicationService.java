@@ -59,6 +59,11 @@ public class StudentApplicationService {
                     student.setApplicationDate(LocalDate.now());
                     student.setStatusId(STATUS_PENDING_ID);
 
+                    // Prevent duplicate application for the same user, course, and semester
+                    if (student.getCourseId() != null && studentRepo.existsByUserIdAndCourseIdAndSemesterId(userId, student.getCourseId(), currentSemesterId)) {
+                        throw new StudentApplicationBadRequestException("Ya existe una postulación para este curso en el semestre actual.");
+                    }
+
                     if (studentApplicationRequestDTO.getSchedules() == null || studentApplicationRequestDTO.getSchedules().isEmpty()) {
                         throw new StudentApplicationBadRequestException("Schedules are required for the student application.");
                     }

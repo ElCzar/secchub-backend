@@ -12,6 +12,8 @@ public interface StudentApplicationRepository extends JpaRepository<StudentAppli
     
     List<StudentApplication> findByStatusId(Long statusId);
 
+    boolean existsByUserIdAndCourseIdAndSemesterId(Long userId, Long courseId, Long semesterId);
+
     @Query("""
         SELECT s FROM StudentApplication s
         WHERE (s.sectionId = :sectionId)
