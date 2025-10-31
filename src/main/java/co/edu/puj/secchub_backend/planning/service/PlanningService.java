@@ -33,6 +33,68 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class PlanningService {
+    /**
+     * Duplica solo las clases seleccionadas al semestre actual.
+     * Busca las clases por IDs en el semestre origen y las copia al semestre actual, incluyendo horarios y docentes asociados.
+     * @param sourceSemesterId ID del semestre origen
+     * @param classIds IDs de las clases a duplicar
+     * @return cantidad de clases copiadas
+     */
+    @Transactional
+    public int applySelectedClassesToCurrentSemester(Long sourceSemesterId, List<Long> classIds) {
+        Long currentSemesterId = semesterService.getCurrentSemesterId();
+        int count = 0;
+        if (sourceSemesterId == null || classIds == null || classIds.isEmpty()) return 0;
+        List<Class> classesToCopy = classRepository.findBySemesterId(sourceSemesterId).stream()
+                .filter(c -> classIds.contains(c.getId()))
+                .toList();
+        for (Class original : classesToCopy) {
+            // Copiar clase base
+            Class nuevaClase = Class.builder()
+                    .section(original.getSection())
+                    .courseId(original.getCourseId())
+                    .semesterId(currentSemesterId)
+                    .startDate(original.getStartDate())
+                    .endDate(original.getEndDate())
+                    .observation(original.getObservation())
+                    .capacity(original.getCapacity())
+                    .statusId(original.getStatusId())
+                    .build();
+            Class saved = classRepository.save(nuevaClase);
+            // Copiar horarios
+            List<ClassSchedule> schedules = classScheduleRepository.findByClassId(original.getId());
+            for (ClassSchedule sch : schedules) {
+                ClassSchedule nuevoHorario = ClassSchedule.builder()
+                        .classId(saved.getId())
+                        .classroomId(sch.getClassroomId())
+                        .day(sch.getDay())
+                        .startTime(sch.getStartTime())
+                        .endTime(sch.getEndTime())
+                        .modalityId(sch.getModalityId())
+                        .disability(sch.getDisability())
+                        .build();
+                classScheduleRepository.save(nuevoHorario);
+            }
+            // Copiar docentes asociados
+            List<co.edu.puj.secchub_backend.integration.model.TeacherClass> teacherClasses = teacherClassRepository.findByClassId(original.getId());
+            for (co.edu.puj.secchub_backend.integration.model.TeacherClass tc : teacherClasses) {
+                co.edu.puj.secchub_backend.integration.model.TeacherClass nuevoTc = co.edu.puj.secchub_backend.integration.model.TeacherClass.builder()
+                        .semesterId(currentSemesterId)
+                        .teacherId(tc.getTeacherId())
+                        .classId(saved.getId())
+                        .workHours(tc.getWorkHours())
+                        .fullTimeExtraHours(tc.getFullTimeExtraHours())
+                        .adjunctExtraHours(tc.getAdjunctExtraHours())
+                        .decision(tc.getDecision())
+                        .observation(tc.getObservation())
+                        .statusId(tc.getStatusId())
+                        .build();
+                teacherClassRepository.save(nuevoTc);
+            }
+            count++;
+        }
+        return count;
+    }
 
     /**
      * Devuelve las clases de la sección del usuario y semestre actual que tienen al menos un horario presencial (modality_id=1) sin salón asignado (classroom_id NULL).

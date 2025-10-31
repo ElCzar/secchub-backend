@@ -24,6 +24,31 @@ import java.util.Map;
 @RequestMapping("/planning")
 @RequiredArgsConstructor
 public class PlanningController {
+    /**
+     * Aplica solo las clases seleccionadas al semestre actual.
+     * Recibe el ID del semestre origen y un array de IDs de clases a duplicar.
+     * @param request Map con semesterId y classIds
+     * @return mensaje y cantidad de clases copiadas
+     */
+    @PostMapping("/semesters/apply-selected")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Map<String, Object>>> applySelectedClasses(@RequestBody Map<String, Object> request) {
+        Long semesterId = request.get("semesterId") instanceof Number ? ((Number) request.get("semesterId")).longValue() : null;
+        List<Integer> classIdsRaw = (List<Integer>) request.get("classIds");
+        List<Long> classIds = classIdsRaw != null ? classIdsRaw.stream().map(Integer::longValue).toList() : List.of();
+        int applied = planningService.applySelectedClassesToCurrentSemester(semesterId, classIds);
+        Map<String, Object> result = Map.of(
+            "message", "Clases seleccionadas duplicadas exitosamente",
+            "classesApplied", applied
+        );
+        return Mono.just(ResponseEntity.ok(result));
+    }
+    /**
+     * Aplica clases filtradas al semestre actual.
+     * Recibe un arreglo de clases, valida y copia cada una al semestre actual.
+     * @param classes lista de clases con datos completos
+     * @return mensaje y cantidad de clases copiadas
+     */
 
     @GetMapping("/classes/section-chief/without-room")
     @PreAuthorize("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
