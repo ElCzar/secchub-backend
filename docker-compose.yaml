@@ -24,8 +24,7 @@ services:
       - mysql_data:/var/lib/mysql
       - ./docker/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
       - ./docker/init.sql:/docker-entrypoint-initdb.d/02-init.sql
-    networks:
-      - secchub-network
+    network_mode: "host"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 5s
@@ -41,7 +40,7 @@ services:
     container_name: secchub-backend
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/secchub
+      SPRING_DATASOURCE_URL: jdbc:mysql://localhost:3306/secchub
       SPRING_DATASOURCE_USERNAME: user
       SPRING_DATASOURCE_PASSWORD: password
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -53,8 +52,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    networks:
-      - secchub-network
+    network_mode: "host"
 
 # ==============================================================================
 # VOLUMES
@@ -63,10 +61,3 @@ volumes:
   mysql_data:
     driver: local
     name: mysql_data
-
-# ==============================================================================
-# NETWORKS
-# ==============================================================================
-networks:
-  secchub-network:
-    driver: bridge
