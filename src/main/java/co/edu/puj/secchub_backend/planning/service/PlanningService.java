@@ -22,6 +22,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -512,6 +513,33 @@ public class PlanningService {
         try {
             Long currentSemesterId = semesterService.getCurrentSemesterId();
             
+            // Get current semester dates using JDBC to avoid module visibility issues
+            Map<String, Object> currentSemesterData = jdbcTemplate.queryForMap(
+                "SELECT start_date, end_date FROM semester WHERE is_current = true LIMIT 1"
+            );
+            
+            if (currentSemesterData == null || currentSemesterData.isEmpty()) {
+                throw new RuntimeException("No se pudo obtener el semestre actual");
+            }
+            
+            // Parse dates from database
+            // Dates are stored as DATE in DB, but JPA may return them as java.sql.Date or String
+            LocalDate currentSemesterStartDate;
+            LocalDate currentSemesterEndDate;
+            
+            Object startDateObj = currentSemesterData.get("start_date");
+            Object endDateObj = currentSemesterData.get("end_date");
+            
+            if (startDateObj instanceof java.sql.Date) {
+                currentSemesterStartDate = ((java.sql.Date) startDateObj).toLocalDate();
+                currentSemesterEndDate = ((java.sql.Date) endDateObj).toLocalDate();
+            } else if (startDateObj instanceof String) {
+                currentSemesterStartDate = LocalDate.parse((String) startDateObj);
+                currentSemesterEndDate = LocalDate.parse((String) endDateObj);
+            } else {
+                throw new RuntimeException("Formato de fecha no soportado en semestre actual");
+            }
+            
             // Get classes from source semester
             List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
             
@@ -520,12 +548,13 @@ public class PlanningService {
             
             for (Class sourceClass : sourceClasses) {
                 // Create new class for current semester
+                // Use current semester dates instead of source class dates
                 Class newClass = Class.builder()
                         .section(sourceClass.getSection())
                         .courseId(sourceClass.getCourseId())
                         .semesterId(currentSemesterId)
-                        .startDate(sourceClass.getStartDate())
-                        .endDate(sourceClass.getEndDate())
+                        .startDate(currentSemesterStartDate) // Usar fecha inicio del semestre actual
+                        .endDate(currentSemesterEndDate)     // Usar fecha fin del semestre actual
                         .observation(sourceClass.getObservation() + " (Copiado del semestre " + sourceSemesterId + ")")
                         .capacity(sourceClass.getCapacity())
                         .statusId(sourceClass.getStatusId())

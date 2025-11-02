@@ -43,4 +43,7 @@ public class Semester {
 
     @Column(name = "end_date")
     private String endDate;
+
+    @Column(name = "start_special_week")
+    private String startSpecialWeek;
 }

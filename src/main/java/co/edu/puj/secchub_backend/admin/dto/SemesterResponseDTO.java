@@ -19,5 +19,6 @@ public class SemesterResponseDTO {
     private Integer year;
     private String startDate;
     private String endDate;
+    private String startSpecialWeek; // Fecha de inicio de semana especial (receso/semana santa)
     private Boolean isCurrent;
 }
