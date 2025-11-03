@@ -164,14 +164,6 @@ public class PlanningService {
                 System.out.println("[DEBUG] Clase: id=" + c.getId() + ", section=" + c.getSection() + ", semester=" + c.getSemesterId());
             }
         // Only consider classes for this section and semester
-        List<Long> classIds = classes.stream().map(Class::getId).toList();
-        // Find which de estas clases tienen docente asignado (teacher_id NOT NULL)
-        List<Long> classIdsWithTeacher = teacherClassRepository.findBySemesterId(semesterId).stream()
-            .filter(tc -> tc.getTeacherId() != null)
-            .map(tc -> tc.getClassId())
-            .filter(classIds::contains)
-            .distinct()
-            .toList();
         // Filtrar: solo las clases que NO tienen docente asignado (sin registro o con teacher_id NULL)
         List<ClassResponseDTO> result = classes.stream()
             .filter(c -> {
@@ -735,5 +727,272 @@ public class PlanningService {
                 "error", e.getMessage()
             );
         }
+    }
+
+    /**
+     * Detects schedule conflicts for teachers and classrooms in the current semester
+     * for the section of the authenticated section chief.
+     * @param sectionId The section ID of the authenticated user
+     * @return List of schedule conflicts (teachers and classrooms)
+     */
+    public List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> detectScheduleConflicts(Long sectionId) {
+        List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> conflicts = new java.util.ArrayList<>();
+        
+        // Check if there's a current semester
+        String currentSemesterSql = "SELECT id FROM semester WHERE is_current = 1";
+        List<Map<String, Object>> semesterResult = jdbcTemplate.queryForList(currentSemesterSql);
+        
+        if (semesterResult.isEmpty()) {
+            return conflicts; // No current semester, return empty list
+        }
+        
+        Long currentSemesterId = ((Number) semesterResult.get(0).get("id")).longValue();
+        
+        // 1. Detect teacher conflicts
+        conflicts.addAll(detectTeacherConflicts(sectionId, currentSemesterId));
+        
+        // 2. Detect classroom conflicts
+        conflicts.addAll(detectClassroomConflicts(sectionId, currentSemesterId));
+        
+        return conflicts;
+    }
+
+    /**
+     * Detects conflicts for teachers (same teacher, multiple classes at the same time).
+     */
+    private List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> detectTeacherConflicts(Long sectionId, Long semesterId) {
+        List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> conflicts = new java.util.ArrayList<>();
+        
+        // Query to get all teacher schedules for the current semester (ALL sections, to detect global conflicts)
+        String sql = """
+            SELECT 
+                tc.teacher_id,
+                u.name as teacher_name,
+                cs.day,
+                cs.start_time,
+                cs.end_time,
+                c.id as class_id,
+                c.section,
+                co.name as class_name
+            FROM teacher_class tc
+            INNER JOIN teacher t ON tc.teacher_id = t.id
+            INNER JOIN users u ON t.user_id = u.id
+            INNER JOIN class c ON tc.class_id = c.id
+            INNER JOIN course co ON c.course_id = co.id
+            INNER JOIN class_schedule cs ON c.id = cs.class_id
+            WHERE 
+                c.semester_id = ?
+                AND tc.decision = 1
+                AND cs.modality_id = 1
+            ORDER BY tc.teacher_id, cs.day, cs.start_time
+            """;
+        
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, semesterId);
+        
+        // Group by teacher_id and day
+        Map<String, Map<String, List<Map<String, Object>>>> groupedByTeacherAndDay = new java.util.HashMap<>();
+        
+        for (Map<String, Object> row : results) {
+            Long teacherId = ((Number) row.get("teacher_id")).longValue();
+            String day = (String) row.get("day");
+            
+            groupedByTeacherAndDay
+                .computeIfAbsent(teacherId.toString(), k -> new java.util.HashMap<>())
+                .computeIfAbsent(day, k -> new java.util.ArrayList<>())
+                .add(row);
+        }
+        
+        // Check for overlaps within each teacher-day group
+        for (Map.Entry<String, Map<String, List<Map<String, Object>>>> teacherEntry : groupedByTeacherAndDay.entrySet()) {
+            Long teacherId = Long.valueOf(teacherEntry.getKey());
+            
+            for (Map.Entry<String, List<Map<String, Object>>> dayEntry : teacherEntry.getValue().entrySet()) {
+                List<Map<String, Object>> classes = dayEntry.getValue();
+                
+                if (classes.size() < 2) continue; // No conflict possible with less than 2 classes
+                
+                // Check all pairs for overlaps
+                List<Map<String, Object>> conflictingClasses = new java.util.ArrayList<>();
+                
+                for (int i = 0; i < classes.size(); i++) {
+                    for (int j = i + 1; j < classes.size(); j++) {
+                        Map<String, Object> class1 = classes.get(i);
+                        Map<String, Object> class2 = classes.get(j);
+                        
+                        LocalTime start1 = ((java.sql.Time) class1.get("start_time")).toLocalTime();
+                        LocalTime end1 = ((java.sql.Time) class1.get("end_time")).toLocalTime();
+                        LocalTime start2 = ((java.sql.Time) class2.get("start_time")).toLocalTime();
+                        LocalTime end2 = ((java.sql.Time) class2.get("end_time")).toLocalTime();
+                        
+                        if (hasOverlap(start1, end1, start2, end2)) {
+                            // Add both classes to the conflict if not already added
+                            if (!conflictingClasses.contains(class1)) {
+                                conflictingClasses.add(class1);
+                            }
+                            if (!conflictingClasses.contains(class2)) {
+                                conflictingClasses.add(class2);
+                            }
+                        }
+                    }
+                }
+                
+                // If we found conflicts, check if at least one class belongs to the user's section
+                if (!conflictingClasses.isEmpty()) {
+                    // Check if any of the conflicting classes belongs to the current section
+                    boolean affectsCurrentSection = conflictingClasses.stream()
+                        .anyMatch(c -> ((Number) c.get("section")).longValue() == sectionId);
+                    
+                    // Only report the conflict if it affects the current section
+                    if (affectsCurrentSection) {
+                        String teacherName = (String) conflictingClasses.get(0).get("teacher_name");
+                        
+                        List<co.edu.puj.secchub_backend.planning.dto.ConflictingClassDTO> conflictingClassDTOs = conflictingClasses.stream()
+                            .map(c -> co.edu.puj.secchub_backend.planning.dto.ConflictingClassDTO.builder()
+                                .classId(((Number) c.get("class_id")).longValue())
+                                .className((String) c.get("class_name"))
+                                .section(((Number) c.get("section")).longValue())
+                                .day((String) c.get("day"))
+                                .startTime(((java.sql.Time) c.get("start_time")).toLocalTime())
+                                .endTime(((java.sql.Time) c.get("end_time")).toLocalTime())
+                                .build())
+                            .toList();
+                        
+                        conflicts.add(co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO.builder()
+                            .type("teacher")
+                            .resourceId(teacherId)
+                            .resourceName(teacherName)
+                            .conflictingClasses(conflictingClassDTOs)
+                            .build());
+                    }
+                }
+            }
+        }
+        
+        return conflicts;
+    }
+
+    /**
+     * Detects conflicts for classrooms (same classroom, multiple classes at the same time).
+     */
+    private List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> detectClassroomConflicts(Long sectionId, Long semesterId) {
+        List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> conflicts = new java.util.ArrayList<>();
+        
+        // Query to get all classroom schedules for the current semester (ALL sections, to detect global conflicts)
+        String sql = """
+            SELECT 
+                cs.classroom_id,
+                CONCAT(cr.location, ' - ', cr.room) as classroom_name,
+                cs.day,
+                cs.start_time,
+                cs.end_time,
+                c.id as class_id,
+                c.section,
+                co.name as class_name
+            FROM class_schedule cs
+            INNER JOIN classroom cr ON cs.classroom_id = cr.id
+            INNER JOIN class c ON cs.class_id = c.id
+            INNER JOIN course co ON c.course_id = co.id
+            WHERE 
+                c.semester_id = ?
+                AND cs.modality_id = 1
+            ORDER BY cs.classroom_id, cs.day, cs.start_time
+            """;
+        
+        List<Map<String, Object>> results = jdbcTemplate.queryForList(sql, semesterId);
+        
+        // Group by classroom_id and day
+        Map<String, Map<String, List<Map<String, Object>>>> groupedByClassroomAndDay = new java.util.HashMap<>();
+        
+        for (Map<String, Object> row : results) {
+            Long classroomId = ((Number) row.get("classroom_id")).longValue();
+            String day = (String) row.get("day");
+            
+            groupedByClassroomAndDay
+                .computeIfAbsent(classroomId.toString(), k -> new java.util.HashMap<>())
+                .computeIfAbsent(day, k -> new java.util.ArrayList<>())
+                .add(row);
+        }
+        
+        // Check for overlaps within each classroom-day group
+        for (Map.Entry<String, Map<String, List<Map<String, Object>>>> classroomEntry : groupedByClassroomAndDay.entrySet()) {
+            Long classroomId = Long.valueOf(classroomEntry.getKey());
+            
+            for (Map.Entry<String, List<Map<String, Object>>> dayEntry : classroomEntry.getValue().entrySet()) {
+                List<Map<String, Object>> classes = dayEntry.getValue();
+                
+                if (classes.size() < 2) continue; // No conflict possible with less than 2 classes
+                
+                // Check all pairs for overlaps
+                List<Map<String, Object>> conflictingClasses = new java.util.ArrayList<>();
+                
+                for (int i = 0; i < classes.size(); i++) {
+                    for (int j = i + 1; j < classes.size(); j++) {
+                        Map<String, Object> class1 = classes.get(i);
+                        Map<String, Object> class2 = classes.get(j);
+                        
+                        LocalTime start1 = ((java.sql.Time) class1.get("start_time")).toLocalTime();
+                        LocalTime end1 = ((java.sql.Time) class1.get("end_time")).toLocalTime();
+                        LocalTime start2 = ((java.sql.Time) class2.get("start_time")).toLocalTime();
+                        LocalTime end2 = ((java.sql.Time) class2.get("end_time")).toLocalTime();
+                        
+                        if (hasOverlap(start1, end1, start2, end2)) {
+                            // Add both classes to the conflict if not already added
+                            if (!conflictingClasses.contains(class1)) {
+                                conflictingClasses.add(class1);
+                            }
+                            if (!conflictingClasses.contains(class2)) {
+                                conflictingClasses.add(class2);
+                            }
+                        }
+                    }
+                }
+                
+                // If we found conflicts, check if at least one class belongs to the user's section
+                if (!conflictingClasses.isEmpty()) {
+                    // Check if any of the conflicting classes belongs to the current section
+                    boolean affectsCurrentSection = conflictingClasses.stream()
+                        .anyMatch(c -> ((Number) c.get("section")).longValue() == sectionId);
+                    
+                    // Only report the conflict if it affects the current section
+                    if (affectsCurrentSection) {
+                        String classroomName = (String) conflictingClasses.get(0).get("classroom_name");
+                        
+                        List<co.edu.puj.secchub_backend.planning.dto.ConflictingClassDTO> conflictingClassDTOs = conflictingClasses.stream()
+                            .map(c -> co.edu.puj.secchub_backend.planning.dto.ConflictingClassDTO.builder()
+                                .classId(((Number) c.get("class_id")).longValue())
+                                .className((String) c.get("class_name"))
+                                .section(((Number) c.get("section")).longValue())
+                                .day((String) c.get("day"))
+                                .startTime(((java.sql.Time) c.get("start_time")).toLocalTime())
+                                .endTime(((java.sql.Time) c.get("end_time")).toLocalTime())
+                                .build())
+                            .toList();
+                        
+                        conflicts.add(co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO.builder()
+                            .type("classroom")
+                            .resourceId(classroomId)
+                            .resourceName(classroomName)
+                            .conflictingClasses(conflictingClassDTOs)
+                            .build());
+                    }
+                }
+            }
+        }
+        
+        return conflicts;
+    }
+
+    /**
+     * Checks if two time ranges overlap.
+     * @param start1 Start time of first range
+     * @param end1 End time of first range
+     * @param start2 Start time of second range
+     * @param end2 End time of second range
+     * @return true if there is an overlap (excluding exact consecutive times)
+     */
+    private boolean hasOverlap(LocalTime start1, LocalTime end1, LocalTime start2, LocalTime end2) {
+        // Two ranges overlap if: start1 < end2 AND start2 < end1
+        // This excludes exactly consecutive times (e.g., 10:00-12:00 and 12:00-14:00)
+        return start1.isBefore(end2) && start2.isBefore(end1);
     }
 }

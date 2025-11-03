@@ -525,4 +525,42 @@ public class PlanningController {
             return ResponseEntity.ok(pastSemesters);
         }).subscribeOn(Schedulers.boundedElastic());
     }
+
+    /**
+     * Get schedule conflicts (teachers and classrooms with overlapping schedules).
+     * Returns conflicts for the current semester and the section of the authenticated user.
+     */
+    @GetMapping("/conflicts")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO>> getScheduleConflicts(
+            org.springframework.security.core.Authentication authentication) {
+        return Mono.fromCallable(() -> {
+            // Get user email from JWT
+            String email = (String) authentication.getPrincipal();
+            
+            // Get user_id from email
+            String userSql = "SELECT id FROM users WHERE email = ?";
+            var jdbcTemplate = planningService.getJdbcTemplate();
+            List<Map<String, Object>> userResult = jdbcTemplate.queryForList(userSql, email);
+            
+            if (userResult.isEmpty()) {
+                return List.<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO>of(); // User not found, return empty list
+            }
+            
+            Long userId = ((Number) userResult.get(0).get("id")).longValue();
+            
+            // Get section_id from user_id
+            String sectionSql = "SELECT id FROM section WHERE user_id = ?";
+            List<Map<String, Object>> sectionResult = jdbcTemplate.queryForList(sectionSql, userId);
+            
+            if (sectionResult.isEmpty()) {
+                return List.<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO>of(); // Section not found, return empty list
+            }
+            
+            Long sectionId = ((Number) sectionResult.get(0).get("id")).longValue();
+            
+            // Detect conflicts
+            return planningService.detectScheduleConflicts(sectionId);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
 }
