@@ -33,6 +33,9 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class PlanningService {
+    public JdbcTemplate getJdbcTemplate() {
+        return jdbcTemplate;
+    }
     /**
      * Duplica solo las clases seleccionadas al semestre actual.
      * Busca las clases por IDs en el semestre origen y las copia al semestre actual, incluyendo horarios y docentes asociados.

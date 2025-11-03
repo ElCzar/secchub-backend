@@ -25,6 +25,71 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class PlanningController {
     /**
+     * Endpoint para advertencia de horas extra de un docente.
+     * Entrada: teacherId (path), workHoursToAssign (body)
+     * Salida: teacherName, maxHours, currentAssignedHours, workHoursToAssign, excessHours
+     */
+    @PostMapping("/teachers/{teacherId}/extra-hours-warning")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<?>> getTeacherExtraHoursWarning(@PathVariable Long teacherId, @RequestBody Map<String, Object> body) {
+        return Mono.fromCallable(() -> {
+            int workHoursToAssign = body.get("workHoursToAssign") instanceof Number ? ((Number) body.get("workHoursToAssign")).intValue() : 0;
+            var jdbcTemplate = planningService.getJdbcTemplate();
+            // Obtener nombre y max_hours del docente
+            String teacherSql = "SELECT u.name, t.max_hours FROM teacher t JOIN users u ON t.user_id = u.id WHERE t.id = ?";
+            var teacherResult = jdbcTemplate.queryForList(teacherSql, teacherId);
+            if (teacherResult.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            var teacherRow = teacherResult.get(0);
+            String teacherName = String.valueOf(teacherRow.get("name"));
+            int maxHours = teacherRow.get("max_hours") != null ? ((Number) teacherRow.get("max_hours")).intValue() : 0;
+            // Obtener horas ya asignadas
+            String assignedSql = "SELECT COALESCE(SUM(work_hours),0) AS assigned FROM teacher_class WHERE teacher_id = ?";
+            var assignedResult = jdbcTemplate.queryForList(assignedSql, teacherId);
+            int currentAssignedHours = assignedResult.isEmpty() ? 0 : ((Number) assignedResult.get(0).get("assigned")).intValue();
+            int total = currentAssignedHours + workHoursToAssign;
+            int excessHours = Math.max(total - maxHours, 0);
+            Map<String, Object> result = Map.of(
+                "teacherName", teacherName,
+                "maxHours", maxHours,
+                "currentAssignedHours", currentAssignedHours,
+                "workHoursToAssign", workHoursToAssign,
+                "excessHours", excessHours
+            );
+            return ResponseEntity.ok(result);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+    /**
+     * Get max hours for a teacher by ID
+     */
+    @GetMapping("/teachers/{teacherId}/max-hours")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<?>> getTeacherMaxHours(@PathVariable Long teacherId) {
+        return Mono.fromCallable(() -> {
+            String sql = "SELECT t.max_hours, u.name, t.employment_type_id FROM teacher t JOIN users u ON t.user_id = u.id WHERE t.id = ?";
+            String sumSql = "SELECT COALESCE(SUM(work_hours + COALESCE(full_time_extra_hours,0)),0) AS assigned FROM teacher_class WHERE teacher_id = ? AND decision = 1";
+            var jdbcTemplate = planningService.getJdbcTemplate();
+            var result = jdbcTemplate.queryForList(sql, teacherId);
+            if (result.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            var row = result.get(0);
+            var sumResult = jdbcTemplate.queryForList(sumSql, teacherId);
+            int assignedHours = sumResult.isEmpty() ? 0 : ((Number) sumResult.get(0).get("assigned")).intValue();
+            int maxHours = row.get("max_hours") != null ? ((Number) row.get("max_hours")).intValue() : 0;
+            int exceedsMaxHours = assignedHours >= maxHours ? 1 : 0;
+            return ResponseEntity.ok(Map.of(
+                "teacherId", teacherId,
+                "maxHours", maxHours,
+                "name", row.get("name"),
+                "employmentTypeId", row.get("employment_type_id"),
+                "assignedHours", assignedHours,
+                "exceedsMaxHours", exceedsMaxHours
+            ));
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+    /**
      * Aplica solo las clases seleccionadas al semestre actual.
      * Recibe el ID del semestre origen y un array de IDs de clases a duplicar.
      * @param request Map con semesterId y classIds
