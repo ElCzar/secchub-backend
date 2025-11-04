@@ -563,4 +563,142 @@ public class PlanningController {
             return planningService.detectScheduleConflicts(sectionId);
         }).subscribeOn(Schedulers.boundedElastic());
     }
+
+    /**
+     * ADMIN ENDPOINTS - Global view without section filtering
+     */
+
+    /**
+     * Get all classes without assigned classroom (admin view - all sections)
+     * @return List of classes without classroom across all sections
+     */
+    @GetMapping("/admin/classes/without-room")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<List<ClassResponseDTO>> getClassesWithoutRoomAdmin() {
+        return Mono.fromCallable(() -> planningService.getClassesWithoutRoomGlobal())
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Get all classes without assigned teacher (admin view - all sections)
+     * @return List of classes without teacher across all sections
+     */
+    @GetMapping("/admin/classes/without-teacher")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<List<ClassResponseDTO>> getClassesWithoutTeacherAdmin() {
+        return Mono.fromCallable(() -> planningService.getClassesWithoutTeacherGlobal())
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Get all schedule conflicts (admin view - all sections)
+     * @return List of all schedule conflicts across all sections
+     */
+    @GetMapping("/admin/conflicts")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO>> getScheduleConflictsAdmin() {
+        return Mono.fromCallable(() -> planningService.detectScheduleConflictsGlobal())
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Get all pending teacher confirmations (admin view - all sections)
+     * @return List of teacher-class assignments awaiting confirmation across all sections
+     */
+    @GetMapping("/admin/pending-confirmations")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<List<Map<String, Object>>> getPendingConfirmationsAdmin() {
+        return Mono.fromCallable(() -> planningService.getPendingConfirmationsGlobal())
+                .subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * Get dashboard alerts summary for admin (all sections)
+     * @return Dashboard alerts with counts across all sections
+     */
+    @GetMapping("/admin/dashboard/alerts")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<Map<String, Object>>> getDashboardAlertsAdmin() {
+        return Mono.fromCallable(() -> {
+            var jdbcTemplate = planningService.getJdbcTemplate();
+            
+            // Get current semester
+            String currentSemesterSql = "SELECT id, end_date FROM semester WHERE is_current = 1";
+            List<Map<String, Object>> semesterResult = jdbcTemplate.queryForList(currentSemesterSql);
+            
+            if (semesterResult.isEmpty()) {
+                Map<String, Object> emptyResponse = new java.util.HashMap<>();
+                emptyResponse.put("missingTeachers", 0);
+                emptyResponse.put("missingRooms", 0);
+                emptyResponse.put("pendingConfirmations", 0);
+                emptyResponse.put("scheduleConflicts", 0);
+                emptyResponse.put("daysLeft", 0);
+                return ResponseEntity.ok(emptyResponse);
+            }
+            
+            Long currentSemesterId = ((Number) semesterResult.get(0).get("id")).longValue();
+            java.sql.Date endDate = (java.sql.Date) semesterResult.get(0).get("end_date");
+            
+            // Calculate days left
+            long daysLeft = java.time.temporal.ChronoUnit.DAYS.between(
+                java.time.LocalDate.now(),
+                endDate.toLocalDate()
+            );
+            
+            // Count classes without teacher (global)
+            // Classes without any teacher_class record
+            String missingTeachersSql = """
+                SELECT COUNT(DISTINCT c.id) as count
+                FROM class c
+                LEFT JOIN teacher_class tc ON c.id = tc.class_id
+                WHERE c.semester_id = ?
+                  AND tc.teacher_id IS NULL
+                """;
+            List<Map<String, Object>> missingTeachersResult = jdbcTemplate.queryForList(missingTeachersSql, currentSemesterId);
+            int missingTeachers = missingTeachersResult.isEmpty() ? 0 : ((Number) missingTeachersResult.get(0).get("count")).intValue();
+            
+            // Count classes without room (global)
+            // Classes that have at least one in-person schedule (modality_id = 1) without a classroom
+            String missingRoomsSql = """
+                SELECT COUNT(DISTINCT c.id) as count
+                FROM class c
+                WHERE c.semester_id = ?
+                  AND EXISTS (
+                    SELECT 1 FROM class_schedule cs 
+                    WHERE cs.class_id = c.id 
+                      AND cs.modality_id = 1
+                      AND cs.classroom_id IS NULL
+                  )
+                """;
+            List<Map<String, Object>> missingRoomsResult = jdbcTemplate.queryForList(missingRoomsSql, currentSemesterId);
+            int missingRooms = missingRoomsResult.isEmpty() ? 0 : ((Number) missingRoomsResult.get(0).get("count")).intValue();
+            
+            // Count pending teacher confirmations (global)
+            // status_id = 4 means pending confirmation
+            String pendingConfirmationsSql = """
+                SELECT COUNT(*) as count
+                FROM teacher_class tc
+                INNER JOIN class c ON tc.class_id = c.id
+                WHERE c.semester_id = ?
+                  AND tc.status_id = 4
+                """;
+            List<Map<String, Object>> pendingResult = jdbcTemplate.queryForList(pendingConfirmationsSql, currentSemesterId);
+            int pendingConfirmations = pendingResult.isEmpty() ? 0 : ((Number) pendingResult.get(0).get("count")).intValue();
+            
+            // Count schedule conflicts (global)
+            List<co.edu.puj.secchub_backend.planning.dto.ScheduleConflictDTO> conflicts = 
+                planningService.detectScheduleConflictsGlobal();
+            int scheduleConflicts = conflicts.size();
+            
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("missingTeachers", missingTeachers);
+            response.put("missingRooms", missingRooms);
+            response.put("pendingConfirmations", pendingConfirmations);
+            response.put("scheduleConflicts", scheduleConflicts);
+            response.put("daysLeft", Math.max(0, daysLeft));
+            response.put("endDate", endDate.toLocalDate().toString()); // Add endDate field
+            
+            return ResponseEntity.ok(response);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
 }

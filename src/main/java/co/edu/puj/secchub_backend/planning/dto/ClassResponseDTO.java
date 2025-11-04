@@ -18,7 +18,8 @@ import java.util.List;
 @Builder
 public class ClassResponseDTO {
     private Long id;
-    private Long section;
+    private Long section;  // Group number within the course
+    private String sectionName;  // Academic section name (from course → section)
     private Long courseId;
     private String courseName;  // Name of the course
     private Long semesterId;

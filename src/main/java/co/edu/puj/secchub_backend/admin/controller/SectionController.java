@@ -75,4 +75,27 @@ public class SectionController {
         return sectionService.isPlanningClosedForCurrentUser()
                 .map(ResponseEntity::ok);
     }
+
+    /**
+     * Gets planning status statistics (count of open and closed sections)
+     * @return Map with openCount and closedCount
+     */
+    @GetMapping("/planning-status-stats")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<java.util.Map<String, Integer>>> getPlanningStatusStats() {
+        return sectionService.getPlanningStatusStats()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Get sections summary for admin dashboard
+     * Returns name, planning status, assigned classes count, and unconfirmed teachers count
+     * @return List of section summaries
+     */
+    @GetMapping("/summary")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<List<java.util.Map<String, Object>>>> getSectionsSummary() {
+        return sectionService.getSectionsSummary()
+                .map(ResponseEntity::ok);
+    }
 }

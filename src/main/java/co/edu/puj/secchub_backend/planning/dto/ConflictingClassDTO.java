@@ -17,7 +17,8 @@ import java.time.LocalTime;
 public class ConflictingClassDTO {
     private Long classId;
     private String className;
-    private Long section;
+    private Long section;  // Group number within the course
+    private String sectionName;  // Academic section name (from course → section)
     private String day;
     private LocalTime startTime;
     private LocalTime endTime;
