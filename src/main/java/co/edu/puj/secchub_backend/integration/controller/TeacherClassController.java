@@ -43,9 +43,9 @@ public class TeacherClassController {
     @GetMapping("/classes/current-semester")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getCurrentSemesterTeacherClasses() {
-        return Mono.fromCallable(() -> service.listCurrentSemesterTeacherClasses())
-                .map(ResponseEntity::ok)
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return service.listCurrentSemesterTeacherClasses()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -56,9 +56,9 @@ public class TeacherClassController {
     @GetMapping("/classes/current-semester/{teacherId}")
     @PreAuthorize("hasRole('ROLE_TEACHER')")
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getCurrentSemesterTeacherClassesByTeacher(@PathVariable Long teacherId) {
-        return Mono.fromCallable(() -> service.listCurrentSemesterTeacherClassesByTeacher(teacherId))
-                .map(ResponseEntity::ok)
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return service.listCurrentSemesterTeacherClassesByTeacher(teacherId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -69,9 +69,9 @@ public class TeacherClassController {
     @GetMapping("/{teacherId}/classes")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getAllTeacherClasses(@PathVariable Long teacherId) {
-        return Mono.fromCallable(() -> service.listAllTeacherClassByTeacher(teacherId))
-                .map(ResponseEntity::ok)
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return service.listAllTeacherClassByTeacher(teacherId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -86,9 +86,9 @@ public class TeacherClassController {
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getTeacherClassesByStatus(
             @PathVariable Long teacherId,
             @PathVariable Long statusId) {
-        return Mono.fromCallable(() -> service.listTeacherClassByStatus(teacherId, statusId))
-                .map(ResponseEntity::ok)
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return service.listTeacherClassByStatus(teacherId, statusId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -99,9 +99,9 @@ public class TeacherClassController {
     @GetMapping("/classes/class/{classId}")
     @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getTeacherClassByClassId(@PathVariable Long classId) {
-        return Mono.fromCallable(() -> service.listTeacherClassByClassId(classId))
-                .map(ResponseEntity::ok)
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return service.listTeacherClassByClassId(classId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**

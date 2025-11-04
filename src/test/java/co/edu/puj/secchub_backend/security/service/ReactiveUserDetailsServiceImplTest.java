@@ -7,8 +7,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import java.util.Optional;
-
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,10 +45,10 @@ class ReactiveUserDetailsServiceImplTest {
                 .statusId(1L)
                 .roleId(2L)
                 .build();
-        
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
-        when(parametricService.getStatusNameById(1L)).thenReturn("Active");
-        when(parametricService.getRoleNameById(2L)).thenReturn("ROLE_ADMIN");
+
+        when(userRepository.findByUsername("testuser")).thenReturn(Mono.just(user));
+        when(parametricService.getStatusNameById(1L)).thenReturn(Mono.just("Active"));
+        when(parametricService.getRoleNameById(2L)).thenReturn(Mono.just("ROLE_ADMIN"));
 
         // When & Then
         UserDetails result = reactiveUserDetailsServiceImpl.findByUsername("testuser").as(Mono::block);
@@ -70,7 +68,7 @@ class ReactiveUserDetailsServiceImplTest {
     @DisplayName("FindByUsername - When user is not found, then should return empty Mono")
     void testFindByUsername_UserNotFound_ReturnsEmptyMono() {
         // Arrange
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
+        when(userRepository.findByUsername("testuser")).thenReturn(Mono.empty());
 
         // When
         UserDetails result = reactiveUserDetailsServiceImpl.findByUsername("testuser").block();
@@ -87,9 +85,9 @@ class ReactiveUserDetailsServiceImplTest {
     void testFindByUsername_UserInactive_ReturnsEmptyMono() {
         // Arrange
         User user = mock(User.class);
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername("testuser")).thenReturn(Mono.just(user));
         when(user.getStatusId()).thenReturn(1L);
-        when(parametricService.getStatusNameById(1L)).thenReturn("Inactive");
+        when(parametricService.getStatusNameById(1L)).thenReturn(Mono.just("Inactive"));
 
         // When
         UserDetails result = reactiveUserDetailsServiceImpl.findByUsername("testuser").block();
@@ -107,7 +105,7 @@ class ReactiveUserDetailsServiceImplTest {
     void testFindByUsername_UserNoStatus_ReturnsEmptyMono() {
         // Arrange
         User user = mock(User.class);
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userRepository.findByUsername("testuser")).thenReturn(Mono.just(user));
         when(user.getStatusId()).thenReturn(null);
 
         // When
@@ -131,9 +129,9 @@ class ReactiveUserDetailsServiceImplTest {
         when(user.getStatusId()).thenReturn(1L);
         when(user.getRoleId()).thenReturn(2L);
 
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
-        when(parametricService.getStatusNameById(1L)).thenReturn("Active");
-        when(parametricService.getRoleNameById(2L)).thenReturn("ROLE_ADMIN");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.just(user));
+        when(parametricService.getStatusNameById(1L)).thenReturn(Mono.just("Active"));
+        when(parametricService.getRoleNameById(2L)).thenReturn(Mono.just("ROLE_ADMIN"));
 
         // When
         Authentication result = reactiveUserDetailsServiceImpl.findByEmail("test@example.com").block();
@@ -157,9 +155,9 @@ class ReactiveUserDetailsServiceImplTest {
         when(user.getUsername()).thenReturn("testuser");
         when(user.getEmail()).thenReturn("test@example.com");
         when(user.getPassword()).thenReturn("password");
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.just(user));
         when(user.getStatusId()).thenReturn(1L);
-        when(parametricService.getStatusNameById(1L)).thenReturn("Active");
+        when(parametricService.getStatusNameById(1L)).thenReturn(Mono.just("Active"));
         when(user.getRoleId()).thenReturn(null);
 
         // When
@@ -179,7 +177,7 @@ class ReactiveUserDetailsServiceImplTest {
     @DisplayName("FindByEmail - When user is not found, then should return empty Mono")
     void testFindByEmail_UserNotFound_ReturnsEmptyMono() {
         // Arrange
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.empty());
 
         // When
         Authentication result = reactiveUserDetailsServiceImpl.findByEmail("test@example.com").block();
@@ -196,9 +194,9 @@ class ReactiveUserDetailsServiceImplTest {
     void testFindByEmail_UserInactive_ReturnsEmptyMono() {
         // Arrange
         User user = mock(User.class);
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.just(user));
         when(user.getStatusId()).thenReturn(1L);
-        when(parametricService.getStatusNameById(1L)).thenReturn("Inactive");
+        when(parametricService.getStatusNameById(1L)).thenReturn(Mono.just("Inactive"));
 
         // When
         Authentication result = reactiveUserDetailsServiceImpl.findByEmail("test@example.com").block();
@@ -215,7 +213,7 @@ class ReactiveUserDetailsServiceImplTest {
     void testFindByEmail_UserNoStatus_ReturnsEmptyMono() {
         // Arrange
         User user = mock(User.class);
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.just(user));
         when(user.getStatusId()).thenReturn(null);
 
         // When

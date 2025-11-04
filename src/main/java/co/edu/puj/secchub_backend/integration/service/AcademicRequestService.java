@@ -2,32 +2,34 @@ package co.edu.puj.secchub_backend.integration.service;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestResponseDTO;
 import co.edu.puj.secchub_backend.integration.dto.CombinedRequestDTO;
-import co.edu.puj.secchub_backend.integration.dto.IndividualRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.ProcessPlanningRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.RequestScheduleRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.RequestScheduleResponseDTO;
 import co.edu.puj.secchub_backend.integration.exception.AcademicRequestBadRequest;
 import co.edu.puj.secchub_backend.integration.exception.AcademicRequestNotFound;
+import co.edu.puj.secchub_backend.integration.exception.AcademicRequestServerErrorException;
 import co.edu.puj.secchub_backend.integration.exception.RequestScheduleNotFound;
 import co.edu.puj.secchub_backend.integration.model.AcademicRequest;
 import co.edu.puj.secchub_backend.integration.model.RequestSchedule;
 import co.edu.puj.secchub_backend.integration.repository.AcademicRequestRepository;
 import co.edu.puj.secchub_backend.integration.repository.RequestScheduleRepository;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
-import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -36,65 +38,77 @@ import java.util.List;
 import java.util.Map;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class AcademicRequestService {
     private final ModelMapper modelMapper;
+    private final TransactionalOperator transactionalOperator;
+    
     private final AcademicRequestRepository academicRequestRepository;
     private final RequestScheduleRepository requestScheduleRepository;
+
     private final SecurityModuleUserContract userService;
     private final AdminModuleSemesterContract semesterService;
     private final AdminModuleCourseContract courseService;
+    private final AdminModuleSectionContract sectionService;
 
     /**
      * Creates a batch of academic requests with their associated schedules.
      * @param academicRequestBatchRequestDTO with batch request information
-     * @return List of created academic requests
+     * @return Flux of created academic requests
      */
-    @Transactional
-    public Mono<List<AcademicRequestResponseDTO>> createAcademicRequestBatch(AcademicRequestBatchRequestDTO payload) {
-        return ReactiveSecurityContextHolder.getContext()
-                .flatMap(securityContext -> Mono.fromCallable(() -> {
-                    String userEmail = securityContext.getAuthentication().getName();
-                    Long userId = userService.getUserIdByEmail(userEmail);
-                    Long currentSemesterId = semesterService.getCurrentSemesterId();
+    public Flux<AcademicRequestResponseDTO> createAcademicRequestBatch(AcademicRequestBatchRequestDTO payload) {
+        return semesterService.getCurrentSemesterId()
+        .flatMap(currentSemesterId -> this.getCurrentUserId()
+            .map(userId -> Map.entry(userId, currentSemesterId)))
+        .flatMapMany(entry -> {
+            Long userId = entry.getKey();
+            Long currentSemesterId = entry.getValue();
+            
+            return Flux.fromIterable(payload.getRequests())
+                .flatMap(requestDTO -> {
+                    AcademicRequest academicRequest = modelMapper.map(requestDTO, AcademicRequest.class);
+                    academicRequest.setUserId(userId);
+                    academicRequest.setSemesterId(currentSemesterId);
+                    academicRequest.setRequestDate(LocalDate.now());
 
-                    List<AcademicRequestResponseDTO> createdRequests = new ArrayList<>();
-                    for (AcademicRequestRequestDTO item : payload.getRequests()) {
-                        AcademicRequest academicRequest = modelMapper.map(item, AcademicRequest.class);
-                        academicRequest.setUserId(userId);
-                        academicRequest.setSemesterId(currentSemesterId);
-                        academicRequest.setRequestDate(LocalDate.now());
-                        academicRequest.setSchedules(null);
-                        
-                        AcademicRequest saved = academicRequestRepository.save(academicRequest);
-
-                        if (item.getSchedules() == null) {
-                            throw new AcademicRequestBadRequest("Each academic request must have at least one schedule");
-                        }
-
-                        for (RequestScheduleRequestDTO schedule : item.getSchedules()) {
-                            RequestSchedule requestSchedule = modelMapper.map(schedule, RequestSchedule.class);
-                            requestSchedule.setAcademicRequestId(saved.getId());
-                            requestScheduleRepository.save(requestSchedule);
-                        }
-                        
-                        createdRequests.add(mapToResponseDTO(saved));
-                    }
-
-                    return createdRequests;
-                }).subscribeOn(Schedulers.boundedElastic()));
+                    return academicRequestRepository.save(academicRequest)
+                        .flatMap(savedRequest -> {
+                            if (requestDTO.getSchedules() == null || requestDTO.getSchedules().isEmpty()) {
+                                return mapToResponseDTO(savedRequest);
+                            }
+                            
+                            return Flux.fromIterable(requestDTO.getSchedules())
+                                .flatMap(scheduleDTO -> {
+                                    RequestSchedule schedule = modelMapper.map(scheduleDTO, RequestSchedule.class);
+                                    schedule.setAcademicRequestId(savedRequest.getId());
+                                    return requestScheduleRepository.save(schedule);
+                                })
+                                .collectList()
+                                .flatMap(schedules -> mapToResponseDTO(savedRequest, schedules));
+                        });
+                });
+        })
+        .as(transactionalOperator::transactional)
+        .onErrorMap(ex -> {
+            if (ex instanceof AcademicRequestBadRequest) {
+                return ex;
+            }
+            return new AcademicRequestServerErrorException("Error creating academic request batch: " + ex.getMessage());
+        });
     }
 
     /**
      * Gets all academic requests for the current semester.
      * @return List of academic requests for the current semester
      */
-    public List<AcademicRequestResponseDTO> findCurrentSemesterAcademicRequests() {
-        Long currentSemesterId = semesterService.getCurrentSemesterId();
-        
-        return academicRequestRepository.findBySemesterId(currentSemesterId).stream()
-                .map(this::mapToResponseDTO)
-                .toList();
+    public Flux<AcademicRequestResponseDTO> findCurrentSemesterAcademicRequests() {
+        return semesterService.getCurrentSemesterId()
+            .flatMapMany(currentSemesterId -> 
+                academicRequestRepository.findBySemesterId(currentSemesterId)
+                    .filterWhen(this::filterByUserRole)
+                    .flatMap(this::getClassSchedulesForRequest)
+            );
     }
 
     /**
@@ -102,29 +116,20 @@ public class AcademicRequestService {
      * @param semesterId The semester ID to filter requests
      * @return List of academic requests for the specified semester and user
      */
-    public Mono<List<AcademicRequestResponseDTO>> findAcademicRequestsBySemesterAndUser(Long semesterId) {
-        return ReactiveSecurityContextHolder.getContext()
-                .flatMap(securityContext -> {
-                    String userEmail = securityContext.getAuthentication().getName();
-                    Long userId = userService.getUserIdByEmail(userEmail);
-                    
-                    List<AcademicRequestResponseDTO> requests = academicRequestRepository
-                            .findBySemesterIdAndUserId(semesterId, userId).stream()
-                            .map(this::mapToResponseDTO)
-                            .toList();
-                    
-                    return Mono.just(requests);
-                });
+    public Flux<AcademicRequestResponseDTO> findAcademicRequestsBySemesterAndUser(Long semesterId) {
+        return academicRequestRepository.findBySemesterId(semesterId)
+            .filterWhen(this::filterByUserRole)
+            .flatMap(this::getClassSchedulesForRequest);
     }
 
     /**
      * Gets all academic requests
      * @return List of academic requests
      */
-    public List<AcademicRequestResponseDTO> findAllAcademicRequests() {
-        return academicRequestRepository.findAll().stream()
-                .map(this::mapToResponseDTO)
-                .toList();
+    public Flux<AcademicRequestResponseDTO> findAllAcademicRequests() {
+        return academicRequestRepository.findAll()
+            .filterWhen(this::filterByUserRole)
+            .flatMap(this::getClassSchedulesForRequest);
     }
 
     /**
@@ -133,10 +138,10 @@ public class AcademicRequestService {
      * @return Academic request found
      */
     public Mono<AcademicRequestResponseDTO> findAcademicRequestById(Long requestId) {
-        return Mono.fromCallable(() -> academicRequestRepository.findById(requestId)
-                .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for consult: " + requestId)))
-                .map(this::mapToResponseDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return academicRequestRepository.findById(requestId)
+            .filterWhen(this::filterByUserRole)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("AcademicRequest not found: " + requestId)))
+            .flatMap(this::getClassSchedulesForRequest);
     }
 
     /**
@@ -145,13 +150,16 @@ public class AcademicRequestService {
      * @return empty Mono when done
      */
     public Mono<Void> deleteAcademicRequest(Long requestId) {
-        return Mono.fromCallable(() -> {
-            if (!academicRequestRepository.existsById(requestId)) {
-                throw new AcademicRequestNotFound("AcademicRequest not found for deletion: " + requestId);
-            }
-            academicRequestRepository.deleteById(requestId);
-            return Mono.empty();
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return academicRequestRepository.findById(requestId)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("AcademicRequest not found for deletion: " + requestId)))
+            .flatMap(request -> academicRequestRepository.deleteById(requestId))
+            .onErrorMap(error -> {
+                if (error instanceof AcademicRequestNotFound) {
+                    return error;
+                }
+                log.error("Error deleting academic request: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to delete academic request");
+            });
     }
 
     /**
@@ -161,16 +169,21 @@ public class AcademicRequestService {
      * @return Updated academic request
      */
     public Mono<AcademicRequestResponseDTO> updateAcademicRequest(Long requestId, AcademicRequestRequestDTO academicRequestRequestDTO) {
-        return Mono.fromCallable(() -> {
-            AcademicRequest request = academicRequestRepository.findById(requestId)
-                    .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for update: " + requestId));
-
-            modelMapper.getConfiguration().setPropertyCondition(context -> 
-                context.getSource() != null);
-            modelMapper.map(academicRequestRequestDTO, request);
-            AcademicRequest savedRequest = academicRequestRepository.save(request);
-            return mapToResponseDTO(savedRequest);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return academicRequestRepository.findById(requestId)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("AcademicRequest not found for update: " + requestId)))
+            .flatMap(request -> {
+                modelMapper.getConfiguration().setPropertyCondition(context -> context.getSource() != null);
+                modelMapper.map(academicRequestRequestDTO, request);
+                return academicRequestRepository.save(request);
+            })
+            .flatMap(this::mapToResponseDTO)
+            .onErrorMap(error -> {
+                if (error instanceof AcademicRequestNotFound) {
+                    return error;
+                }
+                log.error("Error updating academic request: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to update academic request");
+            });
     }
 
     /**
@@ -180,51 +193,64 @@ public class AcademicRequestService {
      * @return Created schedule DTO
      */
     public Mono<RequestScheduleResponseDTO> addRequestSchedule(Long requestId, RequestScheduleRequestDTO requestScheduleRequestDTO) {
-        return Mono.fromCallable(() -> {
-            academicRequestRepository.findById(requestId)
-                .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for schedule creation: " + requestId));
-
-            RequestSchedule schedule = modelMapper.map(requestScheduleRequestDTO, RequestSchedule.class);
-            schedule.setAcademicRequestId(requestId);
-
-            RequestSchedule savedSchedule = requestScheduleRepository.save(schedule);
-
-            return modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return academicRequestRepository.findById(requestId)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("AcademicRequest not found for schedule creation: " + requestId)))
+            .flatMap(request -> {
+                RequestSchedule schedule = modelMapper.map(requestScheduleRequestDTO, RequestSchedule.class);
+                schedule.setAcademicRequestId(requestId);
+                return requestScheduleRepository.save(schedule);
+            })
+            .map(savedSchedule -> modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class))
+            .onErrorMap(error -> {
+                if (error instanceof AcademicRequestNotFound) {
+                    return error;
+                }
+                log.error("Error adding request schedule: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to add request schedule");
+            });
     }
 
     /**
      * Gets schedules associated with a request.
      * @param requestId Request ID
-     * @return List of schedules
+     * @return Flux of schedules
      */
-    public List<RequestScheduleResponseDTO> findRequestSchedulesByAcademicRequestId(Long requestId) {
-        academicRequestRepository.findById(requestId)
-                .orElseThrow(() -> new AcademicRequestNotFound("AcademicRequest not found for schedule retrieval: " + requestId));
-
-        List<RequestSchedule> requestSchedules = requestScheduleRepository.findByAcademicRequestId(requestId);
-        return requestSchedules.stream()
-                .map(requestSchedule -> modelMapper.map(requestSchedule, RequestScheduleResponseDTO.class))
-                .toList();
+    public Flux<RequestScheduleResponseDTO> findRequestSchedulesByAcademicRequestId(Long requestId) {
+        return academicRequestRepository.findById(requestId)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("AcademicRequest not found for schedule retrieval: " + requestId)))
+            .flatMapMany(request -> requestScheduleRepository.findByAcademicRequestId(requestId))
+            .map(requestSchedule -> modelMapper.map(requestSchedule, RequestScheduleResponseDTO.class))
+            .onErrorMap(error -> {
+                if (error instanceof AcademicRequestNotFound) {
+                    return error;
+                }
+                log.error("Error finding request schedules: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to find request schedules");
+            });
     }
 
     /**
      * Updates a specific schedule.
      * @param scheduleId Schedule ID
      * @param requestScheduleRequestDTO DTO with updated data
+     * @return Updated schedule
      */
     public Mono<RequestScheduleResponseDTO> updateRequestSchedule(Long scheduleId, RequestScheduleRequestDTO requestScheduleRequestDTO) {
-        return Mono.fromCallable(() -> {
-            RequestSchedule schedule = requestScheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new RequestScheduleNotFound("RequestSchedule not found for update: " + scheduleId));
-
-            modelMapper.getConfiguration().setPropertyCondition(context -> 
-                context.getSource() != null);
-            modelMapper.map(requestScheduleRequestDTO, schedule);
-
-            RequestSchedule savedSchedule = requestScheduleRepository.save(schedule);
-            return modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return requestScheduleRepository.findById(scheduleId)
+            .switchIfEmpty(Mono.error(new RequestScheduleNotFound("RequestSchedule not found for update: " + scheduleId)))
+            .flatMap(schedule -> {
+                modelMapper.getConfiguration().setPropertyCondition(context -> context.getSource() != null);
+                modelMapper.map(requestScheduleRequestDTO, schedule);
+                return requestScheduleRepository.save(schedule);
+            })
+            .map(savedSchedule -> modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class))
+            .onErrorMap(error -> {
+                if (error instanceof RequestScheduleNotFound) {
+                    return error;
+                }
+                log.error("Error updating request schedule: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to update request schedule");
+            });
     }
 
     /**
@@ -233,13 +259,16 @@ public class AcademicRequestService {
      * @return empty Mono when done
      */
     public Mono<Void> deleteRequestSchedule(Long scheduleId) {
-        return Mono.fromCallable(() -> {
-            if (!requestScheduleRepository.existsById(scheduleId)) {
-                throw new RequestScheduleNotFound("RequestSchedule not found for deletion: " + scheduleId);
-            }
-            requestScheduleRepository.deleteById(scheduleId);
-            return Mono.empty();
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return requestScheduleRepository.findById(scheduleId)
+            .switchIfEmpty(Mono.error(new RequestScheduleNotFound("RequestSchedule not found for deletion: " + scheduleId)))
+            .flatMap(schedule -> requestScheduleRepository.deleteById(scheduleId))
+            .onErrorMap(error -> {
+                if (error instanceof RequestScheduleNotFound) {
+                    return error;
+                }
+                log.error("Error deleting request schedule: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to delete request schedule");
+            });
     }
 
     /**
@@ -249,78 +278,34 @@ public class AcademicRequestService {
      * @return Updated schedule
      */
     public Mono<RequestScheduleResponseDTO> patchRequestSchedule(Long scheduleId, Map<String, Object> updates) {
-        return Mono.fromCallable(() -> {
-            RequestSchedule schedule = requestScheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new RequestScheduleNotFound("RequestSchedule not found for partial update: " + scheduleId));
-
-            RequestScheduleResponseDTO updateDTO = new RequestScheduleResponseDTO();
-            updates.forEach((key, value) -> {
-                switch (key) {
-                    case "startTime" -> updateDTO.setStartTime((String) value);
-                    case "endTime" -> updateDTO.setEndTime((String) value);
-                    case "day" -> updateDTO.setDay((String) value);
-                    case "classRoomTypeId" -> updateDTO.setClassRoomTypeId((Long) value);
-                    case "modalityId" -> updateDTO.setModalityId((Long) value);
-                    case "disability" -> updateDTO.setDisability((Boolean) value);
-                    default -> {
-                        // Ignore unknown fields
+        return requestScheduleRepository.findById(scheduleId)
+            .switchIfEmpty(Mono.error(new RequestScheduleNotFound("RequestSchedule not found for partial update: " + scheduleId)))
+            .flatMap(schedule -> {
+                RequestScheduleResponseDTO updateDTO = new RequestScheduleResponseDTO();
+                updates.forEach((key, value) -> {
+                    switch (key) {
+                        case "startTime" -> updateDTO.setStartTime((String) value);
+                        case "endTime" -> updateDTO.setEndTime((String) value);
+                        case "day" -> updateDTO.setDay((String) value);
+                        case "classRoomTypeId" -> updateDTO.setClassRoomTypeId((Long) value);
+                        case "modalityId" -> updateDTO.setModalityId((Long) value);
+                        case "disability" -> updateDTO.setDisability((Boolean) value);
+                        default -> {
+                            // Ignore unknown fields
+                        }
                     }
+                });
+                modelMapper.map(updateDTO, schedule);
+                return requestScheduleRepository.save(schedule);
+            })
+            .map(savedSchedule -> modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class))
+            .onErrorMap(error -> {
+                if (error instanceof RequestScheduleNotFound) {
+                    return error;
                 }
+                log.error("Error patching request schedule: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to patch request schedule");
             });
-
-            modelMapper.map(updateDTO, schedule);
-            RequestSchedule savedSchedule = requestScheduleRepository.save(schedule);
-            return modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    // ======================
-    // Private utilities
-    // ======================
-    
-    private AcademicRequestResponseDTO mapToResponseDTO(AcademicRequest academicRequest) {
-        // Manual mapping to avoid lazy loading issues
-        AcademicRequestResponseDTO responseDTO = AcademicRequestResponseDTO.builder()
-                .id(academicRequest.getId())
-                .userId(academicRequest.getUserId())
-                .courseId(academicRequest.getCourseId())
-                .semesterId(academicRequest.getSemesterId())
-                .startDate(academicRequest.getStartDate())
-                .endDate(academicRequest.getEndDate())
-                .capacity(academicRequest.getCapacity())
-                .requestDate(academicRequest.getRequestDate())
-                .observation(academicRequest.getObservation())
-                // Agregar campos enriquecidos
-                .userName(getUserName(academicRequest.getUserId()))
-                .courseName(getCourseName(academicRequest.getCourseId()))
-                .programName(getProgramName(academicRequest.getUserId()))
-                // Agregar campos de estado
-                .accepted(academicRequest.getAccepted())
-                .combined(academicRequest.getCombined())
-                .build();
-        
-        // Load schedules separately to avoid lazy loading issues
-        List<RequestSchedule> schedules = requestScheduleRepository.findByAcademicRequestId(academicRequest.getId());
-        
-        List<RequestScheduleResponseDTO> scheduleDTOs = schedules.stream()
-                .map(schedule -> {
-                    // Manual mapping to ensure all fields are correctly transferred
-                    RequestScheduleResponseDTO dto = RequestScheduleResponseDTO.builder()
-                            .id(schedule.getId())
-                            .academicRequestId(schedule.getAcademicRequestId())
-                            .classRoomTypeId(schedule.getClassRoomTypeId())
-                            .startTime(schedule.getStartTime() != null ? schedule.getStartTime().toString() : null)
-                            .endTime(schedule.getEndTime() != null ? schedule.getEndTime().toString() : null)
-                            .day(schedule.getDay())
-                            .modalityId(schedule.getModalityId())
-                            .disability(schedule.getDisability())
-                            .build();
-                    return dto;
-                })
-                .toList();
-        
-        responseDTO.setSchedules(scheduleDTOs);
-        return responseDTO;
     }
 
     /**
@@ -329,62 +314,55 @@ public class AcademicRequestService {
      * @param processPlanningRequestDTO DTO containing combined and individual requests
      * @return Map with processing results
      */
-    @Transactional
     public Mono<Map<String, Object>> processPlanningRequests(ProcessPlanningRequestDTO processPlanningRequestDTO) {
-        return Mono.fromCallable(() -> {
-            Map<String, Object> result = new HashMap<>();
-            List<String> createdClasses = new ArrayList<>();
-            List<String> errors = new ArrayList<>();
+        Map<String, Object> result = new HashMap<>();
+        List<String> createdClasses = new ArrayList<>();
+        List<String> errors = new ArrayList<>();
 
-            try {
-                // Procesar solicitudes combinadas
-                if (processPlanningRequestDTO.getCombinedRequests() != null) {
-                    for (CombinedRequestDTO combinedRequest : processPlanningRequestDTO.getCombinedRequests()) {
-                        try {
-                            String combinedObservation = createCombinedObservation(combinedRequest);
-                            String className = String.join(" + ", combinedRequest.getMaterias());
-                            
-                            // Crear una entrada que represente la combinación
-                            // Por ahora solo registramos la combinación - más tarde se puede implementar crear clases reales
-                            createdClasses.add(String.format("Combinación: %s (Cupos: %d)", className, combinedRequest.getCupos()));
-                            
-                            // Actualizar las observaciones de las solicitudes originales para indicar que fueron combinadas
-                            updateOriginalRequestsWithCombination(combinedRequest.getSourceIds(), combinedObservation);
-                            
-                        } catch (Exception e) {
+        Mono<Void> combinedMono = Mono.empty();
+        if (processPlanningRequestDTO.getCombinedRequests() != null) {
+            combinedMono = Flux.fromIterable(processPlanningRequestDTO.getCombinedRequests())
+                .flatMap(combinedRequest -> {
+                    String combinedObservation = createCombinedObservation(combinedRequest);
+                    String className = String.join(" + ", combinedRequest.getMaterias());
+                    createdClasses.add(String.format("Combinación: %s (Cupos: %d)", className, combinedRequest.getCupos()));
+                    
+                    return updateOriginalRequestsWithCombination(combinedRequest.getSourceIds(), combinedObservation)
+                        .onErrorResume(e -> {
                             errors.add("Error procesando combinación: " + e.getMessage());
-                        }
-                    }
-                }
+                            return Mono.empty();
+                        });
+                })
+                .then();
+        }
 
-                // Procesar solicitudes individuales que no fueron eliminadas
-                if (processPlanningRequestDTO.getIndividualRequests() != null) {
-                    for (IndividualRequestDTO individualRequest : processPlanningRequestDTO.getIndividualRequests()) {
-                        if (!"deleted".equals(individualRequest.getState())) {
-                            try {
-                                // Crear clase individual - por ahora solo registramos
-                                createdClasses.add(String.format("Individual: %s - %s (Cupos: %d)", 
-                                    individualRequest.getProgram(), individualRequest.getMateria(), individualRequest.getCupos()));
-                            } catch (Exception e) {
-                                errors.add("Error procesando solicitud individual: " + e.getMessage());
-                            }
-                        }
-                    }
-                }
+        Mono<Void> individualMono = Mono.empty();
+        if (processPlanningRequestDTO.getIndividualRequests() != null) {
+            individualMono = Flux.fromIterable(processPlanningRequestDTO.getIndividualRequests())
+                .filter(individualRequest -> !"deleted".equals(individualRequest.getState()))
+                .doOnNext(individualRequest -> createdClasses.add(String.format("Individual: %s - %s (Cupos: %d)", 
+                        individualRequest.getProgram(), individualRequest.getMateria(), individualRequest.getCupos())))
+                .onErrorResume(e -> {
+                    errors.add("Error procesando solicitud individual: " + e.getMessage());
+                    return Mono.empty();
+                })
+                .then();
+        }
 
+        return combinedMono
+            .then(individualMono)
+            .then(Mono.fromCallable(() -> {
                 result.put("success", true);
                 result.put("createdClasses", createdClasses);
                 result.put("totalProcessed", createdClasses.size());
                 result.put("errors", errors);
-                
                 return result;
-                
-            } catch (Exception e) {
+            }))
+            .onErrorResume(e -> {
                 result.put("success", false);
                 result.put("error", "Error general procesando solicitudes: " + e.getMessage());
-                return result;
-            }
-        }).subscribeOn(Schedulers.boundedElastic());
+                return Mono.just(result);
+            });
     }
 
     /**
@@ -396,7 +374,6 @@ public class AcademicRequestService {
         for (int i = 0; i < combinedRequest.getPrograms().size(); i++) {
             if (i > 0) observation.append(", ");
             observation.append(combinedRequest.getPrograms().get(i));
-            // Aquí podríamos agregar los cupos específicos de cada programa si estuvieran disponibles
         }
         
         observation.append(String.format(" (Total cupos: %d)", combinedRequest.getCupos()));
@@ -407,152 +384,26 @@ public class AcademicRequestService {
     /**
      * Updates the original academic requests to indicate they were combined.
      */
-    private void updateOriginalRequestsWithCombination(List<Long> sourceIds, String combinationNote) {
-        if (sourceIds != null) {
-            for (Long sourceId : sourceIds) {
-                try {
-                    var request = academicRequestRepository.findById(sourceId);
-                    if (request.isPresent()) {
-                        AcademicRequest academicRequest = request.get();
+    private Mono<Void> updateOriginalRequestsWithCombination(List<Long> sourceIds, String combinationNote) {
+        if (sourceIds == null || sourceIds.isEmpty()) {
+            return Mono.empty();
+        }
+
+        return Flux.fromIterable(sourceIds)
+            .flatMap(sourceId -> 
+                academicRequestRepository.findById(sourceId)
+                    .flatMap(academicRequest -> {
                         String currentObservation = academicRequest.getObservation() != null ? academicRequest.getObservation() : "";
                         academicRequest.setObservation(currentObservation + "\n" + combinationNote);
-                        academicRequestRepository.save(academicRequest);
-                    }
-                } catch (Exception e) {
-                    // Log error but continue processing
-                    // Error updating request, continuing with next request
-                }
-            }
-        }
-    }
-
-  
-    /**
-     * Método helper para obtener el nombre del usuario
-     */
-    private String getUserName(Long userId) {
-
-        return "Usuario " + userId;
-    }
-
-    /**
-     * Método helper para obtener el nombre del curso
-     */
-    private String getCourseName(Long courseId) {
-        try {
-            // Delegar al servicio de cursos (implementación real que consulta la BD)
-            String name = courseService.getCourseName(courseId);
-            return name != null && !name.trim().isEmpty() ? name : "Curso " + courseId;
-        } catch (Exception e) {
-            // Fallback seguro si algo falla en la capa de cursos
-            return "Curso " + courseId;
-        }
-    }
-
-    /**
-     * Gets the current user context including user name and current semester info.
-     * @return Map containing user context information
-     */
-    public Mono<Map<String, Object>> getCurrentUserContext() {
-        System.out.println("🔍 AcademicRequestService: Iniciando obtención de contexto del usuario");
-        
-        return ReactiveSecurityContextHolder.getContext()
-                .flatMap(securityContext -> {
-                    System.out.println("🔐 AcademicRequestService: SecurityContext obtenido");
-                    String userEmail = securityContext.getAuthentication().getName();
-                    System.out.println("📧 AcademicRequestService: Email del usuario autenticado: " + userEmail);
-                    
-                    return this.getUserContextByEmail(userEmail);
-                })
-                .onErrorResume(error -> {
-                    System.err.println("❌ AcademicRequestService: No hay usuario autenticado: " + error.getMessage());
-                    System.out.println("🔄 AcademicRequestService: Usando usuario por defecto (program@secchub.com)");
-                    
-                    // Usar usuario por defecto cuando no hay autenticación
-                    return this.getUserContextByEmail("program@secchub.com");
-                });
-    }
-    
-    /**
-     * Gets user context by email (helper method).
-     */
-    private Mono<Map<String, Object>> getUserContextByEmail(String userEmail) {
-        return Mono.fromCallable(() -> {
-            Long userId = userService.getUserIdByEmail(userEmail);
-            System.out.println("🆔 AcademicRequestService: ID del usuario: " + userId);
-            
-            // Obtener el nombre del usuario programa directamente
-            String programUserName = getUserNameByEmail(userEmail);
-            System.out.println("� AcademicRequestService: Nombre del usuario programa: " + programUserName);
-            
-            return new Object[]{userId, programUserName};
-        }).flatMap(userData -> {
-            Object[] data = (Object[]) userData;
-            Long userId = (Long) data[0];
-            String programUserName = (String) data[1];
-            
-            return semesterService.getCurrentSemester()
-                    .map(semester -> {
-                        System.out.println("📅 AcademicRequestService: Semestre actual: " + semester);
-                        
-                        Map<String, Object> context = new HashMap<>();
-                        context.put("careerId", "PROG" + userId);
-                        context.put("careerName", programUserName); // Aquí va el nombre del usuario programa
-                        context.put("semester", semester.getYear() + "-" + semester.getPeriod());
-                        context.put("semesterId", semester.getId());
-                        
-                        System.out.println("✅ AcademicRequestService: Contexto creado: " + context);
-                        return context;
+                        return academicRequestRepository.save(academicRequest);
                     })
-                    .doOnError(error -> {
-                        System.err.println("❌ AcademicRequestService: Error obteniendo semestre: " + error.getMessage());
-                        error.printStackTrace();
-                    });
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-    
-    /**
-     * Método helper para obtener el nombre del usuario por email
-     */
-    private String getUserNameByEmail(String userEmail) {
-        try {
-            // Obtener el nombre real del usuario de la base de datos usando el UserService
-            UserInformationResponseDTO userInfo = userService.getUserInformationByEmail(userEmail).block();
-            
-            if (userInfo != null) {
-                // Construir el nombre completo usando los datos reales de la BD
-                String fullName = "";
-                if (userInfo.getName() != null && !userInfo.getName().trim().isEmpty()) {
-                    fullName += userInfo.getName().trim();
-                }
-                if (userInfo.getLastName() != null && !userInfo.getLastName().trim().isEmpty()) {
-                    if (!fullName.isEmpty()) {
-                        fullName += " ";
-                    }
-                    fullName += userInfo.getLastName().trim();
-                }
-                
-                // Si no hay nombre completo disponible, usar el username
-                if (fullName.trim().isEmpty()) {
-                    fullName = userInfo.getUsername() != null ? userInfo.getUsername() : "Usuario sin nombre";
-                }
-                
-                return fullName;
-            } else {
-                throw new RuntimeException("No se encontró información del usuario");
-            }
-            
-        } catch (Exception e) {
-            System.err.println("⚠️ Error obteniendo nombre de usuario: " + e.getMessage());
-            throw new RuntimeException("No se pudo obtener el nombre del usuario para email: " + userEmail, e);
-        }
-    }    /**
-     * Método helper para obtener el nombre del programa
-     */
-    private String getProgramName(Long userId) {
-
-        
-        return "Programa Desconocido";
+                    .then()
+                    .onErrorResume(e -> {
+                        log.error("Error updating request with combination: {}", e.getMessage());
+                        return Mono.empty();
+                    })
+            )
+            .then();
     }
 
     /**
@@ -560,17 +411,21 @@ public class AcademicRequestService {
      * @param requestId Request ID to mark as accepted
      * @return Mono indicating completion
      */
-    @Transactional
     public Mono<Void> markAsAccepted(Long requestId) {
-        return Mono.fromRunnable(() -> {
-            AcademicRequest request = academicRequestRepository.findById(requestId)
-                    .orElseThrow(() -> new AcademicRequestNotFound("Academic request not found with ID: " + requestId));
-            
-            request.setAccepted(true);
-            academicRequestRepository.save(request);
-            
-            System.out.println("✅ Solicitud marcada como aceptada: " + requestId);
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return academicRequestRepository.findById(requestId)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("Academic request not found with ID: " + requestId)))
+            .flatMap(request -> {
+                request.setAccepted(true);
+                return academicRequestRepository.save(request);
+            })
+            .then()
+            .onErrorMap(error -> {
+                if (error instanceof AcademicRequestNotFound) {
+                    return error;
+                }
+                log.error("Error marking request as accepted: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to mark request as accepted");
+            });
     }
 
     /**
@@ -578,17 +433,21 @@ public class AcademicRequestService {
      * @param requestId Request ID to mark as combined
      * @return Mono indicating completion
      */
-    @Transactional
     public Mono<Void> markAsCombined(Long requestId) {
-        return Mono.fromRunnable(() -> {
-            AcademicRequest request = academicRequestRepository.findById(requestId)
-                    .orElseThrow(() -> new AcademicRequestNotFound("Academic request not found with ID: " + requestId));
-            
-            request.setCombined(true);
-            academicRequestRepository.save(request);
-            
-            System.out.println("✅ Solicitud marcada como combinada: " + requestId);
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return academicRequestRepository.findById(requestId)
+            .switchIfEmpty(Mono.error(new AcademicRequestNotFound("Academic request not found with ID: " + requestId)))
+            .flatMap(request -> {
+                request.setCombined(true);
+                return academicRequestRepository.save(request);
+            })
+            .then()
+            .onErrorMap(error -> {
+                if (error instanceof AcademicRequestNotFound) {
+                    return error;
+                }
+                log.error("Error marking request as combined: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to mark request as combined");
+            });
     }
 
     /**
@@ -596,26 +455,24 @@ public class AcademicRequestService {
      * @param requestIds List of request IDs to mark as accepted
      * @return Mono indicating completion
      */
-    @Transactional
     public Mono<Void> markMultipleAsAccepted(List<Long> requestIds) {
-        return Mono.fromRunnable(() -> {
-            if (requestIds == null || requestIds.isEmpty()) {
-                System.out.println("⚠️ No hay IDs para marcar como aceptadas");
-                return;
-            }
+        if (requestIds == null || requestIds.isEmpty()) {
+            return Mono.empty();
+        }
 
-            List<AcademicRequest> requests = academicRequestRepository.findAllById(requestIds);
-            
-            if (requests.isEmpty()) {
-                System.out.println("⚠️ No se encontraron solicitudes con los IDs proporcionados");
-                return;
-            }
-
-            requests.forEach(request -> request.setAccepted(true));
-            academicRequestRepository.saveAll(requests);
-            
-            System.out.println("✅ " + requests.size() + " solicitudes marcadas como aceptadas");
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return academicRequestRepository.findAllById(requestIds)
+            .doOnNext(request -> request.setAccepted(true))
+            .collectList()
+            .flatMap(requests -> {
+                if (requests.isEmpty()) {
+                    return Mono.empty();
+                }
+                return academicRequestRepository.saveAll(requests).then();
+            })
+            .onErrorMap(error -> {
+                log.error("Error marking multiple requests as accepted: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to mark multiple requests as accepted");
+            });
     }
 
     /**
@@ -623,25 +480,142 @@ public class AcademicRequestService {
      * @param requestIds List of request IDs to mark as combined
      * @return Mono indicating completion
      */
-    @Transactional
     public Mono<Void> markMultipleAsCombined(List<Long> requestIds) {
-        return Mono.fromRunnable(() -> {
-            if (requestIds == null || requestIds.isEmpty()) {
-                System.out.println("⚠️ No hay IDs para marcar como combinadas");
-                return;
-            }
+        if (requestIds == null || requestIds.isEmpty()) {
+            return Mono.empty();
+        }
 
-            List<AcademicRequest> requests = academicRequestRepository.findAllById(requestIds);
-            
-            if (requests.isEmpty()) {
-                System.out.println("⚠️ No se encontraron solicitudes con los IDs proporcionados");
-                return;
-            }
+        return academicRequestRepository.findAllById(requestIds)
+            .doOnNext(request -> request.setCombined(true))
+            .collectList()
+            .flatMap(requests -> {
+                if (requests.isEmpty()) {
+                    return Mono.empty();
+                }
+                return academicRequestRepository.saveAll(requests).then();
+            })
+            .onErrorMap(error -> {
+                log.error("Error marking multiple requests as combined: {}", error.getMessage(), error);
+                throw new AcademicRequestServerErrorException("Failed to mark multiple requests as combined");
+            });
+    }
 
-            requests.forEach(request -> request.setCombined(true));
-            academicRequestRepository.saveAll(requests);
-            
-            System.out.println("✅ " + requests.size() + " solicitudes marcadas como combinadas");
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+    // ==============================================
+    // Private Methods
+    // ==============================================
+
+    /**
+     * Gets class schedules for a given academic request.
+     * @param academicRequest The academic request
+     * @return AcademicRequestResponseDTO with schedules
+     */
+    private Mono<AcademicRequestResponseDTO> getClassSchedulesForRequest(AcademicRequest academicRequest) {
+        return requestScheduleRepository.findByAcademicRequestId(academicRequest.getId())
+            .collectList()
+            .flatMap(schedules -> mapToResponseDTO(academicRequest, schedules));
+    }
+
+    /**
+     * Maps a saved academic request and its schedules to a response DTO.
+     * @param savedRequest
+     * @return AcademicRequestResponseDTO without schedules
+     */
+    private Mono<AcademicRequestResponseDTO> mapToResponseDTO(AcademicRequest savedRequest) {
+        AcademicRequestResponseDTO responseDTO = modelMapper.map(savedRequest, AcademicRequestResponseDTO.class);
+
+        return courseService.getCourseName(savedRequest.getCourseId())
+            .flatMap(courseName ->{
+                responseDTO.setCourseName(courseName);
+                return this.getUserName();
+            })
+            .map(userName -> {
+                responseDTO.setUserName(userName);
+                responseDTO.setProgramName(userName);
+                return responseDTO;
+            });
+    }
+
+    /**
+     * Obtains currently logged-in user's full name.
+     * @return User's full name
+     */
+    private Mono<String> getUserName() {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> Mono.just(securityContext.getAuthentication().getName()))
+            .flatMap(userService::getUserInformationByEmail)
+            .map(userInfo -> userInfo.getName() + " " + userInfo.getLastName());
+    }
+
+    /**
+     * Maps a saved academic request and its schedules to a response DTO.
+     * @param savedRequest The saved academic request
+     * @param schedules The associated schedules
+     * @return AcademicRequestResponseDTO with schedules
+     */
+    private Mono<AcademicRequestResponseDTO> mapToResponseDTO(AcademicRequest savedRequest, List<RequestSchedule> schedules) {
+        return mapToResponseDTO(savedRequest)
+            .map(responseDTO -> {
+                List<RequestScheduleResponseDTO> scheduleDTOs = schedules.stream()
+                    .map(schedule -> modelMapper.map(schedule, RequestScheduleResponseDTO.class))
+                    .toList();
+                responseDTO.setSchedules(scheduleDTOs);
+                return responseDTO;
+            });
+    }
+    
+    /**
+     * Obtains the user id from current security context
+     * @return Mono<Long> with user id logged-in
+     */
+    private Mono<Long> getCurrentUserId() {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> {
+                String userEmail = securityContext.getAuthentication().getName();
+                return userService.getUserIdByEmail(userEmail);
+            })
+            .switchIfEmpty(Mono.error(new AcademicRequestServerErrorException("Unable to find user id by logged in user information")));
+    }
+
+    /**
+     * Filters academic requests by user role and if it's the case by their section.
+     * @param academicRequest the academic request to filter
+     * @return Mono<Boolean> containing true if the request is under users' domain
+     */
+    private Mono<Boolean> filterByUserRole(AcademicRequest academicRequest) {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> {
+                Authentication authentication = securityContext.getAuthentication();
+                
+                // Check if user has ADMIN role
+                boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
+                
+                if (isAdmin) {
+                    // Admin can see all classes
+                    return Mono.just(true);
+                }
+
+                // For ROLE_SECTION users, filter by their section
+                String userEmail = authentication.getName();
+
+                // Check if user has PROGRAM role
+                boolean isProgram = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_PROGRAM"));
+
+                if (isProgram) {
+                    return userService.getUserIdByEmail(userEmail)
+                        .flatMap(programId -> Mono.just(programId.equals(academicRequest.getUserId())));
+                }
+
+                return userService.getUserIdByEmail(userEmail)
+                    .flatMap(sectionService::getSectionIdByUserId)
+                    .flatMap(sectionId -> 
+                        courseService.getCourseSectionId(academicRequest.getCourseId())
+                    .flatMap(courseSectionId -> 
+                        Mono.just(sectionId.equals(courseSectionId)))
+                    )
+                    .defaultIfEmpty(false);
+            })
+            .defaultIfEmpty(false);
     }
 }

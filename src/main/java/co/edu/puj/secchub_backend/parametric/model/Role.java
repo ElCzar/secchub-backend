@@ -1,13 +1,19 @@
 package co.edu.puj.secchub_backend.parametric.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity representing a role in the system.
  * Roles define user permissions and access levels.
  */
-@Entity
 @Table(name = "role")
 @Getter
 @Setter
@@ -15,19 +21,9 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Role {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, unique = true, length = 100)
+    @Column("name")
     private String name;
-
-    @Override
-    public String toString() {
-        return "Role{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                '}';
-    }
 }

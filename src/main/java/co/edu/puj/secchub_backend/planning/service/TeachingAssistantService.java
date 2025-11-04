@@ -1,20 +1,26 @@
 package co.edu.puj.secchub_backend.planning.service;
 
-import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
+import co.edu.puj.secchub_backend.integration.contract.IntegrationModuleStudentApplicationContract;
 import co.edu.puj.secchub_backend.planning.dto.*;
+import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantBadRequestException;
 import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantNotFoundException;
 import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantScheduleNotFoundException;
+import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantServerErrorException;
 import co.edu.puj.secchub_backend.planning.model.*;
 import co.edu.puj.secchub_backend.planning.repository.*;
+import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.sql.Time;
 import java.time.LocalTime;
@@ -26,36 +32,59 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class TeachingAssistantService {
-    private final ModelMapper modelMapper;
     private final TeachingAssistantRepository teachingAssistantRepository;
     private final TeachingAssistantScheduleRepository scheduleRepository;
-    private final AdminModuleSemesterContract semesterService;
+
+    private final ModelMapper modelMapper;
+    
+    private final SecurityModuleUserContract userService;
+    private final AdminModuleSectionContract sectionService;
+    private final IntegrationModuleStudentApplicationContract studentApplicationService;
+    
+    private final TransactionalOperator transactionalOperator;
 
     /**
      * Creates a new teaching assistant with its associated schedules.
      * @param teachingAssistantRequestDTO with assistant data
      * @return Created teaching assistant
      */
-    @Transactional
     public Mono<TeachingAssistantResponseDTO> createTeachingAssistant(TeachingAssistantRequestDTO teachingAssistantRequestDTO) {
-        return Mono.fromCallable(() -> {
-            TeachingAssistant teachingAssistant = modelMapper.map(teachingAssistantRequestDTO, TeachingAssistant.class);
-            TeachingAssistant saved = teachingAssistantRepository.save(teachingAssistant);
+        TeachingAssistant teachingAssistant = modelMapper.map(teachingAssistantRequestDTO, TeachingAssistant.class);
 
-            if (teachingAssistantRequestDTO.getSchedules() != null) {
-                for (TeachingAssistantScheduleRequestDTO scheduleDTO : teachingAssistantRequestDTO.getSchedules()) {
-                    TeachingAssistantSchedule schedule = new TeachingAssistantSchedule();
-                    schedule.setDay(scheduleDTO.getDay());
-                    schedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
-                    schedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
-                    schedule.setTeachingAssistantId(saved.getId());
-                    
-                    scheduleRepository.save(schedule);
+        return teachingAssistantRepository.save(teachingAssistant)
+            .flatMap(savedTeachingAssistant -> {
+                TeachingAssistantResponseDTO responseDTO = mapToResponseDTO(savedTeachingAssistant);
+                List<TeachingAssistantScheduleRequestDTO> schedulesDTO = teachingAssistantRequestDTO.getSchedules();
+                
+                if (schedulesDTO == null || schedulesDTO.isEmpty()) {
+                    return Mono.just(responseDTO);
                 }
-            }
-
-            return mapToResponseDTO(saved);
-        }).subscribeOn(Schedulers.boundedElastic());
+                
+                return Flux.fromIterable(schedulesDTO)
+                    .map(scheduleDTO -> {
+                        TeachingAssistantSchedule schedule = new TeachingAssistantSchedule();
+                        schedule.setDay(scheduleDTO.getDay());
+                        schedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
+                        schedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
+                        schedule.setTeachingAssistantId(savedTeachingAssistant.getId());
+                        return schedule;
+                    })
+                    .collectList()
+                    .flatMap(list ->
+                        scheduleRepository.saveAll(Flux.fromIterable(list))
+                            .map(this::mapToScheduleResponseDTO)
+                            .collectList()
+                            .map(schedules -> {
+                                responseDTO.setSchedules(schedules);
+                                return responseDTO;
+                            })
+                    );
+            })
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                log.error("Error creating TeachingAssistant: {}", error.getMessage(), error);
+                return new TeachingAssistantBadRequestException("Failed to create TeachingAssistant: " + error.getMessage());
+            });
     }
 
     /**
@@ -64,38 +93,60 @@ public class TeachingAssistantService {
      * @param teachingAssistantRequestDTO Updated data
      * @return Updated teaching assistant
      */
-    @Transactional
     public Mono<TeachingAssistantResponseDTO> updateTeachingAssistant(Long id, TeachingAssistantRequestDTO teachingAssistantRequestDTO) {
-        return Mono.fromCallable(() -> {
-            TeachingAssistant existing = teachingAssistantRepository.findById(id)
-                    .orElseThrow(() -> new TeachingAssistantNotFoundException("TeachingAssistant not found for update: " + id));
-
-            // Update basic fields
-            existing.setClassId(teachingAssistantRequestDTO.getClassId());
-            existing.setStudentApplicationId(teachingAssistantRequestDTO.getStudentApplicationId());
-            existing.setWeeklyHours(teachingAssistantRequestDTO.getWeeklyHours());
-            existing.setWeeks(teachingAssistantRequestDTO.getWeeks());
-            existing.setTotalHours(teachingAssistantRequestDTO.getTotalHours());
-
-            TeachingAssistant saved = teachingAssistantRepository.save(existing);
-
-            // Update schedules - delete existing and create new ones
-            scheduleRepository.deleteAll(scheduleRepository.findByTeachingAssistantId(id));
-            
-            if (teachingAssistantRequestDTO.getSchedules() != null) {
-                for (TeachingAssistantScheduleRequestDTO scheduleDTO : teachingAssistantRequestDTO.getSchedules()) {
-                    TeachingAssistantSchedule schedule = new TeachingAssistantSchedule();
-                    schedule.setDay(scheduleDTO.getDay());
-                    schedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
-                    schedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
-                    schedule.setTeachingAssistantId(saved.getId());
-                    
-                    scheduleRepository.save(schedule);
+        return teachingAssistantRepository.findById(id)
+            .filterWhen(this::filterTeachingAssistantsByUserSection)
+            .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for update: " + id)))
+            .flatMap(existingTeachingAssistant -> {
+                // Configure ModelMapper to skip null values
+                ModelMapper updateMapper = new ModelMapper();
+                updateMapper.getConfiguration()
+                    .setPropertyCondition(context -> context.getSource() != null);
+                
+                // Map non-null values from DTO to existing entity
+                updateMapper.map(teachingAssistantRequestDTO, existingTeachingAssistant);
+                
+                return teachingAssistantRepository.save(existingTeachingAssistant);
+            })
+            .flatMap(updatedTeachingAssistant -> {
+                TeachingAssistantResponseDTO responseDTO = mapToResponseDTO(updatedTeachingAssistant);
+                List<TeachingAssistantScheduleRequestDTO> schedulesDTO = teachingAssistantRequestDTO.getSchedules();
+                
+                if (schedulesDTO == null || schedulesDTO.isEmpty()) {
+                    return Mono.just(responseDTO);
                 }
-            }
-
-            return mapToResponseDTO(saved);
-        }).subscribeOn(Schedulers.boundedElastic());
+                
+                return scheduleRepository.deleteAll(scheduleRepository.findByTeachingAssistantId(id))
+                    .then(
+                        Flux.fromIterable(schedulesDTO)
+                            .map(scheduleDTO -> {
+                                TeachingAssistantSchedule schedule = new TeachingAssistantSchedule();
+                                schedule.setDay(scheduleDTO.getDay());
+                                schedule.setStartTime(parseTimeString(scheduleDTO.getStartTime()));
+                                schedule.setEndTime(parseTimeString(scheduleDTO.getEndTime()));
+                                schedule.setTeachingAssistantId(updatedTeachingAssistant.getId());
+                                return schedule;
+                            })
+                            .collectList()
+                            .flatMap(list ->
+                                scheduleRepository.saveAll(Flux.fromIterable(list))
+                                    .map(this::mapToScheduleResponseDTO)
+                                    .collectList()
+                                    .map(schedules -> {
+                                        responseDTO.setSchedules(schedules);
+                                        return responseDTO;
+                                    })
+                            )
+                    );
+            })
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                log.error("Error updating TeachingAssistant: {}", error.getMessage(), error);
+                if (error instanceof TeachingAssistantNotFoundException) {
+                    return error;
+                }
+                return new TeachingAssistantServerErrorException("Failed to update TeachingAssistant: " + error.getMessage());
+            });
     }
 
     /**
@@ -103,20 +154,22 @@ public class TeachingAssistantService {
      * @param id Teaching assistant ID
      * @return empty Mono when done
      */
-    @Transactional
     public Mono<Void> deleteTeachingAssistant(Long id) {
-        return Mono.fromCallable(() -> {
-            TeachingAssistant teachingAssistant = teachingAssistantRepository.findById(id)
-                    .orElseThrow(() -> new TeachingAssistantNotFoundException("TeachingAssistant not found for deletion: " + id));
-            
-            // Delete schedules first
-            scheduleRepository.deleteAll(scheduleRepository.findByTeachingAssistantId(id));
-            
-            // Delete teaching assistant
-            teachingAssistantRepository.delete(teachingAssistant);
-            
-            return null;
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return teachingAssistantRepository.findById(id)
+            .filterWhen(this::filterTeachingAssistantsByUserSection)
+            .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for deletion: " + id)))
+            .flatMap(teachingAssistant -> 
+                scheduleRepository.deleteAll(scheduleRepository.findByTeachingAssistantId(id))
+                    .then(teachingAssistantRepository.delete(teachingAssistant))
+            )
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                log.error("Error deleting TeachingAssistant: {}", error.getMessage(), error);
+                if (error instanceof TeachingAssistantNotFoundException) {
+                    return error;
+                }
+                return new TeachingAssistantServerErrorException("Failed to delete TeachingAssistant: " + error.getMessage());
+            });
     }
 
     /**
@@ -125,11 +178,19 @@ public class TeachingAssistantService {
      * @return TeachingAssistantResponseDTO with the given ID
      */
     public Mono<TeachingAssistantResponseDTO> findTeachingAssistantById(Long id) {
-        return Mono.fromCallable(() -> {
-            TeachingAssistant teachingAssistant = teachingAssistantRepository.findById(id)
-                    .orElseThrow(() -> new TeachingAssistantNotFoundException("TeachingAssistant not found for consult: " + id));
-            return mapToResponseDTO(teachingAssistant);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return teachingAssistantRepository.findById(id)
+            .filterWhen(this::filterTeachingAssistantsByUserSection)
+            .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found: " + id)))
+            .map(this::mapToResponseDTO)
+            .flatMap(responseDTO -> 
+                scheduleRepository.findByTeachingAssistantId(id)
+                    .map(this::mapToScheduleResponseDTO)
+                    .collectList()
+                    .map(schedules -> {
+                        responseDTO.setSchedules(schedules);
+                        return responseDTO;
+                    })
+            );
     }
 
     /**
@@ -137,40 +198,30 @@ public class TeachingAssistantService {
      * @param studentApplicationId Student application ID
      * @return List of teaching assistants for the student application
      */
-    public Mono<List<TeachingAssistantResponseDTO>> findByStudentApplicationId(Long studentApplicationId) {
-        return Mono.fromCallable(() -> {
-            List<TeachingAssistant> teachingAssistants = teachingAssistantRepository.findByStudentApplicationId(studentApplicationId);
-            return teachingAssistants.stream()
-                    .map(this::mapToResponseDTO)
-                    .toList();
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    /**
-     * Obtains all teaching assistants for the current semester.
-     * @return List of teaching assistants for the current semester
-     */
-    public Mono<List<TeachingAssistantResponseDTO>> listCurrentSemesterTeachingAssistants() {
-        return Mono.fromCallable(() -> {
-            Long currentSemesterId = semesterService.getCurrentSemesterId();
-            List<TeachingAssistant> teachingAssistants = teachingAssistantRepository.findByCurrentSemester(currentSemesterId);
-            return teachingAssistants.stream()
-                    .map(this::mapToResponseDTO)
-                    .toList();
-        }).subscribeOn(Schedulers.boundedElastic());
+    public Mono<TeachingAssistantResponseDTO> findByStudentApplicationId(Long studentApplicationId) {
+        return teachingAssistantRepository.findByStudentApplicationId(studentApplicationId)
+            .filterWhen(this::filterTeachingAssistantsByUserSection)
+            .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for StudentApplicationId: " + studentApplicationId)))
+            .map(this::mapToResponseDTO)
+            .flatMap(responseDTO -> 
+                scheduleRepository.findByTeachingAssistantId(responseDTO.getId())
+                    .map(this::mapToScheduleResponseDTO)
+                    .collectList()
+                    .map(schedules -> {
+                        responseDTO.setSchedules(schedules);
+                        return responseDTO;
+                    })
+            );
     }
 
     /**
      * Obtains all teaching assistants.
      * @return List of all teaching assistants
      */
-    public Mono<List<TeachingAssistantResponseDTO>> listAllTeachingAssistants() {
-        return Mono.fromCallable(() -> {
-            List<TeachingAssistant> teachingAssistants = teachingAssistantRepository.findAll();
-            return teachingAssistants.stream()
-                    .map(this::mapToResponseDTO)
-                    .toList();
-        }).subscribeOn(Schedulers.boundedElastic());
+    public Flux<TeachingAssistantResponseDTO> listAllTeachingAssistants() {
+        return teachingAssistantRepository.findAll()
+            .filterWhen(this::filterTeachingAssistantsByUserSection)
+            .map(this::mapToResponseDTO);
     }
 
     /**
@@ -179,22 +230,21 @@ public class TeachingAssistantService {
      * @param scheduleRequestDTO Schedule data
      * @return Created schedule
      */
-    @Transactional
     public Mono<TeachingAssistantScheduleResponseDTO> createSchedule(Long teachingAssistantId, TeachingAssistantScheduleRequestDTO scheduleRequestDTO) {
-        return Mono.fromCallable(() -> {
-            // Verify teaching assistant exists
-            teachingAssistantRepository.findById(teachingAssistantId)
-                    .orElseThrow(() -> new TeachingAssistantNotFoundException("TeachingAssistant not found: " + teachingAssistantId));
-
-            TeachingAssistantSchedule schedule = new TeachingAssistantSchedule();
-            schedule.setTeachingAssistantId(teachingAssistantId);
-            schedule.setDay(scheduleRequestDTO.getDay());
-            schedule.setStartTime(parseTimeString(scheduleRequestDTO.getStartTime()));
-            schedule.setEndTime(parseTimeString(scheduleRequestDTO.getEndTime()));
-
-            TeachingAssistantSchedule saved = scheduleRepository.save(schedule);
-            return modelMapper.map(saved, TeachingAssistantScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return teachingAssistantRepository.findById(teachingAssistantId)
+            .filterWhen(this::filterTeachingAssistantsByUserSection)
+            .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for schedule creation: " + teachingAssistantId)))
+            .flatMap(teachingAssistant -> {
+                TeachingAssistantSchedule schedule = new TeachingAssistantSchedule();
+                schedule.setDay(scheduleRequestDTO.getDay());
+                schedule.setStartTime(parseTimeString(scheduleRequestDTO.getStartTime()));
+                schedule.setEndTime(parseTimeString(scheduleRequestDTO.getEndTime()));
+                schedule.setTeachingAssistantId(teachingAssistantId);
+                
+                return scheduleRepository.save(schedule)
+                    .map(this::mapToScheduleResponseDTO);
+            })
+            .as(transactionalOperator::transactional);
     }
 
     /**
@@ -203,19 +253,24 @@ public class TeachingAssistantService {
      * @param scheduleRequestDTO Updated schedule data
      * @return Updated schedule
      */
-    @Transactional
     public Mono<TeachingAssistantScheduleResponseDTO> updateSchedule(Long scheduleId, TeachingAssistantScheduleRequestDTO scheduleRequestDTO) {
-        return Mono.fromCallable(() -> {
-            TeachingAssistantSchedule schedule = scheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new TeachingAssistantScheduleNotFoundException("TeachingAssistantSchedule not found for update: " + scheduleId));
-
-            schedule.setDay(scheduleRequestDTO.getDay());
-            schedule.setStartTime(parseTimeString(scheduleRequestDTO.getStartTime()));
-            schedule.setEndTime(parseTimeString(scheduleRequestDTO.getEndTime()));
-
-            TeachingAssistantSchedule saved = scheduleRepository.save(schedule);
-            return modelMapper.map(saved, TeachingAssistantScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return scheduleRepository.findById(scheduleId)
+            .switchIfEmpty(Mono.error(new TeachingAssistantScheduleNotFoundException("TeachingAssistantSchedule not found for update: " + scheduleId)))
+            .flatMap(schedule -> 
+                teachingAssistantRepository.findById(schedule.getTeachingAssistantId())
+                    .filterWhen(this::filterTeachingAssistantsByUserSection)
+                    .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for schedule update: " + schedule.getTeachingAssistantId())))
+                    .thenReturn(schedule)
+            )
+            .flatMap(existingSchedule -> {
+                existingSchedule.setDay(scheduleRequestDTO.getDay());
+                existingSchedule.setStartTime(parseTimeString(scheduleRequestDTO.getStartTime()));
+                existingSchedule.setEndTime(parseTimeString(scheduleRequestDTO.getEndTime()));
+                
+                return scheduleRepository.save(existingSchedule)
+                    .map(this::mapToScheduleResponseDTO);
+            })
+            .as(transactionalOperator::transactional);
     }
 
     /**
@@ -223,27 +278,17 @@ public class TeachingAssistantService {
      * @param scheduleId Schedule ID
      * @return empty Mono when done
      */
-    @Transactional
     public Mono<Void> deleteSchedule(Long scheduleId) {
-        return Mono.fromCallable(() -> {
-            TeachingAssistantSchedule schedule = scheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new TeachingAssistantScheduleNotFoundException("TeachingAssistantSchedule not found for deletion: " + scheduleId));
-            
-            scheduleRepository.delete(schedule);
-            return null;
-        }).subscribeOn(Schedulers.boundedElastic()).then();
-    }
-
-    /**
-     * Payroll endpoint - placeholder for future implementation.
-     * @return empty Mono
-     */
-    public Mono<Void> generatePayroll() {
-        return Mono.fromCallable(() -> {
-            log.info("Payroll generation called - not yet implemented");
-            // Future implementation: calculate payroll based on teaching assistant hours
-            return null;
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return scheduleRepository.findById(scheduleId)
+            .switchIfEmpty(Mono.error(new TeachingAssistantScheduleNotFoundException("TeachingAssistantSchedule not found for deletion: " + scheduleId)))
+            .flatMap(schedule -> 
+                teachingAssistantRepository.findById(schedule.getTeachingAssistantId())
+                    .filterWhen(this::filterTeachingAssistantsByUserSection)
+                    .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for schedule deletion: " + schedule.getTeachingAssistantId())))
+                    .thenReturn(schedule)
+            )
+            .flatMap(scheduleRepository::delete)
+            .as(transactionalOperator::transactional);
     }
 
     /**
@@ -264,22 +309,60 @@ public class TeachingAssistantService {
         }
     }
 
+    // ========================================================================
+    // Private Methods
+    // ========================================================================
+
     /**
      * Helper method to convert TeachingAssistant entity to ResponseDTO.
      * @param teachingAssistant TeachingAssistant entity
      * @return TeachingAssistantResponseDTO
      */
     private TeachingAssistantResponseDTO mapToResponseDTO(TeachingAssistant teachingAssistant) {
-        TeachingAssistantResponseDTO responseDTO = modelMapper.map(teachingAssistant, TeachingAssistantResponseDTO.class);
+        return modelMapper.map(teachingAssistant, TeachingAssistantResponseDTO.class);
         
-        // Map schedules
-        List<TeachingAssistantSchedule> schedules = scheduleRepository.findByTeachingAssistantId(teachingAssistant.getId());
-        List<TeachingAssistantScheduleResponseDTO> scheduleDTOs = schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, TeachingAssistantScheduleResponseDTO.class))
-                .toList();
-        
-        responseDTO.setSchedules(scheduleDTOs);
-        
-        return responseDTO;
+    }
+
+    /**
+     * Helper method to convert TeachingAssistantSchedule entity to ResponseDTO.
+     * @param schedule TeachingAssistantSchedule entity
+     * @return TeachingAssistantScheduleResponseDTO
+     */
+    private TeachingAssistantScheduleResponseDTO mapToScheduleResponseDTO(TeachingAssistantSchedule schedule) {
+        return modelMapper.map(schedule, TeachingAssistantScheduleResponseDTO.class);
+    }
+
+    /**
+     * Filters teaching assistants by user section.
+     * @param teachingAssistant TeachingAssistant entity
+     * @return Mono<Boolean> indicating if the teaching assistant belongs to the user's section
+     */
+    private Mono<Boolean> filterTeachingAssistantsByUserSection(TeachingAssistant teachingAssistant) {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> {
+                Authentication authentication = securityContext.getAuthentication();
+                
+                // Check if user has ADMIN role
+                boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
+                
+                if (isAdmin) {
+                    return Mono.just(true);
+                }
+                
+                // For ROLE_SECTION users, filter by their section
+                String userEmail = authentication.getName();
+                
+                return userService.getUserIdByEmail(userEmail)
+                    .flatMap(sectionService::getSectionIdByUserId)
+                    .flatMap(userSectionId -> 
+                        studentApplicationService.isApplicationOfSection(
+                            teachingAssistant.getStudentApplicationId(), 
+                            userSectionId
+                        )
+                    )
+                    .defaultIfEmpty(false);
+            })
+            .defaultIfEmpty(false);
     }
 }

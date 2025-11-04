@@ -167,4 +167,34 @@ public class IntegrationExceptionHandler {
                 MESSAGE_KEY, ex.getMessage()
         )));
     }
+
+    /**
+     * Manages teacher class server error exceptions and returns a 500 error with details.
+     * @param ex Teacher class server error exception
+     * @return HTTP response with error information
+     */
+    @ExceptionHandler(TeacherClassServerErrorException.class)
+    public Mono<ResponseEntity<Object>> handleTeacherClassServerError(TeacherClassServerErrorException ex) {
+        log.error("Teacher class server error exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                TIMESTAMP_KEY, Instant.now().toString(),
+                ERROR_KEY, GENERIC_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Manages academic request server error exceptions and returns a 500 error with details.
+     * @param ex Academic request server error exception
+     * @return HTTP response with error information
+     */
+    @ExceptionHandler(AcademicRequestServerErrorException.class)
+    public Mono<ResponseEntity<Object>> handleAcademicRequestServerError(AcademicRequestServerErrorException ex) {
+        log.error("Academic request server error exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                TIMESTAMP_KEY, Instant.now().toString(),
+                ERROR_KEY, GENERIC_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
 }

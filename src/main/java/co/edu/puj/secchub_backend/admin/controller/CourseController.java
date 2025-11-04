@@ -43,8 +43,7 @@ public class CourseController {
     @GetMapping
     @PreAuthorize("isAuthenticated()")
     public Flux<CourseResponseDTO> findAllCourses() {
-        return Flux.defer(() -> Flux.fromIterable(courseService.findAllCourses()))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return courseService.findAllCourses();
     }
 
     /**

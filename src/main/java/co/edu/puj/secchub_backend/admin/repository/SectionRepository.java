@@ -1,11 +1,10 @@
 package co.edu.puj.secchub_backend.admin.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 
 import co.edu.puj.secchub_backend.admin.model.Section;
+import reactor.core.publisher.Mono;
 
-import java.util.Optional;
-
-public interface SectionRepository extends JpaRepository<Section, Long> {
-    Optional<Section> findByUserId(Long userId);
+public interface SectionRepository extends R2dbcRepository<Section, Long> {
+    Mono<Section> findByUserId(Long userId);
 }

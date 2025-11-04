@@ -13,10 +13,8 @@ import co.edu.puj.secchub_backend.parametric.contracts.ParametricContract;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.Collections;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -32,31 +30,39 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
      */
     @Override
     public Mono<UserDetails> findByUsername(String username) {
-        return Mono.fromCallable(() -> userRepository.findByUsername(username))
-                .subscribeOn(Schedulers.boundedElastic())
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(user -> user.getStatusId() != null && "Active".equals(parametricService.getStatusNameById(user.getStatusId())))
-                .map(this::buildUserDetails);
+        return userRepository.findByUsername(username)
+                .filterWhen(user -> {
+                    if (user.getStatusId() == null) {
+                        return Mono.just(false);
+                    }
+                    return parametricService.getStatusNameById(user.getStatusId())
+                            .map("Active"::equals)
+                            .defaultIfEmpty(false);
+                })
+                .flatMap(this::buildUserDetailsReactive);
     }
 
     /**
-     * Builds UserDetails from a User entity.
+     * Builds UserDetails from a User entity reactively.
      * @param user the User entity
-     * @return UserDetails object
+     * @return Mono emitting UserDetails object
      */
-    private UserDetails buildUserDetails(User user) {
-        String roleName = user.getRoleId() != null ? parametricService.getRoleNameById(user.getRoleId()) : "ROLE_USER";
+    private Mono<UserDetails> buildUserDetailsReactive(User user) {
+        Mono<String> roleNameMono = user.getRoleId() != null 
+                ? parametricService.getRoleNameById(user.getRoleId())
+                : Mono.just("ROLE_USER");
 
-        return org.springframework.security.core.userdetails.User.builder()
-                .username(user.getUsername())
-                .password(user.getPassword())
-                .authorities(Collections.singletonList(new SimpleGrantedAuthority(roleName)))
-                .accountExpired(false)
-                .accountLocked(false)
-                .credentialsExpired(false)
-                .disabled(false)
-                .build();
+        return roleNameMono.map(roleName -> 
+                org.springframework.security.core.userdetails.User.builder()
+                        .username(user.getUsername())
+                        .password(user.getPassword())
+                        .authorities(Collections.singletonList(new SimpleGrantedAuthority(roleName)))
+                        .accountExpired(false)
+                        .accountLocked(false)
+                        .credentialsExpired(false)
+                        .disabled(false)
+                        .build()
+        );
     }
 
     /**
@@ -65,18 +71,22 @@ public class ReactiveUserDetailsServiceImpl implements ReactiveUserDetailsServic
      * @return Mono emitting Authentication token if found and active, empty otherwise
      */
     public Mono<Authentication> findByEmail(String email) {
-        return Mono.fromCallable(() -> userRepository.findByEmail(email))
-                .subscribeOn(Schedulers.boundedElastic())
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .filter(user -> user.getStatusId() != null && "Active".equals(parametricService.getStatusNameById(user.getStatusId())))
-                .map(user -> {
-                    UserDetails userDetails = buildUserDetails(user);
-                    return new UsernamePasswordAuthenticationToken(
-                            user.getEmail(),  // Use email as principal instead of username
-                            userDetails.getPassword(),
-                            userDetails.getAuthorities()
-                    );
-                });
+        return userRepository.findByEmail(email)
+                .filterWhen(user -> {
+                    if (user.getStatusId() == null) {
+                        return Mono.just(false);
+                    }
+                    return parametricService.getStatusNameById(user.getStatusId())
+                            .map("Active"::equals)
+                            .defaultIfEmpty(false);
+                })
+                .flatMap(user -> 
+                    buildUserDetailsReactive(user)
+                            .map(userDetails -> new UsernamePasswordAuthenticationToken(
+                                    user.getEmail(),
+                                    userDetails.getPassword(),
+                                    userDetails.getAuthorities()
+                            ))
+                );
     }
 }

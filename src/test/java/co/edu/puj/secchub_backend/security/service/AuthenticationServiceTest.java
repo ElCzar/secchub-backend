@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doThrow;
 
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +30,7 @@ import co.edu.puj.secchub_backend.security.exception.JwtAuthenticationException;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
+import reactor.core.publisher.Mono;
 
 /**
  * Unit test class for AuthenticationService.
@@ -69,11 +69,11 @@ class AuthenticationServiceTest {
         
         // Stubbing repository and services
         when(userRepository.findByEmail(email))
-            .thenReturn(Optional.of(mockUser));
+            .thenReturn(Mono.just(mockUser));
         when(passwordEncoderService.matches(password, "encoded_" + password))
             .thenReturn(true);
         when(parametricService.getRoleNameById(1L))
-            .thenReturn("ROLE_USER");
+            .thenReturn(Mono.just("ROLE_USER"));
         when(jwtTokenProvider.generateToken(anyString(), anyString()))
             .thenReturn("mock-access-token");
         when(jwtTokenProvider.generateRefreshToken(anyString()))
@@ -84,12 +84,14 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword(password);
         
         // When
-        AuthTokenResponseDTO authTokenResponseDTO = authenticationService.authenticate(loginRequestDTO);
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         
         // Then
-        assertNotNull(authTokenResponseDTO, "AuthTokenResponseDTO should not be null");
-        assertNotNull(authTokenResponseDTO.getAccessToken(), "Access token should not be null");
-        assertEquals("mock-access-token", authTokenResponseDTO.getAccessToken());
+        assertNotNull(authTokenResponseDTOMono, "AuthTokenResponseDTO should not be null");
+        authTokenResponseDTOMono.subscribe(authTokenResponseDTO -> {
+            assertNotNull(authTokenResponseDTO.getAccessToken(), "Access token should not be null");
+            assertEquals("mock-access-token", authTokenResponseDTO.getAccessToken());
+        });
         
         // Verify interactions
         verify(userRepository).findByEmail(email);
@@ -122,7 +124,7 @@ class AuthenticationServiceTest {
                 .build();
         
         when(userRepository.findByEmail(email))
-            .thenReturn(Optional.of(mockUser));
+            .thenReturn(Mono.just(mockUser));
         when(passwordEncoderService.matches(password, "encoded_correct_password"))
             .thenReturn(false);
         
@@ -131,8 +133,9 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword(password);
         
         // When & Then
-        assertThrows(JwtAuthenticationException.class, 
-            () -> authenticationService.authenticate(loginRequestDTO), 
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
+        assertThrows(JwtAuthenticationException.class,
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for invalid credentials");
         
         // Verify token was never generated for invalid credentials
@@ -155,15 +158,16 @@ class AuthenticationServiceTest {
         // Given
         String email = "nonexistent@example.com";
         when(userRepository.findByEmail(email))
-            .thenReturn(Optional.empty());
+            .thenReturn(Mono.empty());
         
         LoginRequestDTO loginRequestDTO = new LoginRequestDTO();
         loginRequestDTO.setEmail(email);
         loginRequestDTO.setPassword("password");
         
         // When & Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(loginRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for non-existent user");
         
         // Verify password was never checked
@@ -180,8 +184,9 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword("password");
         
         // When & Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(loginRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for null email");
         
         // Verify no repository call was made
@@ -199,8 +204,9 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword(null);
 
         // When & Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(loginRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for null password");
 
         // Verify no repository call was made
@@ -213,8 +219,9 @@ class AuthenticationServiceTest {
     @DisplayName("Authenticate with null request should fail")
     void authenticateWithNullRequest() {
         // When & Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(null);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(null),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for null request");
 
         // Verify no repository call was made
@@ -234,7 +241,7 @@ class AuthenticationServiceTest {
                 .build();
         
         when(userRepository.findByEmail(email))
-            .thenReturn(Optional.of(mockUser));
+            .thenReturn(Mono.just(mockUser));
         when(passwordEncoderService.matches("", "encoded_password"))
             .thenReturn(false);
         
@@ -243,8 +250,9 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword("");
         
         // When & Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(loginRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for empty password");
     }
     
@@ -262,9 +270,9 @@ class AuthenticationServiceTest {
                 .build();
         
         when(userRepository.findByEmail(email))
-            .thenReturn(Optional.of(mockUser));
+            .thenReturn(Mono.just(mockUser));
         when(parametricService.getRoleNameById(1L))
-            .thenReturn("ROLE_USER");
+            .thenReturn(Mono.just("ROLE_USER"));
         when(passwordEncoderService.matches(password, "encoded_password"))
             .thenReturn(true);
         when(jwtTokenProvider.generateToken(email, "ROLE_USER"))
@@ -277,7 +285,7 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword(password);
         
         // When
-        AuthTokenResponseDTO result = authenticationService.authenticate(loginRequestDTO);
+        AuthTokenResponseDTO result = authenticationService.authenticate(loginRequestDTO).block();
         
         // Then
         assertNotNull(result);
@@ -302,8 +310,9 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword(password);
 
         // When & Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(loginRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for repository error");
 
         // Verify no further calls were made
@@ -326,7 +335,7 @@ class AuthenticationServiceTest {
                 .build();
         
         when(userRepository.findByEmail(email))
-            .thenReturn(Optional.of(mockUser));
+            .thenReturn(Mono.just(mockUser));
         when(passwordEncoderService.matches(password, "encoded_password"))
             .thenReturn(true);
         doThrow(new RuntimeException("Database error")).when(userRepository).updateLastAccess(email);
@@ -337,8 +346,9 @@ class AuthenticationServiceTest {
         loginRequestDTO.setPassword(password);
 
         // Then
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.authenticate(loginRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.authenticate(loginRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for repository error when updating last access");
 
         // Verify no further calls were made
@@ -360,8 +370,8 @@ class AuthenticationServiceTest {
 
         when(jwtTokenProvider.validateRefreshToken(refreshTokenString)).thenReturn(true);
         when(jwtTokenProvider.getEmailFromToken(refreshTokenString)).thenReturn("test@example.com");
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(mockUser));
-        when(parametricService.getRoleNameById(1L)).thenReturn("ROLE_USER");
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.just(mockUser));
+        when(parametricService.getRoleNameById(1L)).thenReturn(Mono.just("ROLE_USER"));
         when(jwtTokenProvider.generateToken("test@example.com", "ROLE_USER")).thenReturn("mock-access-token");
         when(jwtTokenProvider.generateRefreshToken("test@example.com")).thenReturn("mock-refresh-token");
 
@@ -369,7 +379,7 @@ class AuthenticationServiceTest {
         refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
 
         // When
-        AuthTokenResponseDTO result = authenticationService.refreshToken(refreshTokenRequestDTO);
+        AuthTokenResponseDTO result = authenticationService.refreshToken(refreshTokenRequestDTO).block();
 
         // Then
         assertNotNull(result);
@@ -392,8 +402,9 @@ class AuthenticationServiceTest {
         refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
 
         // When
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.refreshToken(refreshTokenRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for invalid refresh token");
 
         // Verify no further calls were made
@@ -407,8 +418,9 @@ class AuthenticationServiceTest {
         RefreshTokenRequestDTO refreshTokenRequestDTO = null;
 
         // When
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.refreshToken(refreshTokenRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for null refresh token request");
 
         // Verify no calls were made
@@ -429,8 +441,9 @@ class AuthenticationServiceTest {
         refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
 
         // When
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.refreshToken(refreshTokenRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for repository error");
 
         // Verify no further calls were made
@@ -450,8 +463,9 @@ class AuthenticationServiceTest {
         refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
 
         // When
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.refreshToken(refreshTokenRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for missing email in token");
 
         // Verify no further calls were made
@@ -466,14 +480,15 @@ class AuthenticationServiceTest {
 
         when(jwtTokenProvider.validateRefreshToken(refreshTokenString)).thenReturn(true);
         when(jwtTokenProvider.getEmailFromToken(refreshTokenString)).thenReturn("test@example.com");
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findByEmail("test@example.com")).thenReturn(Mono.empty());
 
         RefreshTokenRequestDTO refreshTokenRequestDTO = new RefreshTokenRequestDTO();
         refreshTokenRequestDTO.setRefreshToken(refreshTokenString);
 
         // When
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.refreshToken(refreshTokenRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for non-existent user");
 
         // Verify no further calls were made
@@ -492,8 +507,9 @@ class AuthenticationServiceTest {
         refreshTokenRequestDTO.setRefreshToken(accessTokenString);
 
         // When
+        Mono<AuthTokenResponseDTO> authTokenResponseDTOMono = authenticationService.refreshToken(refreshTokenRequestDTO);
         assertThrows(JwtAuthenticationException.class,
-            () -> authenticationService.refreshToken(refreshTokenRequestDTO),
+            authTokenResponseDTOMono::block,
             "JwtAuthenticationException should be thrown for access token used as refresh token");
 
         // Verify no further calls were made

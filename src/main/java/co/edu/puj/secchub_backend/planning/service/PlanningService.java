@@ -1,26 +1,34 @@
 package co.edu.puj.secchub_backend.planning.service;
 
-import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.planning.contract.PlanningModuleClassContract;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleResponseDTO;
+import co.edu.puj.secchub_backend.planning.exception.ClassCreationException;
 import co.edu.puj.secchub_backend.planning.exception.ClassNotFoundException;
 import co.edu.puj.secchub_backend.planning.exception.ClassScheduleNotFoundException;
+import co.edu.puj.secchub_backend.planning.exception.PlanningBadRequestException;
+import co.edu.puj.secchub_backend.planning.exception.PlanningServerErrorException;
 import co.edu.puj.secchub_backend.planning.model.Class;
 import co.edu.puj.secchub_backend.planning.model.ClassSchedule;
 import co.edu.puj.secchub_backend.planning.repository.ClassRepository;
 import co.edu.puj.secchub_backend.planning.repository.ClassScheduleRepository;
+import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.time.LocalTime;
 import java.util.List;
@@ -31,544 +39,567 @@ import java.util.Map;
  * This class manages the core business logic for the planning module.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
-public class PlanningService {
+public class PlanningService implements PlanningModuleClassContract {
+    
     private final ModelMapper modelMapper;
     private final ClassRepository classRepository;
     private final ClassScheduleRepository classScheduleRepository;
-    private final AdminModuleSemesterContract semesterService;
-    private final AdminModuleCourseContract courseService;
-    private final JdbcTemplate jdbcTemplate;
 
-        /**
+    private final AdminModuleSemesterContract semesterService;
+    private final AdminModuleSectionContract sectionService;
+    private final AdminModuleCourseContract courseService;
+    private final SecurityModuleUserContract userService;
+
+    private final TransactionalOperator transactionalOperator;
+
+    // ========================================================================
+    // Class Methods
+    // ========================================================================
+
+    /**
      * Creates a new class with schedules.
      * @param classCreateRequestDTO DTO with class information
      * @return Created class DTO
      */
-    @Transactional
     public Mono<ClassResponseDTO> createClass(ClassCreateRequestDTO classCreateRequestDTO) {
-        return Mono.fromCallable(() -> {
-            Long currentSemesterId = semesterService.getCurrentSemesterId();
-            
-            // Mapear la clase base SIN horarios para evitar duplicación
-            Class classEntity = modelMapper.map(classCreateRequestDTO, Class.class);
-            classEntity.setSemesterId(currentSemesterId);
-            classEntity.setSchedules(null); // ⚠️ IMPORTANTE: No establecer horarios aún
-            
-            // Guardar primero la clase para obtener el ID
-            Class savedClass = classRepository.save(classEntity);
-            
-            // Ahora manejar horarios con el ID de la clase
-            if (classCreateRequestDTO.getSchedules() != null && !classCreateRequestDTO.getSchedules().isEmpty()) {
-                List<ClassSchedule> schedules = classCreateRequestDTO.getSchedules().stream()
-                    .map(scheduleDTO -> {
-                        ClassSchedule schedule = modelMapper.map(scheduleDTO, ClassSchedule.class);
-                        schedule.setClassId(savedClass.getId()); // Usar el ID directo
-                        return schedule;
-                    })
-                    .toList();
-                
-                // Guardar los horarios por separado
-                List<ClassSchedule> savedSchedules = classScheduleRepository.saveAll(schedules);
-                savedClass.setSchedules(savedSchedules);
-            }
-            
-            return mapToResponseDTO(savedClass);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return semesterService.getCurrentSemesterId()
+            .flatMap(currentSemesterId -> {
+                Class classEntity = this.mapToEntity(classCreateRequestDTO);
+                classEntity.setSemesterId(currentSemesterId);
+                return classRepository.save(classEntity)
+                    .flatMap(savedClass -> {
+                        ClassResponseDTO responseDTO = this.mapToResponseDTO(savedClass);
+                        List<ClassScheduleRequestDTO> schedulesDto = classCreateRequestDTO.getSchedules();
+
+                        if (schedulesDto == null || schedulesDto.isEmpty()) {
+                            return Mono.just(responseDTO);
+                        }
+
+                        return Flux.fromIterable(schedulesDto)
+                            .map(dto -> {
+                                ClassSchedule schedule = this.mapToEntity(dto);
+                                schedule.setClassId(savedClass.getId());
+                                return schedule;
+                            })
+                            .collectList()
+                            .flatMapMany(classScheduleRepository::saveAll)
+                            .map(this::mapToResponseDTO)
+                            .collectList()
+                            .map(savedSchedules -> {
+                                responseDTO.setSchedules(savedSchedules);
+                                return responseDTO;
+                            });
+                    });
+            })
+            .as(transactionalOperator::transactional)
+            .onErrorMap(e -> {
+                log.error("Error creating class: {}", e.getMessage());
+                throw new ClassCreationException("Error creating class: " + e.getMessage());
+            });
     }
 
     /**
      * Gets all classes for the current semester.
-     * @return List of classes for the current semester
+     * If the current user has ROLE_SECTION, only classes for their section are returned.
+     * @return Flux of classes for the current semester
      */
-    public List<ClassResponseDTO> findCurrentSemesterClasses() {
-        Long currentSemesterId = semesterService.getCurrentSemesterId();
-        return classRepository.findBySemesterId(currentSemesterId).stream()
-                .map(this::mapToResponseDTO)
-                .toList();
+    public Flux<ClassResponseDTO> findCurrentSemesterClasses() {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            classRepository.findBySemesterId(currentSemesterId)
+                .filterWhen(this::filterClassByUserSection)
+                .flatMap(this::getClassSchedulesForClass)
+        ).onErrorMap(e -> {
+            log.error("Error retrieving classes for current semester: {}", e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classes for current semester: " + e.getMessage());
+        });
     }
 
     /**
      * Gets all classes.
-     * @return List of all classes
+     * If the current user has ROLE_SECTION, only classes for their section are returned.
+     * @return Flux of all classes
      */
-    public List<ClassResponseDTO> findAllClasses() {
-        return classRepository.findAll().stream()
-                .map(this::mapToResponseDTO)
-                .toList();
+    public Flux<ClassResponseDTO> findAllClasses() {
+        return classRepository.findAll()
+        .filterWhen(this::filterClassByUserSection)
+        .flatMap(this::getClassSchedulesForClass)
+        .onErrorMap(e -> {
+            log.error("Error retrieving all classes: {}", e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving all classes: " + e.getMessage());
+        });
     }
 
     /**
      * Gets a class by ID.
+     * If the current user has ROLE_SECTION, only the class for their section is returned.
      * @param classId Class ID
      * @return Class found
      */
     public Mono<ClassResponseDTO> findClassById(Long classId) {
-        return Mono.fromCallable(() -> classRepository.findById(classId)
-                .orElseThrow(() -> new ClassNotFoundException("Class not found for retrieval with id: " + classId)))
-                .map(this::mapToResponseDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return classRepository.findById(classId)
+        .filterWhen(this::filterClassByUserSection)
+        .flatMap(this::getClassSchedulesForClass)
+        .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found with id: " + classId)));
+    }
+
+    /**
+     * Gets classes by course ID.
+     * If the current user has ROLE_SECTION, only classes for their section are returned.
+     * @param courseId Course ID
+     * @return Flux of classes for the specified course
+     */
+    public Flux<ClassResponseDTO> findClassesByCourse(Long courseId) {
+        return classRepository.findByCourseId(courseId)
+        .filterWhen(this::filterClassByUserSection)
+        .flatMap(this::getClassSchedulesForClass)
+        .onErrorMap(e -> {
+            log.error("Error retrieving all classes by course ID {}: {}", courseId, e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving all classes: " + e.getMessage());
+        });
+    }
+
+    /**
+     * Gets classes by section.
+     * If the current user has ROLE_SECTION, only classes for their section are returned.
+     * @param section Section number
+     * @return Flux of classes for the specified section
+     */
+    public Flux<ClassResponseDTO> findClassesBySection(Long section) {
+        return classRepository.findBySection(section)
+        .filterWhen(this::filterClassByUserSection)
+        .flatMap(this::getClassSchedulesForClass)
+        .onErrorMap(e -> {
+            log.error("Error retrieving classes by section {}: {}", section, e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classes by section: " + e.getMessage());
+        });
+    }
+
+    /**
+     * Gets classes by semester and course for the current semester.
+     * If the current user has ROLE_SECTION, only classes for their section are returned.
+     * @param courseId Course ID
+     * @return List of classes for the current semester and specified course
+     */
+    public Flux<ClassResponseDTO> findCurrentSemesterClassesByCourse(Long courseId) {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            classRepository.findBySemesterIdAndCourseId(currentSemesterId, courseId)
+                .filterWhen(this::filterClassByUserSection)
+                .flatMap(this::getClassSchedulesForClass)
+        ).onErrorMap(e -> {
+            log.error("Error retrieving classes for current semester and course ID {}: {}", courseId, e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classes for current semester and course: " + e.getMessage());
+        });
+    }
+
+    /**
+     * Find classes by semester id
+     * If the current user has ROLE_SECTION, only the classes for their section are returned.
+     * @param semesterId Semester ID
+     * @return Flux of classes for the semester
+     */
+    public Flux<ClassResponseDTO> findClassesBySemester(Long semesterId) {
+        return classRepository.findBySemesterId(semesterId)
+        .filterWhen(this::filterClassByUserSection)
+        .flatMap(this::getClassSchedulesForClass)
+        .onErrorMap(e -> {
+            log.error("Error retrieving classes by semester ID {}: {}", semesterId, e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classes by semester: " + e.getMessage());
+        });
     }
 
     /**
      * Updates a class.
+     * If the current user has ROLE_SECTION, only the class for their section is updated.
      * @param classId Class ID
      * @param classCreateRequestDTO DTO with updated data
      * @return Updated class
      */
     public Mono<ClassResponseDTO> updateClass(Long classId, ClassCreateRequestDTO classCreateRequestDTO) {
-        return Mono.fromCallable(() -> {
-            Class classEntity = classRepository.findById(classId)
-                    .orElseThrow(() -> new ClassNotFoundException("Class not found for update with id: " + classId));
-
-            modelMapper.getConfiguration().setPropertyCondition(context -> 
-                context.getSource() != null);
-            modelMapper.map(classCreateRequestDTO, classEntity);
-            
-            Class savedClass = classRepository.save(classEntity);
-            return mapToResponseDTO(savedClass);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return classRepository.findById(classId)
+        .filterWhen(this::filterClassByUserSection)
+        .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found for update with id: " + classId)))
+        .flatMap(existingClass -> {
+            modelMapper.getConfiguration().setPropertyCondition(context -> context.getSource() != null);
+            modelMapper.map(classCreateRequestDTO, existingClass);
+            return classRepository.save(existingClass);
+        })
+        .map(this::mapToResponseDTO)
+        .onErrorMap(e -> {
+            log.error("Error updating class with id {}: {}", classId, e.getMessage());
+            if (e instanceof ClassNotFoundException) {
+                return e;
+            }
+            throw new PlanningServerErrorException("Error updating class: " + e.getMessage());
+        });
     }
 
     /**
      * Deletes a class by ID.
+     * If the current user has ROLE_SECTION, only the class for their section is deleted.
      * @param classId Class ID
      * @return empty Mono when done
      */
     public Mono<Void> deleteClass(Long classId) {
-        return Mono.fromCallable(() -> {
-            if (!classRepository.existsById(classId)) {
-                throw new ClassNotFoundException("Class not found for deletion with id: " + classId);
-            }
-            classRepository.deleteById(classId);
-            return Mono.empty();
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return classRepository.findById(classId)
+        .filterWhen(this::filterClassByUserSection)
+        .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found for deletion with id: " + classId)))
+        .flatMap(existing -> classRepository.deleteById(existing.getId()));
     }
 
-    /**
-     * Gets classes by course ID.
-     * @param courseId Course ID
-     * @return List of classes for the specified course
-     */
-    public List<ClassResponseDTO> findClassesByCourse(Long courseId) {
-        return classRepository.findByCourseId(courseId).stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-    }
-
-    /**
-     * Gets classes by section.
-     * @param section Section number
-     * @return List of classes for the specified section
-     */
-    public List<ClassResponseDTO> findClassesBySection(Long section) {
-        return classRepository.findBySection(section).stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-    }
-
-    /**
-     * Gets classes by semester and course for the current semester.
-     * @param courseId Course ID
-     * @return List of classes for the current semester and specified course
-     */
-    public List<ClassResponseDTO> findCurrentSemesterClassesByCourse(Long courseId) {
-        Long currentSemesterId = semesterService.getCurrentSemesterId();
-        return classRepository.findBySemesterIdAndCourseId(currentSemesterId, courseId).stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-    }
+    // ========================================================================
+    // Class Schedule Methods
+    // ========================================================================
 
     /**
      * Adds a schedule to a class.
+     * If the current user has ROLE_SECTION, only the class for their section is updated.
      * @param classId Class ID
      * @param classScheduleRequestDTO DTO with schedule data
      * @return Created schedule DTO
      */
     public Mono<ClassScheduleResponseDTO> addClassSchedule(Long classId, ClassScheduleRequestDTO classScheduleRequestDTO) {
-        return Mono.fromCallable(() -> {
-            classRepository.findById(classId)
-                .orElseThrow(() -> new ClassNotFoundException("Class not found for retrieval with id: " + classId));
-
-            ClassSchedule schedule = modelMapper.map(classScheduleRequestDTO, ClassSchedule.class);
-            schedule.setClassId(classId);
-
-            ClassSchedule savedSchedule = classScheduleRepository.save(schedule);
-            return modelMapper.map(savedSchedule, ClassScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return classRepository.findById(classId)
+        .filterWhen(this::filterClassByUserSection)
+        .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found for adding schedule with id " + classId)))
+        .flatMap(classEntity -> {
+            ClassSchedule classSchedule = this.mapToEntity(classScheduleRequestDTO);
+            classSchedule.setClassId(classId);
+            return classScheduleRepository.save(classSchedule);
+        })
+        .map(this::mapToResponseDTO);
     }
 
     /**
      * Gets schedules associated with a class.
+     * If the current user has ROLE_SECTION, only schedules for their section are returned.
      * @param classId Class ID
-     * @return List of schedules
+     * @return Flux of schedules
      */
-    public List<ClassScheduleResponseDTO> findClassSchedulesByClassId(Long classId) {
-        classRepository.findById(classId)
-                .orElseThrow(() -> new ClassNotFoundException("Class not found for retrieval with id: " + classId));
-
-        List<ClassSchedule> classSchedules = classScheduleRepository.findByClassId(classId);
-        return classSchedules.stream()
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-                .toList();
+    public Flux<ClassScheduleResponseDTO> findClassSchedulesByClassId(Long classId) {
+        return classRepository.findById(classId)
+        .filterWhen(this::filterClassByUserSection)
+        .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found for retrieval with id: " + classId)))
+        .flatMapMany(classEntity -> classScheduleRepository.findByClassId(classId)
+                .map(this::mapToResponseDTO));
     }
 
     /**
      * Gets a class schedule by ID.
+     * If the current user has ROLE_SECTION, only the schedule for their section is returned.
      * @param scheduleId Schedule ID
      * @return Class schedule found
      */
     public Mono<ClassScheduleResponseDTO> findClassScheduleById(Long scheduleId) {
-        return Mono.fromCallable(() -> classScheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new ClassScheduleNotFoundException("Class schedule not found for retrieval with id: " + scheduleId)))
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-                .subscribeOn(Schedulers.boundedElastic());
+        return classScheduleRepository.findById(scheduleId)
+        .switchIfEmpty(Mono.error(new ClassScheduleNotFoundException("Class schedule not found for retrieval with id: " + scheduleId)))
+        .flatMap(classSchedule -> 
+            classRepository.findById(classSchedule.getClassId())
+            .filterWhen(this::filterClassByUserSection)
+            .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found for class with id: " + classSchedule.getId() + " and schedule id: " + scheduleId)))
+            .thenReturn(classSchedule)
+        )
+        .map(this::mapToResponseDTO);
     }
 
     /**
      * Updates a specific class schedule.
+     * If the current user has ROLE_SECTION, only the schedule for their section is updated.
      * @param scheduleId Schedule ID
      * @param classScheduleRequestDTO DTO with updated data
      * @return Updated schedule
      */
     public Mono<ClassScheduleResponseDTO> updateClassSchedule(Long scheduleId, ClassScheduleRequestDTO classScheduleRequestDTO) {
-        return Mono.fromCallable(() -> {
-            ClassSchedule schedule = classScheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new ClassScheduleNotFoundException("Class schedule not found for update with id: " + scheduleId));
+        return classScheduleRepository.findById(scheduleId)
+        .switchIfEmpty(Mono.error(new ClassScheduleNotFoundException("Class schedule not found for update with id: " + scheduleId)))
+        .flatMap(existingSchedule ->
+            classRepository.findById(existingSchedule.getClassId())
+            .filterWhen(this::filterClassByUserSection)
+            .switchIfEmpty(Mono.error(new ClassNotFoundException("Class for update not found for schedule with id: " + scheduleId)))
+            .thenReturn(existingSchedule)
+        )
+        .flatMap(existingSchedule -> {
+            modelMapper.getConfiguration().setPropertyCondition(context -> context.getSource() != null);
+            modelMapper.map(classScheduleRequestDTO, existingSchedule);
+            return classScheduleRepository.save(existingSchedule);
+        })
+        .map(this::mapToResponseDTO)
+        .onErrorMap(e -> {
+            log.error("Error updating class schedule with id {}: {}", scheduleId, e.getMessage());
+            if (e instanceof ClassScheduleNotFoundException) {
+                return e;
+            }
 
-            modelMapper.getConfiguration().setPropertyCondition(context -> 
-                context.getSource() != null);
-            modelMapper.map(classScheduleRequestDTO, schedule);
-
-            ClassSchedule savedSchedule = classScheduleRepository.save(schedule);
-            return modelMapper.map(savedSchedule, ClassScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+            if (e instanceof ClassNotFoundException) {
+                return e;
+            }
+            throw new PlanningServerErrorException("Error updating class schedule: " + e.getMessage());
+        });
     }
 
     /**
      * Deletes a class schedule by ID.
+     * If the current user has ROLE_SECTION, only the schedule for their section is deleted.
      * @param scheduleId Schedule ID
      * @return empty Mono when done
      */
     public Mono<Void> deleteClassSchedule(Long scheduleId) {
-        return Mono.fromCallable(() -> {
-            if (!classScheduleRepository.existsById(scheduleId)) {
-                throw new ClassScheduleNotFoundException("Class schedule not found for deletion with id: " + scheduleId);
-            }
-            classScheduleRepository.deleteById(scheduleId);
-            return Mono.empty();
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return classScheduleRepository.findById(scheduleId)
+        .switchIfEmpty(Mono.error(new ClassScheduleNotFoundException("Class schedule not found for deletion with id: " + scheduleId)))
+        .flatMap(existingSchedule ->
+            classRepository.findById(existingSchedule.getClassId())
+            .filterWhen(this::filterClassByUserSection)
+            .switchIfEmpty(Mono.error(new ClassNotFoundException("Class not found for schedule deletion with id: " + scheduleId)))
+            .thenReturn(existingSchedule.getId())
+        )
+        .flatMap(classScheduleRepository::deleteById);
     }
 
     /**
      * Partially updates a class schedule.
+     * If the current user has ROLE_SECTION, only the schedule for their section is updated.
      * @param scheduleId Schedule ID
      * @param updates Map with fields to update
      * @return Updated schedule
      */
     public Mono<ClassScheduleResponseDTO> patchClassSchedule(Long scheduleId, Map<String, Object> updates) {
-        return Mono.fromCallable(() -> {
-            ClassSchedule schedule = classScheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new ClassScheduleNotFoundException("Class schedule not found for retrieval with id: " + scheduleId));
-
-            ClassScheduleResponseDTO updateDTO = new ClassScheduleResponseDTO();
-            updates.forEach((key, value) -> {
-                switch (key) {
-                    case "startTime" -> {
-                        if (value instanceof String stringValue) {
-                            updateDTO.setStartTime(LocalTime.parse(stringValue));
-                        } else if (value instanceof LocalTime localTimeValue) {
-                            updateDTO.setStartTime(localTimeValue);
+        return classScheduleRepository.findById(scheduleId)
+            .switchIfEmpty(Mono.error(new ClassScheduleNotFoundException(
+                "Class schedule not found for retrieval with id: " + scheduleId)))
+            .flatMap(scheduleFilter -> 
+                classRepository.findById(scheduleFilter.getClassId())
+                .filterWhen(this::filterClassByUserSection)
+                .switchIfEmpty(Mono.error(new ClassNotFoundException(
+                    "Class not found for schedule patch with id: " + scheduleId)))
+                .thenReturn(scheduleFilter)
+            )
+            .flatMap(schedule -> {
+                // Apply partial updates
+                updates.forEach((key, value) -> {
+                    switch (key) {
+                        case "startTime" -> {
+                            if (value instanceof String stringValue)
+                                schedule.setStartTime(LocalTime.parse(stringValue));
+                            else if (value instanceof LocalTime localTimeValue)
+                                schedule.setStartTime(localTimeValue);
                         }
-                    }
-                    case "endTime" -> {
-                        if (value instanceof String stringValue) {
-                            updateDTO.setEndTime(LocalTime.parse(stringValue));
-                        } else if (value instanceof LocalTime localTimeValue) {
-                            updateDTO.setEndTime(localTimeValue);
+                        case "endTime" -> {
+                            if (value instanceof String stringValue)
+                                schedule.setEndTime(LocalTime.parse(stringValue));
+                            else if (value instanceof LocalTime localTimeValue)
+                                schedule.setEndTime(localTimeValue);
                         }
+                        case "day" -> schedule.setDay((String) value);
+                        case "classroomId" -> schedule.setClassroomId((Long) value);
+                        case "modalityId" -> schedule.setModalityId((Long) value);
+                        case "disability" -> schedule.setDisability((Boolean) value);
+                        default -> throw new PlanningBadRequestException("Invalid field for schedule update: " + key);
                     }
-                    case "day" -> updateDTO.setDay((String) value);
-                    case "classroomId" -> updateDTO.setClassroomId((Long) value);
-                    case "modalityId" -> updateDTO.setModalityId((Long) value);
-                    case "disability" -> updateDTO.setDisability((Boolean) value);
-                    default -> {}
-                }
-            });
+                });
 
-            modelMapper.map(updateDTO, schedule);
-            ClassSchedule savedSchedule = classScheduleRepository.save(schedule);
-            return modelMapper.map(savedSchedule, ClassScheduleResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+                return classScheduleRepository.save(schedule);
+            })
+            .map(saved -> modelMapper.map(saved, ClassScheduleResponseDTO.class));
     }
 
     /**
      * Gets schedules by classroom ID.
+     * If the current user has ROLE_SECTION, only the schedules for their section are returned.
      * @param classroomId Classroom ID
-     * @return List of schedules for the specified classroom
+     * @return Flux of schedules for the specified classroom
      */
-    public List<ClassScheduleResponseDTO> findClassSchedulesByClassroom(Long classroomId) {
-        List<ClassSchedule> schedules = classScheduleRepository.findByClassroomId(classroomId);
-        return schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-                .toList();
+    public Flux<ClassScheduleResponseDTO> findClassSchedulesByClassroom(Long classroomId) {
+        return classScheduleRepository.findByClassroomId(classroomId)
+        .flatMap(classSchedule ->
+            classRepository.findById(classSchedule.getClassId())
+            .filterWhen(this::filterClassByUserSection)
+            .map(classEntity -> classSchedule)
+        )
+        .map(this::mapToResponseDTO);
     }
 
     /**
      * Gets schedules by day.
+     * If the current user has ROLE_SECTION, only the schedules for their section are returned.
      * @param day Day of the week
-     * @return List of schedules for the specified day
+     * @return Flux of schedules for the specified day
      */
-    public List<ClassScheduleResponseDTO> findClassSchedulesByDay(String day) {
-        List<ClassSchedule> schedules = classScheduleRepository.findByDay(day);
-        return schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-                .toList();
+    public Flux<ClassScheduleResponseDTO> findClassSchedulesByDay(String day) {
+        return classScheduleRepository.findByDay(day)
+        .flatMap(classSchedule ->
+            classRepository.findById(classSchedule.getClassId())
+            .filterWhen(this::filterClassByUserSection)
+            .map(classEntity -> classSchedule)
+        )
+        .map(this::mapToResponseDTO);
     }
 
     /**
      * Gets schedules with disability accommodations.
+     * If the current user has ROLE_SECTION, only the schedules for their section are returned.
      * @param disability True to find schedules with disability accommodations
-     * @return List of schedules with disability considerations
+     * @return Flux of schedules with disability considerations
      */
-    public List<ClassScheduleResponseDTO> findClassSchedulesByDisability(Boolean disability) {
-        List<ClassSchedule> schedules = classScheduleRepository.findByDisability(disability);
-        return schedules.stream()
-                .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-                .toList();
-    }
-
-    /**
-     * Find classes by semester id (explicit endpoint used by frontend)
-     */
-    public List<ClassResponseDTO> findClassesBySemester(Long semesterId) {
-        return classRepository.findBySemesterId(semesterId).stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-    }
-
-    /**
-     * Basic validation of a class before creation/update. Returns map with conflicts and message.
-     */
-    public Mono<Map<String, Object>> validateClass(ClassCreateRequestDTO classCreateRequestDTO) {
-        return Mono.fromCallable(() -> {
-            // Simple validation: check schedule conflicts for each provided schedule
-            var conflicts = new java.util.ArrayList<Map<String, Object>>();
-
-            if (classCreateRequestDTO.getSchedules() != null) {
-                for (var sched : classCreateRequestDTO.getSchedules()) {
-                    var overlapping = classScheduleRepository.findConflictingSchedules(
-                            sched.getClassroomId(), sched.getDay(), sched.getStartTime(), sched.getEndTime());
-                    if (!overlapping.isEmpty()) {
-                        overlapping.forEach(o -> conflicts.add(Map.of(
-                                "existingScheduleId", o.getId(),
-                                "day", o.getDay(),
-                                "startTime", o.getStartTime(),
-                                "endTime", o.getEndTime(),
-                                "classroomId", o.getClassroomId()
-                        )));
-                    }
-                }
-            }
-
-            return Map.<String, Object>of(
-                    "valid", conflicts.isEmpty(),
-                    "message", conflicts.isEmpty() ? "No conflicts" : "Found conflicts",
-                    "conflicts", conflicts
-            );
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    /**
-     * Find conflicting schedules for a classroom and day
-     */
-    public List<ClassScheduleResponseDTO> findConflictingSchedulesByClassroomAndDay(Long classroomId, String day) {
-        // Return schedules for that classroom and day as potential conflicts
-        List<ClassSchedule> schedules = classScheduleRepository.findByClassroomId(classroomId).stream()
-                .filter(s -> day.equalsIgnoreCase(s.getDay()))
-                .toList();
-        return schedules.stream()
-                .map(s -> modelMapper.map(s, ClassScheduleResponseDTO.class))
-                .toList();
+    public Flux<ClassScheduleResponseDTO> findClassSchedulesByDisability(Boolean disability) {
+        return classScheduleRepository.findByDisability(disability)
+        .flatMap(classSchedule ->
+            classRepository.findById(classSchedule.getClassId())
+            .filterWhen(this::filterClassByUserSection)
+            .map(classEntity -> classSchedule)
+        )
+        .map(this::mapToResponseDTO);
     }
 
     /**
      * Duplicate planning from source semester to target semester
+     * If the current user has ROLE_SECTION, only the classes for their section are returned.
+     * @param sourceSemesterId Source semester ID
+     * @param targetSemesterId Target semester ID
+     * @return Flux of created classes in target semester
      */
-    @Transactional
-    public List<ClassResponseDTO> duplicateSemesterPlanning(Long sourceSemesterId, Long targetSemesterId) {
-        List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
-        var created = new java.util.ArrayList<ClassResponseDTO>();
-
-        for (Class src : sourceClasses) {
+    public Flux<ClassResponseDTO> duplicateSemesterPlanning(Long sourceSemesterId, Long targetSemesterId) {
+        return classRepository.findBySemesterId(sourceSemesterId)
+        .filterWhen(this::filterClassByUserSection)
+        .flatMap(src -> {
             Class copy = new Class();
             modelMapper.map(src, copy);
-            copy.setId(null); // new entity
+            copy.setId(null);
             copy.setSemesterId(targetSemesterId);
-            Class saved = classRepository.save(copy);
-
-            // duplicate schedules
-            List<ClassSchedule> schedules = classScheduleRepository.findByClassId(src.getId());
-            for (ClassSchedule s : schedules) {
-                ClassSchedule sCopy = new ClassSchedule();
-                modelMapper.map(s, sCopy);
-                sCopy.setId(null);
-                sCopy.setClassId(saved.getId());
-                classScheduleRepository.save(sCopy);
-            }
-
-            created.add(mapToResponseDTO(saved));
-        }
-
-        return created;
-    }
-
-    /**
-     * Basic utilization statistics for semester
-     */
-    public Map<String, Object> getUtilizationStatistics(Long semesterId) {
-        List<Class> classes = classRepository.findBySemesterId(semesterId);
-        int totalClasses = classes.size();
-        int totalSeats = classes.stream().mapToInt(c -> c.getCapacity() == null ? 0 : c.getCapacity()).sum();
-
-        return Map.of(
-                "semesterId", semesterId,
-                "totalClasses", totalClasses,
-                "totalSeats", totalSeats
-        );
-    }
-
-    /**
-     * Simple stub for available teachers (frontend uses it). In real app, delegate to teacher service.
-     */
-    public List<Map<String, Object>> getAvailableTeachers(Integer requiredHours) {
-        // Query both users and teacher tables to get only valid teachers
-        String sql = """
-            SELECT t.id as teacher_id, u.name, u.last_name, u.email, t.max_hours
-            FROM teacher t 
-            JOIN users u ON t.user_id = u.id 
-            WHERE u.role_id = 4
-            """;
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql);
-        return rows.stream().map(r -> Map.<String, Object>of(
-            "id", r.get("teacher_id"),  // Use teacher_id instead of user_id
-            "name", r.get("name"),
-            "lastName", r.get("last_name"),
-            "email", r.get("email"),
-            "availableHours", r.get("max_hours") != null ? r.get("max_hours") : 0
-        )).toList();
-    }
-    
-    private ClassResponseDTO mapToResponseDTO(Class classEntity) {
-    // Manual mapping to avoid lazy initialization issues when ModelMapper tries to map collections
-    ClassResponseDTO responseDTO = new ClassResponseDTO();
-    responseDTO.setId(classEntity.getId());
-    responseDTO.setSection(classEntity.getSection());
-    responseDTO.setCourseId(classEntity.getCourseId());
-    
-    // Get course name using the admin module contract
-    String courseName = courseService.getCourseName(classEntity.getCourseId());
-    responseDTO.setCourseName(courseName);
-    
-    responseDTO.setSemesterId(classEntity.getSemesterId());
-    responseDTO.setStartDate(classEntity.getStartDate());
-    responseDTO.setEndDate(classEntity.getEndDate());
-    responseDTO.setObservation(classEntity.getObservation());
-    responseDTO.setCapacity(classEntity.getCapacity());
-    responseDTO.setStatusId(classEntity.getStatusId());
-
-    // Load schedules explicitly from repository (avoids LazyInitializationException)
-    List<ClassSchedule> schedules = classScheduleRepository.findByClassId(classEntity.getId());
-    List<ClassScheduleResponseDTO> scheduleDTOs = schedules.stream()
-        .map(schedule -> modelMapper.map(schedule, ClassScheduleResponseDTO.class))
-        .toList();
-
-    responseDTO.setSchedules(scheduleDTOs);
-    return responseDTO;
-    }
-
-    /**
-     * Find classes by semester ID
-     */
-    public List<ClassResponseDTO> findClassesBySemesterId(Long semesterId) {
-        List<Class> classes = classRepository.findBySemesterId(semesterId);
-        return classes.stream()
-                .map(this::mapToResponseDTO)
-                .toList();
-    }
-
-    /**
-     * Get past semesters available for planning duplication
-     */
-    public List<Map<String, Object>> getPastSemesters() {
-        return semesterService.getPastSemesters();
+            return classRepository.save(copy)
+            .flatMapMany(saved ->
+                classScheduleRepository.findByClassId(src.getId())
+                .flatMap(schedule -> {
+                    ClassSchedule scheduleCopy = new ClassSchedule();
+                    modelMapper.map(schedule, scheduleCopy);
+                    scheduleCopy.setId(null);
+                    scheduleCopy.setClassId(saved.getId());
+                    return classScheduleRepository.save(scheduleCopy);
+                })
+                .then(Mono.just(saved))
+            );
+        })
+        .flatMap(this::getClassSchedulesForClass)
+        .as(transactionalOperator::transactional)
+        .onErrorMap(e -> {
+            log.error("Error duplicating semester planning from {} to {}: {}", sourceSemesterId, targetSemesterId, e.getMessage());
+            throw new PlanningServerErrorException("Error duplicating semester planning: " + e.getMessage());
+        });
     }
 
     /**
      * Apply planning from source semester to current semester
+     * If the current user has ROLE_SECTION, only the classes for their section are returned.
+     * @param sourceSemesterId Source semester ID
+     * @return Map with operation result
      */
-    @Transactional
-    public Map<String, Object> applySemesterPlanningToCurrent(Long sourceSemesterId) {
-        try {
-            Long currentSemesterId = semesterService.getCurrentSemesterId();
-            
-            // Get classes from source semester
-            List<Class> sourceClasses = classRepository.findBySemesterId(sourceSemesterId);
-            
-            int copiedClasses = 0;
-            int copiedSchedules = 0;
-            
-            for (Class sourceClass : sourceClasses) {
-                // Create new class for current semester
-                Class newClass = Class.builder()
-                        .section(sourceClass.getSection())
-                        .courseId(sourceClass.getCourseId())
-                        .semesterId(currentSemesterId)
-                        .startDate(sourceClass.getStartDate())
-                        .endDate(sourceClass.getEndDate())
-                        .observation(sourceClass.getObservation() + " (Copiado del semestre " + sourceSemesterId + ")")
-                        .capacity(sourceClass.getCapacity())
-                        .statusId(sourceClass.getStatusId())
-                        .build();
+    public Flux<ClassResponseDTO> applySemesterPlanningToCurrent(Long sourceSemesterId) {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            this.duplicateSemesterPlanning(sourceSemesterId, currentSemesterId)
+        );
+    }
+    
+    // ========================================================================
+    // Private Methods
+    // ========================================================================
+
+    /**
+     * Obtains all schedules for a class
+     * @param classEntity Class entity
+     * @return Mono with ClassResponseDTO with schedules
+     */
+    private Mono<ClassResponseDTO> getClassSchedulesForClass(Class classEntity) {
+        return classScheduleRepository.findByClassId(classEntity.getId())
+                .map(this::mapToResponseDTO)
+                .collectList()
+                .map(schedules -> {
+                    ClassResponseDTO classResponse = this.mapToResponseDTO(classEntity);
+                    classResponse.setSchedules(schedules);
+                    return classResponse;
+                });
+    }
+
+    /**
+     * Map from Class entity to ClassResponseDTO
+     * @param classEntity Class entity
+     * @return Mapped ClassResponseDTO
+     */
+    private ClassResponseDTO mapToResponseDTO(Class classEntity) {
+        return modelMapper.map(classEntity, ClassResponseDTO.class);
+    }
+
+    /**
+     * Map from ClassResponseDTO to Class entity
+     * @param classCreateRequestDTO ClassCreateRequestDTO
+     * @return Mapped Class entity
+     */
+    private Class mapToEntity(ClassCreateRequestDTO classCreateRequestDTO) {
+        return modelMapper.map(classCreateRequestDTO, Class.class);
+    }
+
+    /**
+     * Map from ClassSchedule entity to ClassScheduleResponseDTO
+     * @param classSchedule ClassSchedule entity
+     * @return Mapped ClassScheduleResponseDTO
+     */
+    private ClassScheduleResponseDTO mapToResponseDTO(ClassSchedule classSchedule) {
+        return modelMapper.map(classSchedule, ClassScheduleResponseDTO.class);
+    }
+
+    /**
+     * Map from ClassScheduleResponseDTO to ClassSchedule entity
+     * @param classScheduleRequestDTO ClassScheduleRequestDTO
+     * @return Mapped ClassSchedule entity
+     */
+    private ClassSchedule mapToEntity(ClassScheduleRequestDTO classScheduleRequestDTO) {
+        return modelMapper.map(classScheduleRequestDTO, ClassSchedule.class);
+    }
+
+    /**
+     * Implementation of isClassInSection from PlanningModuleClassContract
+     * @param classId Class ID
+     * @param sectionId Section ID
+     * @return Mono<Boolean> true if the class belongs to the section, false otherwise
+     */
+    @Override
+    public Mono<Boolean> isClassInSection(Long classId, Long sectionId) {
+        return courseService.getCourseSectionId(classId)
+            .map(courseSectionId -> courseSectionId.equals(sectionId));
+    }
+
+    /**
+     * Filter a class by the section of the current logged-in user
+     * @param classEntity Class entity to filter
+     * @return Mono<Boolean> true if user can access this class, false otherwise
+     */
+    private Mono<Boolean> filterClassByUserSection(Class classEntity) {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> {
+                Authentication authentication = securityContext.getAuthentication();
                 
-                // Save the class first
-                Class savedClass = classRepository.save(newClass);
-                copiedClasses++;
+                // Check if user has ADMIN role
+                boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
                 
-                // Copy schedules
-                List<ClassSchedule> sourceSchedules = classScheduleRepository.findByClassId(sourceClass.getId());
-                for (ClassSchedule sourceSchedule : sourceSchedules) {
-                    ClassSchedule newSchedule = ClassSchedule.builder()
-                            .classId(savedClass.getId())
-                            .classroomId(sourceSchedule.getClassroomId())
-                            .day(sourceSchedule.getDay())
-                            .startTime(sourceSchedule.getStartTime())
-                            .endTime(sourceSchedule.getEndTime())
-                            .modalityId(sourceSchedule.getModalityId())
-                            .disability(sourceSchedule.getDisability())
-                            .build();
-                    
-                    classScheduleRepository.save(newSchedule);
-                    copiedSchedules++;
+                if (isAdmin) {
+                    // Admin can see all classes
+                    return Mono.just(true);
                 }
-            }
-            
-            return Map.of(
-                "success", true,
-                "message", "Planificación aplicada exitosamente",
-                "sourceSemesterId", sourceSemesterId,
-                "targetSemesterId", currentSemesterId,
-                "copiedClasses", copiedClasses,
-                "copiedSchedules", copiedSchedules
-            );
-            
-        } catch (Exception e) {
-            // Error applying semester planning
-            return Map.of(
-                "success", false,
-                "message", "Error aplicando planificación: " + e.getMessage(),
-                "error", e.getMessage()
-            );
-        }
+                
+                // For ROLE_SECTION users, filter by their section
+                String userEmail = authentication.getName();
+                
+                return userService.getUserIdByEmail(userEmail)
+                    .flatMap(sectionService::getSectionIdByUserId)
+                    .flatMap(sectionId ->
+                        courseService.getCourseSectionId(classEntity.getCourseId())
+                            .map(classSectionId -> classSectionId.equals(sectionId))
+                    )
+                    .defaultIfEmpty(false);
+            })
+            .defaultIfEmpty(false); // If no security context, deny access
     }
 }

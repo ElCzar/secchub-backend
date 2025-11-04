@@ -19,17 +19,11 @@ spring:
     #   DB_USERNAME: Database username
     #   DB_PASSWORD: Database password
     # ==============================================================================
-    datasource:
-        url: ${DB_URL:jdbc:mysql://localhost:3306/secchub} # WARNING: Change default URL in production
+    r2dbc:
+        url: ${DB_URL:r2dbc:mysql://localhost:3306/secchub} # WARNING: Change default URL in production
         username: ${DB_USERNAME:user}  # WARNING: Change default username in production
         password: ${DB_PASSWORD:password}  # WARNING: Change default password in production
-        driver-class-name: com.mysql.cj.jdbc.Driver
-        hikari:
-            connection-timeout: 30000       # 30 seconds timeout for database connections
-            maximum-pool-size: 10           # Maximum number of connections in the pool
-            idle-timeout: 300000            # 5 minutes before an idle connection is removed
-            max-lifetime: 1200000           # 20 minutes maximum lifetime for a connection
-            connection-test-query: SELECT 1 # Simple query to test connection validity
+    
     # ==============================================================================
     # SPRING EMAIL CONFIGURATION
     # ==============================================================================

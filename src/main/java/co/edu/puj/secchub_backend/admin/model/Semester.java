@@ -1,11 +1,9 @@
 package co.edu.puj.secchub_backend.admin.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,9 +14,7 @@ import lombok.Setter;
  * Entity representing an academic semester.
  * Contains information about the semester such as its name, start and end dates, and status.
  */
-
-@Entity
-@Table(name = "semester")
+@Table("semester")
 @Getter
 @Setter
 @Builder
@@ -26,7 +22,6 @@ import lombok.Setter;
 @AllArgsConstructor
 public class Semester {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column
@@ -35,12 +30,12 @@ public class Semester {
     @Column
     private Integer year;
 
-    @Column(name = "is_current")
+    @Column("is_current")
     private Boolean isCurrent;
 
-    @Column(name = "start_date")
+    @Column("start_date")
     private String startDate;
 
-    @Column(name = "end_date")
+    @Column("end_date")
     private String endDate;
 }

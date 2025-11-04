@@ -1,14 +1,20 @@
 package co.edu.puj.secchub_backend.admin.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity representing a Section.
  * A Section groups courses and belongs to a user (head of section).
  */
-@Entity
-@Table(name = "section")
+@Table("section")
 @Getter
 @Setter
 @Builder
@@ -17,15 +23,14 @@ import lombok.*;
 public class Section {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id")
+    @Column("user_id")
     private Long userId;
 
-    @Column(nullable = false, length = 150)
+    @Column
     private String name;
 
-    @Column(name = "planning_closed", nullable = false)
+    @Column("planning_closed")
     private boolean planningClosed;
 }

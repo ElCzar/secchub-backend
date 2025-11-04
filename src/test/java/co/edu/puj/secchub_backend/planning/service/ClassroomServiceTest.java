@@ -10,7 +10,6 @@ import static org.mockito.Mockito.*;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +27,7 @@ import co.edu.puj.secchub_backend.planning.exception.ClassroomBadRequestExceptio
 import co.edu.puj.secchub_backend.planning.exception.ClassroomNotFoundException;
 import co.edu.puj.secchub_backend.planning.model.Classroom;
 import co.edu.puj.secchub_backend.planning.repository.ClassroomRepository;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
@@ -81,11 +81,11 @@ class ClassroomServiceTest {
                 .capacity(50)
                 .build();
 
-        when(classroomRepository.findAll()).thenReturn(classrooms);
+        when(classroomRepository.findAll()).thenReturn(Flux.fromIterable(classrooms));
         when(modelMapper.map(c1, ClassroomResponseDTO.class)).thenReturn(dto1);
         when(modelMapper.map(c2, ClassroomResponseDTO.class)).thenReturn(dto2);
 
-        List<ClassroomResponseDTO> result = classroomService.getAllClassrooms().block();
+        List<ClassroomResponseDTO> result = classroomService.getAllClassrooms().collectList().block();
 
         assertNotNull(result);
         assertEquals(2, result.size());
@@ -116,7 +116,7 @@ class ClassroomServiceTest {
                 .capacity(40)
                 .build();
 
-        when(classroomRepository.findById(10L)).thenReturn(Optional.of(classroom));
+        when(classroomRepository.findById(10L)).thenReturn(Mono.just(classroom));
         when(modelMapper.map(classroom, ClassroomResponseDTO.class)).thenReturn(dto);
 
         ClassroomResponseDTO result = classroomService.getClassroomById(10L).block();
@@ -132,7 +132,7 @@ class ClassroomServiceTest {
     @Test
     @DisplayName("getClassroomById - When classroom not found throws ClassroomNotFoundException")
     void testGetClassroomById_ClassroomNotFound_Throws() {
-        when(classroomRepository.findById(99L)).thenReturn(Optional.empty());
+        when(classroomRepository.findById(99L)).thenReturn(Mono.empty());
 
         Mono<ClassroomResponseDTO> result = classroomService.getClassroomById(99L);
         assertThrows(ClassroomNotFoundException.class, result::block);
@@ -178,10 +178,10 @@ class ClassroomServiceTest {
                 .build();
 
         when(modelMapper.map(request, Classroom.class)).thenReturn(mapped);
-        when(classroomRepository.save(mapped)).thenReturn(saved);
+        when(classroomRepository.save(mapped)).thenReturn(Mono.just(saved));
         when(modelMapper.map(saved, ClassroomResponseDTO.class)).thenReturn(responseDTO);
 
-        ClassroomResponseDTO result = classroomService.createClassroom(request);
+        ClassroomResponseDTO result = classroomService.createClassroom(request).block();
 
         assertNotNull(result);
         assertEquals(15L, result.getId());
@@ -196,7 +196,8 @@ class ClassroomServiceTest {
     @MethodSource("invalidClassroomRequests")
     @DisplayName("createClassroom - When request is invalid throws ClassroomBadRequestException")
     void testCreateClassroom_InvalidRequest_ThrowsException(ClassroomRequestDTO request) {
-        assertThrows(ClassroomBadRequestException.class, () -> classroomService.createClassroom(request));
+        Mono<ClassroomResponseDTO> result = classroomService.createClassroom(request);
+        assertThrows(ClassroomBadRequestException.class, result::block);
         
         verify(classroomRepository, never()).save(any());
         verify(modelMapper, never()).map(any(), any());
@@ -251,11 +252,11 @@ class ClassroomServiceTest {
                 .capacity(60)
                 .build();
 
-        when(classroomRepository.findById(20L)).thenReturn(Optional.of(existing));
-        when(classroomRepository.save(existing)).thenReturn(updated);
+        when(classroomRepository.findById(20L)).thenReturn(Mono.just(existing));
+        when(classroomRepository.save(existing)).thenReturn(Mono.just(updated));
         when(modelMapper.map(updated, ClassroomResponseDTO.class)).thenReturn(responseDTO);
 
-        ClassroomResponseDTO result = classroomService.updateClassroom(20L, request);
+        ClassroomResponseDTO result = classroomService.updateClassroom(20L, request).block();
 
         assertNotNull(result);
         assertEquals(20L, result.getId());
@@ -270,7 +271,7 @@ class ClassroomServiceTest {
     @Test
     @DisplayName("updateClassroom - When classroom not found throws ClassroomNotFoundException")
     void testUpdateClassroom_ClassroomNotFound_Throws() {
-        when(classroomRepository.findById(99L)).thenReturn(Optional.empty());
+        when(classroomRepository.findById(99L)).thenReturn(Mono.empty());
 
         Mono<ClassroomResponseDTO> result = classroomService.getClassroomById(99L);
 
@@ -306,15 +307,16 @@ class ClassroomServiceTest {
                 .id(10L)
                 .build();
         
-        when(classroomRepository.findById(10L)).thenReturn(Optional.of(existing));
-        when(classroomRepository.save(any(Classroom.class))).thenReturn(expectedSaved);
+        when(classroomRepository.findById(10L)).thenReturn(Mono.just(existing));
+        when(classroomRepository.save(any(Classroom.class))).thenReturn(Mono.just(expectedSaved));
         when(modelMapper.map(any(Classroom.class), eq(ClassroomResponseDTO.class))).thenReturn(responseDTO);
-        
-        classroomService.updateClassroom(10L, request);
-        
+
+        classroomService.updateClassroom(10L, request).block();
+
         verify(classroomRepository).findById(10L);
-        verify(classroomRepository).save(argThat(classroom -> 
-            (request == null || classroom.getClassroomTypeId().equals(1L)) &&
+        verify(classroomRepository).save(argThat(classroom ->
+            classroom.getId().equals(10L) &&
+            (request.getClassroomTypeId() == null || classroom.getClassroomTypeId().equals(request.getClassroomTypeId())) &&
             (request.getCampus() == null || request.getCampus().isEmpty() || classroom.getCampus().equals(request.getCampus())) &&
             (request.getLocation() == null || request.getLocation().isEmpty() || classroom.getLocation().equals(request.getLocation())) &&
             (request.getRoom() == null || request.getRoom().isEmpty() || classroom.getRoom().equals(request.getRoom())) &&
@@ -325,8 +327,8 @@ class ClassroomServiceTest {
     @Test
     @DisplayName("deleteClassroom - When classroom exists deletes successfully")
     void testDeleteClassroom_ClassroomExists_DeletesSuccessfully() {
-        when(classroomRepository.existsById(5L)).thenReturn(true);
-        doNothing().when(classroomRepository).deleteById(5L);
+        when(classroomRepository.existsById(5L)).thenReturn(Mono.just(true));
+        when(classroomRepository.deleteById(5L)).thenReturn(Mono.empty());
 
         classroomService.deleteClassroom(5L).block();
 
@@ -335,13 +337,15 @@ class ClassroomServiceTest {
     }
 
     @Test
-    @DisplayName("deleteClassroom - When classroom not found throws ClassroomNotFoundException")
+    @DisplayName("deleteClassroom - When classroom not found mono empty")
     void testDeleteClassroom_ClassroomNotFound_Throws() {
-        Mono<ClassroomResponseDTO> result = classroomService.getClassroomById(99L);
+        when(classroomRepository.existsById(99L)).thenReturn(Mono.just(false));
+
+        Mono<Void> result = classroomService.deleteClassroom(99L);
 
         assertThrows(ClassroomNotFoundException.class, result::block);
 
-        verify(classroomRepository, never()).deleteById(any());
+        verify(classroomRepository, never()).deleteById(any(Long.class));
     }
 
     @Test
@@ -382,7 +386,7 @@ class ClassroomServiceTest {
                 .capacity(35)
                 .build();
 
-        when(classroomRepository.findByClassroomTypeId(5L)).thenReturn(classrooms);
+        when(classroomRepository.findByClassroomTypeId(5L)).thenReturn(Flux.fromIterable(classrooms));
         when(modelMapper.map(c1, ClassroomResponseDTO.class)).thenReturn(dto1);
         when(modelMapper.map(c2, ClassroomResponseDTO.class)).thenReturn(dto2);
 

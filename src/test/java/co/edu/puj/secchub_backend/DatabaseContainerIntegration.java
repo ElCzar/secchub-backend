@@ -18,8 +18,8 @@ public abstract class DatabaseContainerIntegration {
 
     @DynamicPropertySource
     static void configureProperties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", MYSQL_CONTAINER::getJdbcUrl);
-        registry.add("spring.datasource.username", MYSQL_CONTAINER::getUsername);
-        registry.add("spring.datasource.password", MYSQL_CONTAINER::getPassword);
+        registry.add("spring.r2dbc.url", () -> MYSQL_CONTAINER.getJdbcUrl().replace("jdbc:", "r2dbc:"));
+        registry.add("spring.r2dbc.username", MYSQL_CONTAINER::getUsername);
+        registry.add("spring.r2dbc.password", MYSQL_CONTAINER::getPassword);
     }
 }

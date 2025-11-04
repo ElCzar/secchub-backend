@@ -1,62 +1,59 @@
 package co.edu.puj.secchub_backend.integration.model;
 
-import jakarta.persistence.*;
-import lombok.*;
 import java.time.LocalDate;
-import java.util.List;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity mapped to 'academic_request'.
  * Represents a request made by a program for a class in a specific course and semester.
  */
-@Entity
-@Table(name = "academic_request")
-@Getter @Setter @Builder
-@NoArgsConstructor @AllArgsConstructor
+@Table("academic_request")
+@Getter 
+@Setter
+@Builder
+@NoArgsConstructor 
+@AllArgsConstructor
 public class AcademicRequest {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id")
+    @Column("user_id")
     private Long userId;
 
-    @Column(name = "course_id")
+    @Column("course_id")
     private Long courseId;
 
-    @Column(name = "semester_id")
+    @Column("semester_id")
     private Long semesterId;
 
-    @Column(name = "start_date")
+    @Column("start_date")
     private LocalDate startDate;
 
-    @Column(name = "end_date")
+    @Column("end_date")
     private LocalDate endDate;
 
-    @Column(name = "capacity")
+    @Column("capacity")
     private Integer capacity;
 
-    @Column(name = "request_date")
+    @Column("request_date")
     private LocalDate requestDate;
 
-    @Column(name = "observation")
+    @Column("observation")
     private String observation;
 
-    @Column(name = "accepted")
+    @Column("accepted")
     private Boolean accepted;
 
-    @Column(name = "combined")
+    @Column("combined")
     private Boolean combined;
-
-    @OneToMany(mappedBy = "academicRequest", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<RequestSchedule> schedules;
-
-    @PrePersist
-    public void onCreate() {
-        if (requestDate == null) requestDate = LocalDate.now();
-        if (accepted == null) accepted = false;
-        if (combined == null) combined = false;
-    }
 }

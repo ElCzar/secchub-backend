@@ -1,6 +1,5 @@
 package co.edu.puj.secchub_backend.integration.controller;
 
-import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestBatchRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.AcademicRequestResponseDTO;
@@ -14,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.Map;
@@ -28,28 +26,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AcademicRequestController {
     private final AcademicRequestService academicRequestService;
-    private final AdminModuleSemesterContract semesterService;
 
-    /**
-     * Gets the current user context for programs (faculty, semester info).
-     * @return User context with faculty and current semester
-     */
-    @GetMapping("/context")
-    @PreAuthorize("hasRole('ROLE_PROGRAM')") 
-    public Mono<ResponseEntity<Map<String, Object>>> getUserContext() {
-        System.out.println("🔍 AcademicRequestController: Recibida solicitud de contexto de usuario");
-        return academicRequestService.getCurrentUserContext()
-                .map(context -> {
-                    System.out.println("✅ AcademicRequestController: Contexto obtenido: " + context);
-                    return ResponseEntity.ok(context);
-                })
-                .doOnError(error -> {
-                    System.err.println("❌ AcademicRequestController: Error obteniendo contexto: " + error.getMessage());
-                    error.printStackTrace();
-                });
-    }
-
-   
     /**
      * Creates a batch of academic requests with schedules.
      * @param academicRequestBatchRequestDTO with batch request information
@@ -59,6 +36,7 @@ public class AcademicRequestController {
     @PreAuthorize("hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<AcademicRequestResponseDTO>>> createAcademicRequestBatch(@RequestBody AcademicRequestBatchRequestDTO academicRequestBatchRequestDTO) {
         return academicRequestService.createAcademicRequestBatch(academicRequestBatchRequestDTO)
+                .collectList()
                 .map(createdRequests -> ResponseEntity.status(HttpStatus.CREATED).body(createdRequests));
     }
 
@@ -81,8 +59,8 @@ public class AcademicRequestController {
     @GetMapping("/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<List<AcademicRequestResponseDTO>> getCurrentSemesterAcademicRequests() {
-        return Mono.fromCallable(() -> academicRequestService.findCurrentSemesterAcademicRequests())
-                .subscribeOn(Schedulers.boundedElastic());
+        return academicRequestService.findCurrentSemesterAcademicRequests()
+                .collectList();
     }
 
     /**
@@ -94,7 +72,8 @@ public class AcademicRequestController {
     @PreAuthorize("hasRole('ROLE_PROGRAM') or hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
     public Mono<List<AcademicRequestResponseDTO>> getAcademicRequestsBySemester(
             @RequestParam Long semesterId) {
-        return academicRequestService.findAcademicRequestsBySemesterAndUser(semesterId);
+        return academicRequestService.findAcademicRequestsBySemesterAndUser(semesterId)
+                .collectList();
     }
 
     /**
@@ -104,8 +83,8 @@ public class AcademicRequestController {
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<List<AcademicRequestResponseDTO>> getAllAcademicRequests() {
-        return Mono.fromCallable(() -> academicRequestService.findAllAcademicRequests())
-                .subscribeOn(Schedulers.boundedElastic());
+        return academicRequestService.findAllAcademicRequests()
+                .collectList();
     }
 
     /**
@@ -158,8 +137,8 @@ public class AcademicRequestController {
     @GetMapping("/{requestId}/schedules")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<List<RequestScheduleResponseDTO>> getRequestSchedules(@PathVariable Long requestId) {
-        return Mono.fromCallable(() -> academicRequestService.findRequestSchedulesByAcademicRequestId(requestId))
-                .subscribeOn(Schedulers.boundedElastic());
+        return academicRequestService.findRequestSchedulesByAcademicRequestId(requestId)
+                .collectList();
     }
 
     /**
@@ -221,7 +200,7 @@ public class AcademicRequestController {
     public Mono<ResponseEntity<Map<String, Object>>> processPlanningRequests(
             @RequestBody ProcessPlanningRequestDTO processPlanningRequestDTO) {
         return academicRequestService.processPlanningRequests(processPlanningRequestDTO)
-                .map(result -> ResponseEntity.ok(result));
+                .map(ResponseEntity::ok);
     }
 
     /**

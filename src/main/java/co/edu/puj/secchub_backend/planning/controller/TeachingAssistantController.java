@@ -82,20 +82,9 @@ public class TeachingAssistantController {
          */
         @GetMapping("/student-application/{studentApplicationId}")
         @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<List<TeachingAssistantResponseDTO>>> getTeachingAssistantsByStudentApplication(
+        public Mono<ResponseEntity<TeachingAssistantResponseDTO>> getTeachingAssistantsByStudentApplication(
                 @PathVariable Long studentApplicationId) {
         return teachingAssistantService.findByStudentApplicationId(studentApplicationId)
-                .map(ResponseEntity::ok);
-        }
-
-        /**
-         * Gets all teaching assistant assignments for the current semester.
-         * @return List of TeachingAssistantResponseDTO for the current semester
-         */
-        @GetMapping("/current-semester")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<List<TeachingAssistantResponseDTO>>> getCurrentSemesterTeachingAssistants() {
-        return teachingAssistantService.listCurrentSemesterTeachingAssistants()
                 .map(ResponseEntity::ok);
         }
 
@@ -107,6 +96,7 @@ public class TeachingAssistantController {
         @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
         public Mono<ResponseEntity<List<TeachingAssistantResponseDTO>>> getAllTeachingAssistants() {
         return teachingAssistantService.listAllTeachingAssistants()
+                .collectList()
                 .map(ResponseEntity::ok);
         }
 
@@ -149,17 +139,6 @@ public class TeachingAssistantController {
         @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
         public Mono<ResponseEntity<Void>> deleteSchedule(@PathVariable Long scheduleId) {
         return teachingAssistantService.deleteSchedule(scheduleId)
-                .then(Mono.just(ResponseEntity.ok().<Void>build()));
-        }
-
-        /**
-         * Generates payroll for teaching assistants (placeholder endpoint).
-         * @return Response with ok status
-         */
-        @PostMapping("/payroll")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<Void>> generatePayroll() {
-        return teachingAssistantService.generatePayroll()
                 .then(Mono.just(ResponseEntity.ok().<Void>build()));
         }
 }

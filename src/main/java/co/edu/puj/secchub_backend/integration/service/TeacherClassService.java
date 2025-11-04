@@ -1,38 +1,47 @@
 package co.edu.puj.secchub_backend.integration.service;
 
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleTeacherContract;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassResponseDTO;
 import co.edu.puj.secchub_backend.integration.exception.TeacherClassNotFoundException;
+import co.edu.puj.secchub_backend.integration.exception.TeacherClassServerErrorException;
 import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.repository.TeacherClassRepository;
+import co.edu.puj.secchub_backend.planning.contract.PlanningModuleClassContract;
+import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
-import org.springframework.boot.actuate.endpoint.SecurityContext;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
+import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
+import org.modelmapper.ModelMapper;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.reactive.TransactionalOperator;
+
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Service handling business logic for HU17 (Professor availability).
  * A teacher can see pending classes and accept/reject them.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class TeacherClassService {
-    // TODO: Add notifications when an admin/user wants to inform a teacher of a new class assignment
+    private final SecurityModuleUserContract userService;
+    private final AdminModuleSectionContract sectionService;
+    private final AdminModuleSemesterContract semesterService;
+    private final PlanningModuleClassContract classService;
+    private final AdminModuleTeacherContract teacherService;
 
     private final TeacherClassRepository repository;
     private final ModelMapper modelMapper;
-    private final AdminModuleSemesterContract semesterService;
-    private final JdbcTemplate jdbcTemplate;
+    private final TransactionalOperator transactionalOperator;
 
     private static final Long STATUS_PENDING_ID = 4L;
-    private static final Long STATUS_IN_PROGRESS_ID = 6L;
     private static final Long STATUS_ACCEPTED_ID = 8L;
     private static final Long STATUS_REJECTED_ID = 9L;
 
@@ -41,154 +50,229 @@ public class TeacherClassService {
      * @param TeacherClassRequestDTO with assignment data
      * @return TeacherClassResponseDTO with created assignment
      */
-    public Mono<TeacherClassResponseDTO> createTeacherClass(co.edu.puj.secchub_backend.integration.dto.TeacherClassRequestDTO request) {
-        return Mono.fromCallable(() -> {
-            TeacherClass teacherClass = modelMapper.map(request, TeacherClass.class);
-            teacherClass.setStatusId(STATUS_PENDING_ID);
-            Long currentSemesterId = semesterService.getCurrentSemesterId();
-            teacherClass.setSemesterId(currentSemesterId);
-            TeacherClass saved = repository.save(teacherClass);
-            return modelMapper.map(saved, TeacherClassResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+    public Mono<TeacherClassResponseDTO> createTeacherClass(TeacherClassRequestDTO request) {
+        return semesterService.getCurrentSemesterId()
+            .flatMap(currentSemesterId -> {
+                TeacherClass teacherClass = modelMapper.map(request, TeacherClass.class);
+                teacherClass.setStatusId(STATUS_PENDING_ID);
+                teacherClass.setSemesterId(currentSemesterId);
+                return repository.save(teacherClass);
+            })
+            .map(saved -> modelMapper.map(saved, TeacherClassResponseDTO.class))
+            .onErrorMap(error -> {
+                log.error("Error creating TeacherClass: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to create TeacherClass");
+            });
     }
 
     /**
      * Lists all teacher classes for the current semester.
-     * @return List of TeacherClassResponseDTO for the current semester
+     * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
+     * @return Flux of TeacherClassResponseDTO for the current semester
      */
-    public List<TeacherClassResponseDTO> listCurrentSemesterTeacherClasses() {
-        Long currentSemesterId = semesterService.getCurrentSemesterId();
-        return repository.findBySemesterId(currentSemesterId).stream()
-                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
-                .toList();
+    public Flux<TeacherClassResponseDTO> listCurrentSemesterTeacherClasses() {
+        return semesterService.getCurrentSemesterId()
+            .flatMapMany(currentSemesterId ->
+                repository.findBySemesterId(currentSemesterId)
+                    .filterWhen(this::filterTeacherClass)
+                    .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            )
+            .onErrorMap(error -> {
+                log.error("Error listing current semester teacher classes: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to list current semester teacher classes");
+            });
     }
 
     /**
      * Lists all teacher classes for a specific teacher in the current semester.
-     * @param teacherId Teacher IDfindBySemesterIdAndTeacherId
-     * @return List of TeacherClassResponseDTO for the teacher in the current semester
+     * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
+     * @param teacherId Teacher ID
+     * @return Flux of TeacherClassResponseDTO for the teacher in the current semester
      */
-    public List<TeacherClassResponseDTO> listCurrentSemesterTeacherClassesByTeacher(Long teacherId) {
-        Long currentSemesterId = semesterService.getCurrentSemesterId();
-        return repository.findBySemesterIdAndTeacherId(currentSemesterId, teacherId).stream()
-                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
-                .toList();
+    public Flux<TeacherClassResponseDTO> listCurrentSemesterTeacherClassesByTeacher(Long teacherId) {
+        return semesterService.getCurrentSemesterId()
+            .flatMapMany(currentSemesterId ->
+                repository.findBySemesterIdAndTeacherId(currentSemesterId, teacherId)
+                    .filterWhen(this::filterTeacherClass)
+                    .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            )
+            .onErrorMap(error -> {
+                log.error("Error listing current semester teacher classes by teacher: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to list current semester teacher classes by teacher");
+            });
     }
 
     /**
      * Lists all classes (accepted, pending, rejected) assigned to a teacher.
+     * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
      * @param teacherId teacher id
-     * @return List of TeacherClassResponseDTO
+     * @return Flux of TeacherClassResponseDTO
      */
-    public List<TeacherClassResponseDTO> listAllTeacherClassByTeacher(Long teacherId) {
-        return repository.findByTeacherId(teacherId).stream()
-                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
-                .toList();
+    public Flux<TeacherClassResponseDTO> listAllTeacherClassByTeacher(Long teacherId) {
+        return repository.findByTeacherId(teacherId)
+            .filterWhen(this::filterTeacherClass)
+            .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            .onErrorMap(error -> {
+                log.error("Error listing all teacher classes by teacher: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to list all teacher classes by teacher");
+            });
     }
 
     /**
      * Lists only classes filtered by status.
+     * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
      * @param teacherId teacher id
-     * @param statusId status (1=pending, 2=accepted, 3=rejected)
-     * @return List of TeacherClassResponseDTO
+     * @param statusId status (4=pending, 8=accepted, 9=rejected)
+     * @return Flux of TeacherClassResponseDTO
      */
-    public List<TeacherClassResponseDTO> listTeacherClassByStatus(Long teacherId, Long statusId) {
-        return repository.findByTeacherIdAndStatusId(teacherId, statusId).stream()
-                .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
-                .toList();
+    public Flux<TeacherClassResponseDTO> listTeacherClassByStatus(Long teacherId, Long statusId) {
+        return repository.findByTeacherIdAndStatusId(teacherId, statusId)
+            .filterWhen(this::filterTeacherClass)
+            .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            .onErrorMap(error -> {
+                log.error("Error listing teacher classes by status: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to list teacher classes by status");
+            });
     }
 
     /**
-     * Lists all classes for a given class ID with enriched teacher information.
-     * @param classId
-     * @return List of TeacherClassResponseDTO for the given class ID with teacher details
+     * Lists all classes for a given class ID.
+     * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
+     * @param classId class ID
+     * @return Flux of TeacherClassResponseDTO for the given class ID
      */
-    public List<TeacherClassResponseDTO> listTeacherClassByClassId(Long classId) {
-        String sql = """
-            SELECT tc.id, tc.semester_id, tc.teacher_id, tc.class_id, tc.work_hours,
-                   tc.full_time_extra_hours, tc.adjunct_extra_hours, tc.decision, 
-                   tc.observation, tc.status_id,
-                   u.name as teacher_name, u.last_name as teacher_last_name, 
-                   u.email as teacher_email, t.max_hours as teacher_max_hours
-            FROM teacher_class tc
-            JOIN teacher t ON tc.teacher_id = t.id
-            JOIN users u ON t.user_id = u.id
-            WHERE tc.class_id = ?
-            """;
-        
-        return jdbcTemplate.query(sql, (rs, rowNum) -> 
-            TeacherClassResponseDTO.builder()
-                .id(rs.getLong("id"))
-                .semesterId(rs.getLong("semester_id"))
-                .teacherId(rs.getLong("teacher_id"))
-                .classId(rs.getLong("class_id"))
-                .workHours(rs.getInt("work_hours"))
-                .fullTimeExtraHours((Integer) rs.getObject("full_time_extra_hours"))
-                .adjunctExtraHours((Integer) rs.getObject("adjunct_extra_hours"))
-                .decision((Boolean) rs.getObject("decision"))
-                .observation(rs.getString("observation"))
-                .statusId(rs.getLong("status_id"))
-                .teacherName(rs.getString("teacher_name"))
-                .teacherLastName(rs.getString("teacher_last_name"))
-                .teacherEmail(rs.getString("teacher_email"))
-                .teacherMaxHours((Integer) rs.getObject("teacher_max_hours"))
-                .teacherContractType("N/A") // Por ahora hardcodeado, se puede mejorar después
-                .build(), classId
-        );
+    public Flux<TeacherClassResponseDTO> listTeacherClassByClassId(Long classId) {
+        return repository.findByClassId(classId)
+            .filterWhen(this::filterTeacherClass)
+            .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            .onErrorMap(error -> {
+                log.error("Error listing teacher classes by class ID: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to list teacher classes by class ID");
+            });
     }
 
     /**
-     * Accepts a class (set decision true and status=2).
+     * Accepts a class (set decision true and status=ACCEPTED).
+     * If the current user has ROLE_SECTION, only teacher classes for their section can be accepted.
      * @param teacherClassId relation id
      * @param observation optional comment from the teacher
      * @return updated TeacherClassResponseDTO
      */
-    @Transactional
     public Mono<TeacherClassResponseDTO> acceptTeacherClass(Long teacherClassId, String observation) {
-        return Mono.fromCallable(() -> {
-            TeacherClass tc = repository.findById(teacherClassId)
-                    .orElseThrow(() -> new TeacherClassNotFoundException("TeacherClass not found for acceptance: " + teacherClassId));
-            tc.setDecision(true);
-            tc.setStatusId(STATUS_ACCEPTED_ID);
-            tc.setObservation(observation);
-            TeacherClass saved = repository.save(tc);
-            return modelMapper.map(saved, TeacherClassResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return repository.findById(teacherClassId)
+            .filterWhen(this::filterTeacherClass)
+            .switchIfEmpty(Mono.error(new TeacherClassNotFoundException(
+                "TeacherClass not found for acceptance with id: " + teacherClassId)))
+            .flatMap(teacherClass -> {
+                teacherClass.setDecision(true);
+                teacherClass.setStatusId(STATUS_ACCEPTED_ID);
+                teacherClass.setObservation(observation);
+                return repository.save(teacherClass);
+            })
+            .map(saved -> modelMapper.map(saved, TeacherClassResponseDTO.class))
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                if (error instanceof TeacherClassNotFoundException) {
+                    return error;
+                }
+                log.error("Error accepting teacher class: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to accept teacher class");
+            });
     }
 
     /**
-     * Rejects a class (set decision false and status=3).
+     * Rejects a class (set decision false and status=REJECTED).
+     * If the current user has ROLE_SECTION, only teacher classes for their section can be rejected.
      * @param teacherClassId relation id
      * @param observation optional comment from the teacher
      * @return updated TeacherClassResponseDTO
      */
-    @Transactional
     public Mono<TeacherClassResponseDTO> rejectTeacherClass(Long teacherClassId, String observation) {
-        return Mono.fromCallable(() -> {
-            TeacherClass tc = repository.findById(teacherClassId)
-                    .orElseThrow(() -> new TeacherClassNotFoundException("TeacherClass not found for rejection: " + teacherClassId));
-            tc.setDecision(false);
-            tc.setStatusId(STATUS_REJECTED_ID);
-            tc.setObservation(observation);
-            TeacherClass saved = repository.save(tc);
-            return modelMapper.map(saved, TeacherClassResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return repository.findById(teacherClassId)
+            .filterWhen(this::filterTeacherClass)
+            .switchIfEmpty(Mono.error(new TeacherClassNotFoundException(
+                "TeacherClass not found for rejection with id: " + teacherClassId)))
+            .flatMap(teacherClass -> {
+                teacherClass.setDecision(false);
+                teacherClass.setStatusId(STATUS_REJECTED_ID);
+                teacherClass.setObservation(observation);
+                return repository.save(teacherClass);
+            })
+            .map(saved -> modelMapper.map(saved, TeacherClassResponseDTO.class))
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                if (error instanceof TeacherClassNotFoundException) {
+                    return error;
+                }
+                log.error("Error rejecting teacher class: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to reject teacher class");
+            });
     }
 
     /**
      * Deletes a teacher-class assignment by teacher ID and class ID.
+     * If the current user has ROLE_SECTION, only teacher classes for their section can be deleted.
      * @param teacherId Teacher ID
      * @param classId Class ID
      * @return Mono<Void>
      */
-    @Transactional
     public Mono<Void> deleteTeacherClassByTeacherAndClass(Long teacherId, Long classId) {
-        return Mono.fromRunnable(() -> {
-            TeacherClass tc = repository.findByTeacherIdAndClassId(teacherId, classId)
-                    .orElseThrow(() -> new TeacherClassNotFoundException(
-                            "TeacherClass not found for teacherId: " + teacherId + " and classId: " + classId));
-            repository.delete(tc);
-        }).subscribeOn(Schedulers.boundedElastic()).then();
+        return repository.findByTeacherIdAndClassId(teacherId, classId)
+            .filterWhen(this::filterTeacherClass)
+            .switchIfEmpty(Mono.error(new TeacherClassNotFoundException(
+                "TeacherClass not found for deletion with teacherId: " + teacherId + " and classId: " + classId)))
+            .flatMap(teacherClass -> repository.deleteById(teacherClass.getId()))
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                if (error instanceof TeacherClassNotFoundException) {
+                    return error;
+                }
+                log.error("Error deleting teacher class: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to delete teacher class");
+            });
     }
 
+    // =====================================================
+    // Private methods
+    // =====================================================
+
+    /**
+     * Filters teacher classes by user role and if they are role users by their section.
+     * @param teacherClass instance of TeacherClass
+     * @return true mono boolean indicating if the teacherClass passes the filter or not
+     */
+    private Mono<Boolean> filterTeacherClass(TeacherClass teacherClass) {
+        return ReactiveSecurityContextHolder.getContext()
+            .flatMap(securityContext -> {
+                Authentication authentication = securityContext.getAuthentication();
+                
+                // Check if user has ADMIN role
+                boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
+                
+                if (isAdmin) {
+                    // Admin can see all classes
+                    return Mono.just(true);
+                }
+
+                // For ROLE_SECTION users, filter by their section
+                String userEmail = authentication.getName();
+
+                // Check if user has TEACHER role
+                boolean isTeacher = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_TEACHER"));
+
+                if (isTeacher) {
+                    return userService.getUserIdByEmail(userEmail)
+                        .flatMap(teacherService::getTeacherIdByUserId)
+                        .flatMap(teacherId -> Mono.just(teacherId.equals(teacherClass.getTeacherId())));
+                }
+
+                return userService.getUserIdByEmail(userEmail)
+                    .flatMap(sectionService::getSectionIdByUserId)
+                    .flatMap(sectionId -> classService.isClassInSection(teacherClass.getClassId(), sectionId))
+                    .defaultIfEmpty(false);
+            })
+            .defaultIfEmpty(false);
+    }
 }

@@ -1,15 +1,21 @@
 package co.edu.puj.secchub_backend.admin.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity representing a course (asignatura) in the system.
  * A course belongs to a section and contains information such as
  * name, credits, description, status (active/inactive).
  */
-@Entity
-@Table(name = "course")
+@Table("course")
 @Getter
 @Setter
 @Builder
@@ -18,13 +24,12 @@ import lombok.*;
 public class Course {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "section_id")
+    @Column("section_id")
     private Long sectionId;
 
-    @Column(nullable = false, length = 200)
+    @Column
     private String name;
 
     @Column
@@ -33,16 +38,12 @@ public class Course {
     @Column
     private String description;
 
-    @Column(name = "is_valid")
+    @Column("is_valid")
     private Boolean isValid;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "section_id", insertable = false, updatable = false)
-    private Section section;
-
+    
     @Column
     private String recommendation;
 
-    @Column(name = "status_id")
+    @Column("status_id")
     private Long statusId;
 }

@@ -1,40 +1,40 @@
 package co.edu.puj.secchub_backend.planning.model;
 
-import jakarta.persistence.*;
-import lombok.*;
-
 import java.sql.Time;
+
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity mapped to 'teaching_assistant_schedule'.
  * Represents the scheduled time blocks for a teaching assistant.
  */
-@Entity
-@Table(name = "teaching_assistant_schedule")
+@Table("teaching_assistant_schedule")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeachingAssistantSchedule {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "teaching_assistant_id", nullable = false)
+    @Column("teaching_assistant_id")
     private Long teachingAssistantId;
 
-    @Column(name = "day", nullable = false)
+    @Column("day")
     private String day;
 
-    @Column(name = "start_time", nullable = false)
+    @Column("start_time")
     private Time startTime;
 
-    @Column(name = "end_time", nullable = false)
+    @Column("end_time")
     private Time endTime;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "teaching_assistant_id", insertable = false, updatable = false)
-    private TeachingAssistant teachingAssistant;
 }

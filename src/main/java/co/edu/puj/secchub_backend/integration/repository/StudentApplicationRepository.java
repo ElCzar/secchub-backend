@@ -1,21 +1,26 @@
 package co.edu.puj.secchub_backend.integration.repository;
 
+import co.edu.puj.secchub_backend.integration.dto.StudentApplicationResponseDTO;
 import co.edu.puj.secchub_backend.integration.model.StudentApplication;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
+
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-public interface StudentApplicationRepository extends JpaRepository<StudentApplication, Long> {
-    List<StudentApplication> findBySemesterId(Long semesterId);
+public interface StudentApplicationRepository extends R2dbcRepository<StudentApplication, Long> {
+    Flux<StudentApplication> findBySemesterId(Long semesterId);
     
-    List<StudentApplication> findByStatusId(Long statusId);
+    Flux<StudentApplication> findByStatusId(Long statusId);
 
     @Query("""
         SELECT s FROM StudentApplication s
         WHERE (s.sectionId = :sectionId)
-           OR (s.courseId IN (SELECT c.id FROM Course c WHERE c.sectionId = :sectionId))
+            OR (s.courseId IN (SELECT c.id FROM Course c WHERE c.sectionId = :sectionId))
     """)
-    List<StudentApplication> findRequestsForSection(@Param("sectionId") Long sectionId);
+    Flux<StudentApplication> findRequestsForSection(@Param("sectionId") Long sectionId);
+
+    Mono<StudentApplicationResponseDTO> findByUserIdAndSemesterId(Long userId, Long semesterId);
 }

@@ -1,11 +1,11 @@
 package co.edu.puj.secchub_backend.notification.repository;
 
-import java.util.Optional;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 
 import co.edu.puj.secchub_backend.notification.model.EmailTemplate;
+import reactor.core.publisher.Mono;
 
-public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, Long> {
-    Optional<EmailTemplate> findByName(String name);
+public interface EmailTemplateRepository extends R2dbcRepository<EmailTemplate, Long> {
+    Mono<EmailTemplate> findByName(String name);
 }

@@ -2,36 +2,22 @@ package co.edu.puj.secchub_backend.parametric.service;
 
 import co.edu.puj.secchub_backend.parametric.contracts.*;
 import co.edu.puj.secchub_backend.parametric.exception.ParametricValueNotFoundException;
-import co.edu.puj.secchub_backend.parametric.model.ClassroomType;
-import co.edu.puj.secchub_backend.parametric.model.DocumentType;
-import co.edu.puj.secchub_backend.parametric.model.EmploymentType;
-import co.edu.puj.secchub_backend.parametric.model.Modality;
-import co.edu.puj.secchub_backend.parametric.model.Role;
-import co.edu.puj.secchub_backend.parametric.model.Status;
-import co.edu.puj.secchub_backend.parametric.repository.ClassroomTypeRepository;
-import co.edu.puj.secchub_backend.parametric.repository.DocumentTypeRepository;
-import co.edu.puj.secchub_backend.parametric.repository.EmploymentTypeRepository;
-import co.edu.puj.secchub_backend.parametric.repository.ModalityRepository;
-import co.edu.puj.secchub_backend.parametric.repository.RoleRepository;
-import co.edu.puj.secchub_backend.parametric.repository.StatusRepository;
+import co.edu.puj.secchub_backend.parametric.model.*;
+import co.edu.puj.secchub_backend.parametric.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-/**
- * Service implementation for parametric values with caching support.
- * All methods are cached for optimal performance since parametric values
- * are frequently accessed but rarely change.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ParametricService implements ParametricContract {
+    private final ModelMapper modelMapper;
     private final StatusRepository statusRepository;
     private final RoleRepository roleRepository;
     private final DocumentTypeRepository documentTypeRepository;
@@ -39,253 +25,209 @@ public class ParametricService implements ParametricContract {
     private final ModalityRepository modalityRepository;
     private final ClassroomTypeRepository classroomTypeRepository;
 
-    @Cacheable(value = "all-statuses")
-    public List<StatusDTO> getAllStatuses() {
+    /* ---------------- STATUS ---------------- */
+
+    @Cacheable("all-statuses")
+    public Flux<StatusDTO> getAllStatuses() {
         log.debug("Loading all statuses from database");
         return statusRepository.findAll()
-                .stream()
-                .map(this::mapToStatusDTO)
-                .toList();
+                .map(this::mapToStatusDTO);
     }
 
-    @Override
     @Cacheable(value = "status-by-name", key = "#name")
-    public StatusDTO getStatusByName(String name) {
+    public Mono<StatusDTO> getStatusByName(String name) {
         log.debug("Looking up status by name: {}", name);
         return statusRepository.findByName(name)
                 .map(this::mapToStatusDTO)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Status not found: " + name));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Status not found: " + name)));
     }
 
-    @Override
     @Cacheable(value = "status-id-to-name", key = "#id")
-    public String getStatusNameById(Long id) {
+    public Mono<String> getStatusNameById(Long id) {
         log.debug("Looking up status name for ID: {}", id);
         return statusRepository.findById(id)
                 .map(Status::getName)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Status not found: " + id));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Status not found: " + id)));
     }
 
-    @Override
     @Cacheable(value = "status-exists", key = "#name")
-    public boolean statusExists(String name) {
+    public Mono<Boolean> statusExists(String name) {
         return statusRepository.existsByName(name);
     }
 
-    @Cacheable(value = "all-roles")
-    public List<RoleDTO> getAllRoles() {
+    /* ---------------- ROLE ---------------- */
+
+    @Cacheable("all-roles")
+    public Flux<RoleDTO> getAllRoles() {
         log.debug("Loading all roles from database");
         return roleRepository.findAll()
-                .stream()
-                .map(this::mapToRoleDTO)
-                .toList();
+                .map(this::mapToRoleDTO);
     }
 
-    @Override
     @Cacheable(value = "role-by-name", key = "#name")
-    public RoleDTO getRoleByName(String name) {
+    public Mono<RoleDTO> getRoleByName(String name) {
         log.debug("Looking up role by name: {}", name);
-        Role role = roleRepository.findByName(name)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Role not found: " + name));
-        return mapToRoleDTO(role);
+        return roleRepository.findByName(name)
+                .map(this::mapToRoleDTO)
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Role not found: " + name)));
     }
 
-    @Override
     @Cacheable(value = "role-id-by-name", key = "#id")
-    public String getRoleNameById(Long id) {
+    public Mono<String> getRoleNameById(Long id) {
         log.debug("Looking up role name for ID: {}", id);
         return roleRepository.findById(id)
                 .map(Role::getName)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Role not found: " + id));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Role not found: " + id)));
     }
 
-    @Override
     @Cacheable(value = "role-exists", key = "#name")
-    public boolean roleExists(String name) {
+    public Mono<Boolean> roleExists(String name) {
         return roleRepository.existsByName(name);
     }
 
-    private StatusDTO mapToStatusDTO(Status status) {
-        return StatusDTO.builder()
-                .id(status.getId())
-                .name(status.getName())
-                .build();
-    }
+    /* ---------------- DOCUMENT TYPE ---------------- */
 
-    private RoleDTO mapToRoleDTO(Role role) {
-        return RoleDTO.builder()
-                .id(role.getId())
-                .name(role.getName())
-                .build();
-    }
-
-    @Cacheable(value = "all-document-types")
-    public List<DocumentTypeDTO> getAllDocumentTypes() {
+    @Cacheable("all-document-types")
+    public Flux<DocumentTypeDTO> getAllDocumentTypes() {
         log.debug("Loading all document types from database");
         return documentTypeRepository.findAll()
-                .stream()
-                .map(this::mapToDocumentTypeDTO)
-                .toList();
+                .map(this::mapToDocumentTypeDTO);
     }
 
-    @Override
     @Cacheable(value = "document-type-by-name", key = "#name")
-    public DocumentTypeDTO getDocumentTypeByName(String name) {
+    public Mono<DocumentTypeDTO> getDocumentTypeByName(String name) {
         log.debug("Looking up document type by name: {}", name);
         return documentTypeRepository.findByName(name)
                 .map(this::mapToDocumentTypeDTO)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Document type not found: " + name));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Document type not found: " + name)));
     }
 
-    @Override
     @Cacheable(value = "document-type-id-to-name", key = "#id")
-    public String getDocumentTypeNameById(Long id) {
+    public Mono<String> getDocumentTypeNameById(Long id) {
         log.debug("Looking up document type name for ID: {}", id);
         return documentTypeRepository.findById(id)
                 .map(DocumentType::getName)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Document type not found: " + id));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Document type not found: " + id)));
     }
 
-    @Override
     @Cacheable(value = "document-type-exists", key = "#name")
-    public boolean documentTypeExists(String name) {
+    public Mono<Boolean> documentTypeExists(String name) {
         return documentTypeRepository.existsByName(name);
     }
 
-    @Cacheable(value = "all-employment-types")
-    public List<EmploymentTypeDTO> getAllEmploymentTypes() {
+    /* ---------------- EMPLOYMENT TYPE ---------------- */
+
+    @Cacheable("all-employment-types")
+    public Flux<EmploymentTypeDTO> getAllEmploymentTypes() {
         log.debug("Loading all employment types from database");
         return employmentTypeRepository.findAll()
-                .stream()
-                .map(this::mapToEmploymentTypeDTO)
-                .toList();
+                .map(this::mapToEmploymentTypeDTO);
     }
 
-    @Override
     @Cacheable(value = "employment-type-by-name", key = "#name")
-    public EmploymentTypeDTO getEmploymentTypeByName(String name) {
+    public Mono<EmploymentTypeDTO> getEmploymentTypeByName(String name) {
         log.debug("Looking up employment type by name: {}", name);
         return employmentTypeRepository.findByName(name)
                 .map(this::mapToEmploymentTypeDTO)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Employment type not found: " + name));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Employment type not found: " + name)));
     }
 
-    @Override
     @Cacheable(value = "employment-type-id-to-name", key = "#id")
-    public String getEmploymentTypeNameById(Long id) {
+    public Mono<String> getEmploymentTypeNameById(Long id) {
         log.debug("Looking up employment type name for ID: {}", id);
         return employmentTypeRepository.findById(id)
                 .map(EmploymentType::getName)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Employment type not found: " + id));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Employment type not found: " + id)));
     }
 
-    @Override
     @Cacheable(value = "employment-type-exists", key = "#name")
-    public boolean employmentTypeExists(String name) {
+    public Mono<Boolean> employmentTypeExists(String name) {
         return employmentTypeRepository.existsByName(name);
     }
 
-    private DocumentTypeDTO mapToDocumentTypeDTO(DocumentType documentType) {
-        return DocumentTypeDTO.builder()
-                .id(documentType.getId())
-                .name(documentType.getName())
-                .build();
-    }
+    /* ---------------- MODALITY ---------------- */
 
-    private EmploymentTypeDTO mapToEmploymentTypeDTO(EmploymentType employmentType) {
-        return EmploymentTypeDTO.builder()
-                .id(employmentType.getId())
-                .name(employmentType.getName())
-                .build();
-    }
-
-    @Cacheable(value = "all-modalities")
-    public List<ModalityDTO> getAllModalities() {
+    @Cacheable("all-modalities")
+    public Flux<ModalityDTO> getAllModalities() {
         log.debug("Loading all modalities from database");
         return modalityRepository.findAll()
-                .stream()
-                .map(this::mapToModalityDTO)
-                .toList();
+                .map(this::mapToModalityDTO);
     }
 
-    @Override
     @Cacheable(value = "modality-by-name", key = "#name")
-    public ModalityDTO getModalityByName(String name) {
+    public Mono<ModalityDTO> getModalityByName(String name) {
         log.debug("Looking up modality by name: {}", name);
         return modalityRepository.findByName(name)
                 .map(this::mapToModalityDTO)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Modality not found: " + name));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Modality not found: " + name)));
     }
 
-    @Override
     @Cacheable(value = "modality-id-to-name", key = "#id")
-    public String getModalityNameById(Long id) {
+    public Mono<String> getModalityNameById(Long id) {
         log.debug("Looking up modality name for ID: {}", id);
         return modalityRepository.findById(id)
                 .map(Modality::getName)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Modality not found: " + id));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Modality not found: " + id)));
     }
 
-    @Override
     @Cacheable(value = "modality-exists", key = "#name")
-    public boolean modalityExists(String name) {
+    public Mono<Boolean> modalityExists(String name) {
         return modalityRepository.existsByName(name);
     }
 
-    private ModalityDTO mapToModalityDTO(Modality modality) {
-        return ModalityDTO.builder()
-                .id(modality.getId())
-                .name(modality.getName())
-                .build();
-    }
+    /* ---------------- CLASSROOM TYPE ---------------- */
 
-    @Override
-    @Cacheable(value = "all-classroom-types")
-    public List<ClassroomTypeDTO> getAllClassroomTypes() {
+    @Cacheable("all-classroom-types")
+    public Flux<ClassroomTypeDTO> getAllClassroomTypes() {
         log.debug("Loading all classroom types from database");
         return classroomTypeRepository.findAll()
-                .stream()
-                .map(this::mapToClassroomTypeDTO)
-                .toList();
+                .map(this::mapToClassroomTypeDTO);
     }
 
-    @Override
     @Cacheable(value = "classroom-type-by-name", key = "#name")
-    public ClassroomTypeDTO getClassroomTypeByName(String name) {
+    public Mono<ClassroomTypeDTO> getClassroomTypeByName(String name) {
         log.debug("Looking up classroom type by name: {}", name);
         return classroomTypeRepository.findByName(name)
                 .map(this::mapToClassroomTypeDTO)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Classroom type not found: " + name));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Classroom type not found: " + name)));
     }
 
-    @Override
     @Cacheable(value = "classroom-type-id-to-name", key = "#id")
-    public String getClassroomTypeNameById(Long id) {
+    public Mono<String> getClassroomTypeNameById(Long id) {
         log.debug("Looking up classroom type name for ID: {}", id);
         return classroomTypeRepository.findById(id)
                 .map(ClassroomType::getName)
-                .orElseThrow(() -> new ParametricValueNotFoundException("Classroom type not found: " + id));
+                .switchIfEmpty(Mono.error(new ParametricValueNotFoundException("Classroom type not found: " + id)));
     }
 
-    @Override
     @Cacheable(value = "classroom-type-exists", key = "#name")
-    public boolean classroomTypeExists(String name) {
+    public Mono<Boolean> classroomTypeExists(String name) {
         return classroomTypeRepository.existsByName(name);
     }
 
-    @Override
-    @Cacheable(value = "classroom-type-name-to-id-map")
-    public Map<String, Long> getClassroomTypeNameToIdMap() {
-        log.debug("Building classroom type name to ID map");
-        return classroomTypeRepository.findAll()
-                .stream()
-                .collect(Collectors.toMap(ClassroomType::getName, ClassroomType::getId));
+    /* ---------------- MAPPERS ---------------- */
+
+    private StatusDTO mapToStatusDTO(Status s) {
+        return modelMapper.map(s, StatusDTO.class);
     }
 
-    private ClassroomTypeDTO mapToClassroomTypeDTO(ClassroomType classroomType) {
-        return ClassroomTypeDTO.builder()
-                .id(classroomType.getId())
-                .name(classroomType.getName())
-                .build();
+    private RoleDTO mapToRoleDTO(Role r) {
+        return modelMapper.map(r, RoleDTO.class);
+    }
+
+    private DocumentTypeDTO mapToDocumentTypeDTO(DocumentType d) {
+        return modelMapper.map(d, DocumentTypeDTO.class);
+    }
+
+    private EmploymentTypeDTO mapToEmploymentTypeDTO(EmploymentType e) {
+        return modelMapper.map(e, EmploymentTypeDTO.class);
+    }
+
+    private ModalityDTO mapToModalityDTO(Modality m) {
+        return modelMapper.map(m, ModalityDTO.class);
+    }
+
+    private ClassroomTypeDTO mapToClassroomTypeDTO(ClassroomType c) {
+        return modelMapper.map(c, ClassroomTypeDTO.class);
     }
 }

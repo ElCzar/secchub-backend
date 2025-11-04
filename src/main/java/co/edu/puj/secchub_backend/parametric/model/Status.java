@@ -1,7 +1,14 @@
 package co.edu.puj.secchub_backend.parametric.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity representing a status in the system.
@@ -9,35 +16,16 @@ import lombok.*;
  * academic requests, classes, and teacher assignments.
  * This is a parametric lookup table that contains predefined status values.
  */
-@Entity
-@Table(name = "status")
+@Table("status")
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Status {
-
-    /**
-     * Unique identifier for the status.
-     */
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    /**
-     * Name of the status.
-     * This field is unique and cannot be null.
-     * Examples: "ACTIVE", "INACTIVE", "PENDING", "APPROVED", "REJECTED"
-     */
-    @Column(name = "name", nullable = false, unique = true, length = 100)
+    
+    @Column("name")
     private String name;
-
-    @Override
-    public String toString() {
-        return "Status{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                '}';
-    }
 }

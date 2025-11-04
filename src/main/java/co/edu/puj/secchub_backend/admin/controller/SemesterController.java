@@ -74,6 +74,7 @@ public class SemesterController {
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<SemesterResponseDTO>>> getAllSemesters() {
         return semesterService.getAllSemesters()
+                .collectList()
                 .map(ResponseEntity::ok);
     }
 }

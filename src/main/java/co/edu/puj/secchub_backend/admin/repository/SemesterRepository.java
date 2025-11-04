@@ -1,11 +1,11 @@
 package co.edu.puj.secchub_backend.admin.repository;
 
-import java.util.Optional;
+import reactor.core.publisher.Mono;
 
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import co.edu.puj.secchub_backend.admin.model.Semester;
 
-public interface SemesterRepository extends JpaRepository<Semester, Long> {
-    Optional<Semester> findByIsCurrentTrue();
-    Optional<Semester> findByYearAndPeriod(Integer year, Integer period);
+public interface SemesterRepository extends R2dbcRepository<Semester, Long> {
+    Mono<Semester> findByIsCurrentTrue();
+    Mono<Semester> findByYearAndPeriod(Integer year, Integer period);
 }

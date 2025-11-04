@@ -1,7 +1,5 @@
 package co.edu.puj.secchub_backend.security.service;
 
-import java.util.List;
-
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -30,20 +28,25 @@ public class UserService implements SecurityModuleUserContract {
 
     @Override
     @Cacheable("user-id-by-email")
-    public Long getUserIdByEmail(String email) {
+    public Mono<Long> getUserIdByEmail(String email) {
         log.debug("Getting user id by email: {}", email);
+
         return userRepository.findByEmail(email)
                 .map(User::getId)
-                .orElseThrow(() -> new UserNotFoundException("User id not found for email: " + email));
+                .switchIfEmpty(Mono.error(new UserNotFoundException("User id not found for email: " + email)));
     }
 
     @Override
-    public Long createUser(UserCreationRequestDTO userCreationRequestDTO) {
+    public Mono<Long> createUser(UserCreationRequestDTO userCreationRequestDTO) {
         log.debug("Creating user with email: {}", userCreationRequestDTO.getEmail());
-        User user = modelMapper.map(userCreationRequestDTO, User.class);
-        user.setPassword(passwordEncoderService.encode(user.getPassword()));
-        User savedUser = userRepository.save(user);
-        return savedUser.getId();
+
+        return Mono.fromCallable(() -> {
+            User user = modelMapper.map(userCreationRequestDTO, User.class);
+            user.setPassword(passwordEncoderService.encode(user.getPassword()));
+            return user;
+        }).subscribeOn(Schedulers.boundedElastic())
+        .flatMap(userRepository::save)
+        .map(User::getId);
     }
 
     /**
@@ -51,11 +54,10 @@ public class UserService implements SecurityModuleUserContract {
      * @return List<UserInformationResponseDTO> with list of users details
      */
     public Flux<UserInformationResponseDTO> getAllUsersInformation() {
-        return Flux.defer(() -> {
-            List<User> users = userRepository.findAll();
-            return Flux.fromIterable(users)
-                    .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
-        });
+        log.debug("Getting all users information");
+
+        return userRepository.findAll()
+                .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
     }
 
     /**
@@ -64,43 +66,33 @@ public class UserService implements SecurityModuleUserContract {
      * @return UserInformationResponseDTO with user details
      */
     public Mono<UserInformationResponseDTO> getUserInformationById(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found for id: " + userId));
-        return Mono.just(modelMapper.map(user, UserInformationResponseDTO.class));
+        log.debug("Getting user information by userId: {}", userId);
+
+        return userRepository.findById(userId)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("User information not found for userId: " + userId)))
+                .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
     }
 
     @Override
     public Mono<UserInformationResponseDTO> getUserInformationByEmail(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User information not found for email: " + email));
+        log.debug("Getting user information by email: {}", email);
         
-        // Mapear del modelo User al DTO del contrato
-        UserInformationResponseDTO contractDTO = 
-            UserInformationResponseDTO.builder()
-                .id(user.getId())
-                .username(user.getUsername())
-                .faculty(user.getFaculty())
-                .name(user.getName())
-                .lastName(user.getLastName())
-                .email(user.getEmail())
-                .statusId(user.getStatusId())
-                .roleId(user.getRoleId())
-                .documentTypeId(user.getDocumentTypeId())
-                .documentNumber(user.getDocumentNumber())
-                .build();
-                
-        return Mono.just(contractDTO);
+        return userRepository.findByEmail(email)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("User information not found for email: " + email)))
+                .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
     }
 
     /**
-     * Gets the userInformation by email (internal version)
+     * Gets the userInformation by email (external version)
      * @param email the user email
      * @return UserInformationResponseDTO with user details
      */
-    public Mono<UserInformationResponseDTO> getUserInformationByEmailInternal(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User information internally not found for email: " + email));
-        return Mono.just(modelMapper.map(user, UserInformationResponseDTO.class));
+    public Mono<UserInformationResponseDTO> getUserInformationByEmailExternal(String email) {
+        log.debug("Getting user information by email (external): {}", email);
+
+        return userRepository.findByEmail(email)
+                .switchIfEmpty(Mono.error(new UserNotFoundException("User information externally not found for email: " + email)))
+                .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
     }
 
     /**
@@ -108,12 +100,15 @@ public class UserService implements SecurityModuleUserContract {
      * @return UserInformationResponseDTO with user details
      */
     public Mono<UserInformationResponseDTO> getUserInformation() {
+        log.debug("Getting logged-in user information");
+        
         return ReactiveSecurityContextHolder.getContext()
-                .flatMap(securityContext -> Mono.fromCallable(() ->{
-                    String authenticatedUserId = securityContext.getAuthentication().getName();
-                    User user = userRepository.findByEmail(authenticatedUserId)
-                            .orElseThrow(() -> new UserNotFoundException("User information not found for authenticated user: " + authenticatedUserId));
-                    return modelMapper.map(user, UserInformationResponseDTO.class);
-                }).subscribeOn(Schedulers.boundedElastic()));
+                .flatMap(securityContext -> {
+                    String authenticatedUserEmail = securityContext.getAuthentication().getName();
+                    return userRepository.findByEmail(authenticatedUserEmail)
+                            .switchIfEmpty(Mono.error(
+                                    new UserNotFoundException("User information not found for logged user with email: " + authenticatedUserEmail)))
+                            .map(user -> modelMapper.map(user, UserInformationResponseDTO.class));
+                });
     }
 }

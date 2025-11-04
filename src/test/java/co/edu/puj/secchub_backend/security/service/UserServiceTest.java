@@ -7,7 +7,6 @@ import static org.mockito.Mockito.*;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,6 +25,7 @@ import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import co.edu.puj.secchub_backend.security.exception.UserNotFoundException;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,19 +48,20 @@ class UserServiceTest {
     @DisplayName("getUserIdByEmail - When user exists returns id")
     void testGetUserIdByEmail_UserExists_ReturnsId() {
         User user = User.builder().id(42L).email("a@b.com").build();
-        when(userRepository.findByEmail("a@b.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("a@b.com")).thenReturn(Mono.just(user));
 
-        Long id = userService.getUserIdByEmail("a@b.com");
+        Mono<Long> id = userService.getUserIdByEmail("a@b.com");
 
-        assertEquals(42L, id);
+        assertEquals(42L, id.block());
         verify(userRepository).findByEmail("a@b.com");
     }
 
     @Test
     @DisplayName("getUserIdByEmail - When user not found throws UserNotFoundException")
     void testGetUserIdByEmail_UserNotFound_Throws() {
-        when(userRepository.findByEmail("missing@x.com")).thenReturn(Optional.empty());
-        assertThrows(UserNotFoundException.class, () -> userService.getUserIdByEmail("missing@x.com"));
+        when(userRepository.findByEmail("missing@x.com")).thenReturn(Mono.empty());
+        Mono<Long> idMono = userService.getUserIdByEmail("missing@x.com");
+        assertThrows(UserNotFoundException.class, idMono::block);
         verify(userRepository).findByEmail("missing@x.com");
     }
 
@@ -74,11 +75,11 @@ class UserServiceTest {
 
         when(modelMapper.map(req, User.class)).thenReturn(mapped);
         when(passwordEncoderService.encode("plain")).thenReturn("encoded");
-        when(userRepository.save(mapped)).thenReturn(saved);
+        when(userRepository.save(mapped)).thenReturn(Mono.just(saved));
 
-        Long resultId = userService.createUser(req);
+        Mono<Long> resultId = userService.createUser(req);
 
-        assertEquals(7L, resultId);
+        assertEquals(7L, resultId.block());
         verify(modelMapper).map(req, User.class);
         verify(passwordEncoderService).encode("plain");
         verify(userRepository).save(mapped);
@@ -94,7 +95,7 @@ class UserServiceTest {
         UserInformationResponseDTO dto1 = new UserInformationResponseDTO();
         UserInformationResponseDTO dto2 = new UserInformationResponseDTO();
 
-        when(userRepository.findAll()).thenReturn(users);
+        when(userRepository.findAll()).thenReturn(Flux.fromIterable(users));
         when(modelMapper.map(u1, UserInformationResponseDTO.class)).thenReturn(dto1);
         when(modelMapper.map(u2, UserInformationResponseDTO.class)).thenReturn(dto2);
 
@@ -113,7 +114,7 @@ class UserServiceTest {
         User user = User.builder().id(10L).email("x@y.com").build();
         UserInformationResponseDTO dto = new UserInformationResponseDTO();
 
-        when(userRepository.findById(10L)).thenReturn(Optional.of(user));
+        when(userRepository.findById(10L)).thenReturn(Mono.just(user));
         when(modelMapper.map(user, UserInformationResponseDTO.class)).thenReturn(dto);
 
         UserInformationResponseDTO result = userService.getUserInformationById(10L).block();
@@ -126,8 +127,9 @@ class UserServiceTest {
     @Test
     @DisplayName("getUserInformationById - When user not found throws UserNotFoundException")
     void testGetUserInformationById_UserNotFound_Throws() {
-        when(userRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(UserNotFoundException.class, () -> userService.getUserInformationById(99L));
+        when(userRepository.findById(99L)).thenReturn(Mono.empty());
+        Mono<UserInformationResponseDTO> dtoMono = userService.getUserInformationById(99L);
+        assertThrows(UserNotFoundException.class, dtoMono::block);
         verify(userRepository).findById(99L);
     }
 
@@ -147,7 +149,23 @@ class UserServiceTest {
                 .documentNumber("123")
                 .build();
 
-        when(userRepository.findByEmail("u@p.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("u@p.com")).thenReturn(Mono.just(user));
+        when(modelMapper.map(user, UserInformationResponseDTO.class))
+                .thenAnswer(invocation -> {
+                    User u = invocation.getArgument(0);
+                    UserInformationResponseDTO dto = new UserInformationResponseDTO();
+                    dto.setId(u.getId());
+                    dto.setUsername(u.getUsername());
+                    dto.setFaculty(u.getFaculty());
+                    dto.setName(u.getName());
+                    dto.setLastName(u.getLastName());
+                    dto.setEmail(u.getEmail());
+                    dto.setStatusId(u.getStatusId());
+                    dto.setRoleId(u.getRoleId());
+                    dto.setDocumentTypeId(u.getDocumentTypeId());
+                    dto.setDocumentNumber(u.getDocumentNumber());
+                    return dto;
+                });
 
         UserInformationResponseDTO contractDTO =
                 userService.getUserInformationByEmail("u@p.com").block();
@@ -160,15 +178,15 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("getUserInformationByEmailInternal - Should map using ModelMapper")
-    void testGetUserInformationByEmailInternal_ReturnsDTO() {
+    @DisplayName("getUserInformationByEmailExternal - Should map using ModelMapper")
+    void testGetUserInformationByEmailExternal_ReturnsDTO() {
         User user = User.builder().email("i@e.com").build();
         UserInformationResponseDTO dto = new UserInformationResponseDTO();
 
-        when(userRepository.findByEmail("i@e.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("i@e.com")).thenReturn(Mono.just(user));
         when(modelMapper.map(user, UserInformationResponseDTO.class)).thenReturn(dto);
 
-        UserInformationResponseDTO result = userService.getUserInformationByEmailInternal("i@e.com").block();
+        UserInformationResponseDTO result = userService.getUserInformationByEmailExternal("i@e.com").block();
 
         assertNotNull(result);
         verify(userRepository).findByEmail("i@e.com");
@@ -186,7 +204,7 @@ class UserServiceTest {
         User user = User.builder().email("me@x.com").build();
         UserInformationResponseDTO dto = new UserInformationResponseDTO();
 
-        when(userRepository.findByEmail("me@x.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmail("me@x.com")).thenReturn(Mono.just(user));
         when(modelMapper.map(user, UserInformationResponseDTO.class)).thenReturn(dto);
 
         try (MockedStatic<ReactiveSecurityContextHolder> mocked = mockStatic(ReactiveSecurityContextHolder.class)) {

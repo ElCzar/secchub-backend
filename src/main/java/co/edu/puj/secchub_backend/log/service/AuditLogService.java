@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
 
@@ -26,9 +25,8 @@ public class AuditLogService {
      * @return Flux of all audit logs
      */
     public Flux<AuditLogResponseDTO> getAllAuditLogs() {
-        return Flux.defer(() -> Flux.fromIterable(auditLogRepository.findAll()))
-                .map(this::mapToDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return auditLogRepository.findAll()
+                .map(this::mapToDTO);
     }
 
     /**
@@ -37,9 +35,8 @@ public class AuditLogService {
      * @return Flux of audit logs for the user
      */
     public Flux<AuditLogResponseDTO> getAuditLogsByEmail(String email) {
-        return Flux.defer(() -> Flux.fromIterable(auditLogRepository.findByEmail(email)))
-                .map(this::mapToDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return auditLogRepository.findByEmail(email)
+                .map(this::mapToDTO);
     }
 
     /**
@@ -48,9 +45,8 @@ public class AuditLogService {
      * @return Flux of audit logs for the action
      */
     public Flux<AuditLogResponseDTO> getAuditLogsByAction(String action) {
-        return Flux.defer(() -> Flux.fromIterable(auditLogRepository.findByAction(action.toUpperCase())))
-                .map(this::mapToDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return auditLogRepository.findByAction(action.toUpperCase())
+                .map(this::mapToDTO);
     }
 
     /**
@@ -60,9 +56,8 @@ public class AuditLogService {
      * @return Flux of audit logs within the range
      */
     public Flux<AuditLogResponseDTO> getAuditLogsByDateRange(LocalDateTime start, LocalDateTime end) {
-        return Flux.defer(() -> Flux.fromIterable(auditLogRepository.findByTimestampBetween(start, end)))
-                .map(this::mapToDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return auditLogRepository.findByTimestampBetween(start, end)
+                .map(this::mapToDTO);
     }
 
     /**
@@ -71,9 +66,8 @@ public class AuditLogService {
      * @return Flux of audit logs for the method
      */
     public Flux<AuditLogResponseDTO> getAuditLogsByMethodName(String methodName) {
-        return Flux.defer(() -> Flux.fromIterable(auditLogRepository.findByMethodName(methodName)))
-                .map(this::mapToDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return auditLogRepository.findByMethodName(methodName)
+                .map(this::mapToDTO);
     }
 
     /**
@@ -83,9 +77,8 @@ public class AuditLogService {
      * @return Flux of audit logs
      */
     public Flux<AuditLogResponseDTO> getAuditLogsByEmailAndAction(String email, String action) {
-        return Flux.defer(() -> Flux.fromIterable(auditLogRepository.findByEmailAndAction(email, action.toUpperCase())))
-                .map(this::mapToDTO)
-                .subscribeOn(Schedulers.boundedElastic());
+        return auditLogRepository.findByEmailAndAction(email, action.toUpperCase())
+                .map(this::mapToDTO);
     }
 
     /**

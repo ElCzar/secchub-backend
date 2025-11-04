@@ -1,7 +1,9 @@
 package co.edu.puj.secchub_backend.admin.service;
 
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
 import co.edu.puj.secchub_backend.admin.dto.SectionCreateRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
+import co.edu.puj.secchub_backend.admin.exception.SectionNotFoundException;
 import co.edu.puj.secchub_backend.admin.model.Section;
 import co.edu.puj.secchub_backend.admin.repository.SectionRepository;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
@@ -9,10 +11,10 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-
-import java.util.List;
 
 /**
  * Service for managing sections business logic.
@@ -20,33 +22,31 @@ import java.util.List;
  */
 @Service
 @RequiredArgsConstructor
-public class SectionService {
+public class SectionService implements AdminModuleSectionContract{
     
     private final ModelMapper modelMapper;
     private final SectionRepository sectionRepository;
-    private final SecurityModuleUserContract securityModuleUserContract;
+    private final SecurityModuleUserContract userService;
 
     /**
      * Creates a new section.
      * @param sectionCreateRequestDTO dto with section data
      * @return Created section
      */
-    public SectionResponseDTO createSection(SectionCreateRequestDTO sectionCreateRequestDTO) {
+    public Mono<SectionResponseDTO> createSection(SectionCreateRequestDTO sectionCreateRequestDTO) {
         Section section = modelMapper.map(sectionCreateRequestDTO, Section.class);
-        section.setPlanningClosed(false);
-        Section saved = sectionRepository.save(section);
-        return modelMapper.map(saved, SectionResponseDTO.class);
+        return sectionRepository.save(section)
+                .map(savedSection -> modelMapper.map(savedSection, SectionResponseDTO.class))
+                .subscribeOn(Schedulers.boundedElastic());
     }
 
     /**
      * Lists all existing sections.
      * @return List of sections
      */
-    public List<SectionResponseDTO> findAllSections() {
+    public Flux<SectionResponseDTO> findAllSections() {
         return sectionRepository.findAll()
-                .stream()
-                .map(section -> modelMapper.map(section, SectionResponseDTO.class))
-                .toList();
+                .map(section -> modelMapper.map(section, SectionResponseDTO.class));
     }
 
     /**
@@ -55,23 +55,20 @@ public class SectionService {
      * @return Section with the given ID
      */
     public Mono<SectionResponseDTO> findSectionById(Long sectionId) {
-        return Mono.fromCallable(() -> {
-            Section section = sectionRepository.findById(sectionId)
-                    .orElseThrow(() -> new RuntimeException("Section not found for consult: " + sectionId));
-            return modelMapper.map(section, SectionResponseDTO.class);
-        }).subscribeOn(Schedulers.boundedElastic());
+        return sectionRepository.findById(sectionId)
+                .switchIfEmpty(Mono.error(new SectionNotFoundException("Section not found with id: " + sectionId)))
+                .map(section -> modelMapper.map(section, SectionResponseDTO.class));
     }
 
     /**
-     * Lists sections by user ID.
+     * Mono sections by user ID.
      * @param userId User ID
-     * @return List of sections managed by the user
+     * @return Mono of sections managed by the user
      */
-    public List<SectionResponseDTO> findSectionsByUserId(Long userId) {
+    public Mono<SectionResponseDTO> findSectionsByUserId(Long userId) {
         return sectionRepository.findByUserId(userId)
-                .stream()
-                .map(section -> modelMapper.map(section, SectionResponseDTO.class))
-                .toList();
+                .switchIfEmpty(Mono.error(new SectionNotFoundException("Section not found for user id: " + userId)))
+                .map(section -> modelMapper.map(section, SectionResponseDTO.class));
     }
 
     /**
@@ -81,14 +78,15 @@ public class SectionService {
     public Mono<SectionResponseDTO> closePlanningForCurrentUser() {
         return ReactiveSecurityContextHolder.getContext()
                 .map(securityContext -> securityContext.getAuthentication().getName())
-                .flatMap(username -> Mono.fromCallable(() -> {
-                    Long userId = securityModuleUserContract.getUserIdByEmail(username);
-                    Section section = sectionRepository.findByUserId(userId)
-                            .orElseThrow(() -> new RuntimeException("Section not found for user: " + username));
-                    section.setPlanningClosed(true);
-                    Section updated = sectionRepository.save(section);
-                    return modelMapper.map(updated, SectionResponseDTO.class);
-                }).subscribeOn(Schedulers.boundedElastic()));
+                .flatMap(username ->
+                        userService.getUserIdByEmail(username)
+                                .flatMap(sectionRepository::findByUserId)
+                                .flatMap(section -> {
+                                    section.setPlanningClosed(true);
+                                    return sectionRepository.save(section);
+                                })
+                )
+                .map(updatedSection -> modelMapper.map(updatedSection, SectionResponseDTO.class));
     }
 
     /**
@@ -97,11 +95,12 @@ public class SectionService {
      * @return void
      */
     public void openPlanningForAllSections() {
-        List<Section> sections = sectionRepository.findAll();
-        for (Section section : sections) {
-            section.setPlanningClosed(false);
-        }
-        sectionRepository.saveAll(sections);
+        sectionRepository.findAll()
+                .flatMap(section -> {
+                    section.setPlanningClosed(false);
+                    return sectionRepository.save(section);
+                })
+                .subscribe();
     }
 
     /**
@@ -111,11 +110,21 @@ public class SectionService {
     public Mono<Boolean> isPlanningClosedForCurrentUser() {
         return ReactiveSecurityContextHolder.getContext()
                 .map(securityContext -> securityContext.getAuthentication().getName())
-                .flatMap(username -> Mono.fromCallable(() -> {
-                    Long userId = securityModuleUserContract.getUserIdByEmail(username);
-                    Section section = sectionRepository.findByUserId(userId)
-                            .orElseThrow(() -> new RuntimeException("Section not found for user: " + username));
-                    return section.isPlanningClosed();
-                }).subscribeOn(Schedulers.boundedElastic()));
+                .flatMap(username -> 
+                    userService.getUserIdByEmail(username)
+                        .flatMap(sectionRepository::findByUserId)
+                        .map(Section::isPlanningClosed)
+                );
+    }
+    
+    /**
+     * Implements method to get section ID by user ID.
+     * @param userId User ID
+     * @return Section ID
+     */
+    @Override
+    public Mono<Long> getSectionIdByUserId(Long userId) {
+        return sectionRepository.findByUserId(userId)
+                .map(Section::getId);
     }
 }

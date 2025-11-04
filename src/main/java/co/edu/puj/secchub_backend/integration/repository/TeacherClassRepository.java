@@ -1,30 +1,30 @@
 package co.edu.puj.secchub_backend.integration.repository;
 
 import co.edu.puj.secchub_backend.integration.model.TeacherClass;
-import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Repository for TeacherClass entity.
  * Provides access to class assignments of teachers for HU17.
  */
 @Repository
-public interface TeacherClassRepository extends JpaRepository<TeacherClass, Long> {
+public interface TeacherClassRepository extends R2dbcRepository<TeacherClass, Long> {
 
-    List<TeacherClass> findBySemesterId(Long semesterId);
+    Flux<TeacherClass> findBySemesterId(Long semesterId);
 
-    List<TeacherClass> findByTeacherId(Long teacherId);
+    Flux<TeacherClass> findByTeacherId(Long teacherId);
 
-    List<TeacherClass> findByStatusId(Long statusId);
+    Flux<TeacherClass> findByStatusId(Long statusId);
 
-    List<TeacherClass> findByClassId(Long classId);
+    Flux<TeacherClass> findByClassId(Long classId);
 
-    List<TeacherClass> findByTeacherIdAndStatusId(Long teacherId, Long statusId);
+    Flux<TeacherClass> findByTeacherIdAndStatusId(Long teacherId, Long statusId);
 
-    List<TeacherClass> findBySemesterIdAndTeacherId(Long semesterId, Long teacherId);
+    Flux<TeacherClass> findBySemesterIdAndTeacherId(Long semesterId, Long teacherId);
 
-    Optional<TeacherClass> findByTeacherIdAndClassId(Long teacherId, Long classId);
+    Mono<TeacherClass> findByTeacherIdAndClassId(Long teacherId, Long classId);
 }
