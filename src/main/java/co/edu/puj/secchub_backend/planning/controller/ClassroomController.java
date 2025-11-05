@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -63,11 +64,11 @@ public class ClassroomController {
      * @return Mono containing ResponseEntity with created classroom response DTO
      */
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Mono<ResponseEntity<ClassroomResponseDTO>> createClassroom(
+    public Mono<ClassroomResponseDTO> createClassroom(
             @RequestBody ClassroomRequestDTO classroomRequestDTO) {
-        return classroomService.createClassroom(classroomRequestDTO)
-                .map(createdClassroom -> ResponseEntity.status(HttpStatus.CREATED).body(createdClassroom));
+        return classroomService.createClassroom(classroomRequestDTO);
     }
 
     /**

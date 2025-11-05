@@ -36,7 +36,6 @@ import java.util.stream.Stream;
 @Testcontainers
 @DisplayName("Authentication Controller Integration Tests")
 class AuthenticationControllerIntegrationTest extends DatabaseContainerIntegration {
-/**
     @Autowired
     private WebTestClient webTestClient;
 
@@ -376,5 +375,4 @@ class AuthenticationControllerIntegrationTest extends DatabaseContainerIntegrati
                 .block();
         assertEquals(5L, userCount, "Should still have exactly 5 users");
     }
-*/
 }

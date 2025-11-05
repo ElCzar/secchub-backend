@@ -148,6 +148,10 @@ class StudentApplicationServiceTest {
      * @param sectionId if null, sets up ADMIN role; otherwise ROLE_SECTION with that section
      */
     private void setUpUserMocking(Long sectionId) {
+        // Close any existing mock to prevent leaks
+        if (mockedReactiveSecurityContextHolder != null) {
+            mockedReactiveSecurityContextHolder.close();
+        }
         SecurityContext securityContext = mock(SecurityContext.class);
         Authentication authentication;
 

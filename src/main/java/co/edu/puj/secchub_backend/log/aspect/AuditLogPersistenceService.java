@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -27,7 +25,6 @@ class AuditLogPersistenceService {
      * This ensures that audit logs are persisted even if the main transaction fails.
      */
     @Async
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveAuditLogAsync(String email, String action, String methodName) {
         try {
             AuditLog auditLog = AuditLog.builder()
@@ -37,12 +34,13 @@ class AuditLogPersistenceService {
                     .timestamp(LocalDateTime.now())
                     .build();
             
-            auditLogRepository.save(auditLog);
-            
-            log.debug("Audit log created: {} - {} - {}", action, methodName, email);
+            auditLogRepository.save(auditLog)
+                    .doOnSuccess(saved -> log.debug("Audit log created: {} - {} - {}", action, methodName, email))
+                    .doOnError(e -> log.error("Error saving audit log for method: {}", methodName, e))
+                    .subscribe();
             
         } catch (Exception e) {
-            log.error("Error saving audit log for method: {}", methodName, e);
+            log.error("Error creating audit log for method: {}", methodName, e);
         }
     }
 }

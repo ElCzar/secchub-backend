@@ -33,7 +33,6 @@ import reactor.core.publisher.Mono;
 @Testcontainers
 @DisplayName("User Controller Integration Tests")
 class UserControllerIntegrationTest extends DatabaseContainerIntegration {
-/**
     @Autowired
     private WebTestClient webTestClient;
 
@@ -360,5 +359,4 @@ class UserControllerIntegrationTest extends DatabaseContainerIntegration {
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
-*/
 }
