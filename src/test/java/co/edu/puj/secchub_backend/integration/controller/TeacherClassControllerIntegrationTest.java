@@ -123,6 +123,8 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
                 .fullTimeExtraHours(0)
                 .adjunctExtraHours(0)
                 .observation("Test assignment")
+                .startDate(java.time.LocalDate.of(2025, 1, 10))
+                .endDate(java.time.LocalDate.of(2025, 5, 10))
                 .build();
 
         webTestClient.post()
@@ -138,6 +140,8 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
                     assertEquals(1L, response.getTeacherId());
                     assertEquals(1L, response.getClassId());
                     assertEquals(4, response.getWorkHours());
+                    assertEquals(java.time.LocalDate.of(2025, 1, 10), response.getStartDate());
+                    assertEquals(java.time.LocalDate.of(2025, 5, 10), response.getEndDate());
                 });
     }
 
@@ -182,6 +186,10 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         assertFalse(assignments.isEmpty());
         // Verify all belong to current semester (ID 2)
         assertTrue(assignments.stream().allMatch(a -> a.getSemesterId().equals(2L)));
+        // Verify all have dates
+        assertTrue(assignments.stream().allMatch(a -> 
+            a.getStartDate() != null && a.getEndDate() != null),
+            "All assignments should have start and end dates");
     }
 
     @ParameterizedTest
@@ -247,6 +255,10 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         assertFalse(assignments.isEmpty());
         // Verify all belong to the teacher
         assertTrue(assignments.stream().allMatch(a -> a.getTeacherId().equals(teacherId)));
+        // Verify all have dates
+        assertTrue(assignments.stream().allMatch(a -> 
+            a.getStartDate() != null && a.getEndDate() != null),
+            "All assignments should have start and end dates");
     }
 
     // ==========================================
@@ -462,6 +474,245 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
                 .contentType(MediaType.APPLICATION_JSON)
                 .exchange()
                 .expectStatus().isForbidden();
+    }
+
+    // ==========================================
+    // GET By Teacher and Class ID Tests
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("teacherAdminUserRolesProvider")
+    @DisplayName("GET /teachers/{teacherId}/classes/{classId} - Should return specific teacher-class assignment")
+    void getTeacherClassByTeacherAndClass_withAuthorizedRole_shouldSucceed(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 1L;
+        Long classId = 1L;
+
+        TeacherClassResponseDTO response = webTestClient.get()
+                .uri("/teachers/{teacherId}/classes/{classId}", teacherId, classId)
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(response);
+        assertEquals(teacherId, response.getTeacherId());
+        assertEquals(classId, response.getClassId());
+        assertNotNull(response.getStartDate());
+        assertNotNull(response.getEndDate());
+    }
+
+    @ParameterizedTest
+    @MethodSource("teacherAdminUserRolesProvider")
+    @DisplayName("GET /teachers/{teacherId}/classes/{classId} - Should return 404 for non-existent combination")
+    void getTeacherClassByTeacherAndClass_nonExistent_shouldReturn404(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 999L; // Non-existent teacher
+        Long classId = 999L;   // Non-existent class
+
+        webTestClient.get()
+                .uri("/teachers/{teacherId}/classes/{classId}", teacherId, classId)
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isNotFound();
+    }
+
+    @Test
+    @DisplayName("GET /teachers/{teacherId}/classes/{classId} - Unauthorized without token")
+    void getTeacherClassByTeacherAndClass_withoutToken_shouldReturn401() {
+        webTestClient.get()
+                .uri("/teachers/{teacherId}/classes/{classId}", 1L, 1L)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("GET /teachers/{teacherId}/classes/{classId} - Should return dates correctly")
+    void getTeacherClassByTeacherAndClass_shouldIncludeDates() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        Long teacherId = 1L;
+        Long classId = 2L; // Accepted assignment with dates
+
+        TeacherClassResponseDTO response = webTestClient.get()
+                .uri("/teachers/{teacherId}/classes/{classId}", teacherId, classId)
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(response);
+        assertNotNull(response.getStartDate(), "Start date should not be null");
+        assertNotNull(response.getEndDate(), "End date should not be null");
+        assertTrue(response.getEndDate().isAfter(response.getStartDate()), 
+                "End date should be after start date");
+    }
+
+    // ==========================================
+    // PATCH Update Teaching Dates Tests
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("PATCH /teachers/classes/{teacherClassId}/dates - Admin/User can update dates")
+    void updateTeachingDates_asAdminOrUser_shouldSucceed(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherClassId = 2L; // Accepted assignment
+
+        TeacherClassRequestDTO request = TeacherClassRequestDTO.builder()
+                .startDate(java.time.LocalDate.of(2025, 2, 1))
+                .endDate(java.time.LocalDate.of(2025, 6, 1))
+                .build();
+
+        TeacherClassResponseDTO response = webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/dates", teacherClassId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(response);
+        assertEquals(teacherClassId, response.getId());
+        assertEquals(java.time.LocalDate.of(2025, 2, 1), response.getStartDate());
+        assertEquals(java.time.LocalDate.of(2025, 6, 1), response.getEndDate());
+    }
+
+    @Test
+    @DisplayName("PATCH /teachers/classes/{teacherClassId}/dates - Teacher cannot update dates")
+    void updateTeachingDates_asTeacher_shouldReturn403() {
+        String token = jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER");
+
+        TeacherClassRequestDTO request = TeacherClassRequestDTO.builder()
+                .startDate(java.time.LocalDate.of(2025, 2, 1))
+                .endDate(java.time.LocalDate.of(2025, 6, 1))
+                .build();
+
+        webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/dates", 2L)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("PATCH /teachers/classes/{teacherClassId}/dates - Unauthorized without token")
+    void updateTeachingDates_withoutToken_shouldReturn401() {
+        TeacherClassRequestDTO request = TeacherClassRequestDTO.builder()
+                .startDate(java.time.LocalDate.of(2025, 2, 1))
+                .endDate(java.time.LocalDate.of(2025, 6, 1))
+                .build();
+
+        webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/dates", 2L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("PATCH /teachers/classes/{teacherClassId}/dates - Should persist updated dates")
+    void updateTeachingDates_shouldPersist(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherClassId = 3L; // Rejected assignment
+
+        TeacherClassRequestDTO request = TeacherClassRequestDTO.builder()
+                .startDate(java.time.LocalDate.of(2025, 3, 1))
+                .endDate(java.time.LocalDate.of(2025, 7, 1))
+                .build();
+
+        // Update dates
+        webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/dates", teacherClassId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk();
+
+        // Verify dates were persisted by retrieving the assignment
+        Long teacherId = 1L;
+        Long classId = 3L;
+        
+        TeacherClassResponseDTO retrieved = webTestClient.get()
+                .uri("/teachers/{teacherId}/classes/{classId}", teacherId, classId)
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(retrieved);
+        assertEquals(java.time.LocalDate.of(2025, 3, 1), retrieved.getStartDate());
+        assertEquals(java.time.LocalDate.of(2025, 7, 1), retrieved.getEndDate());
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("PATCH /teachers/classes/{teacherClassId}/dates - Should update only startDate when endDate is null")
+    void updateTeachingDates_onlyStartDate_shouldSucceed(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherClassId = 4L;
+
+        TeacherClassRequestDTO request = TeacherClassRequestDTO.builder()
+                .startDate(java.time.LocalDate.of(2025, 2, 15))
+                .build();
+
+        TeacherClassResponseDTO response = webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/dates", teacherClassId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(response);
+        assertEquals(java.time.LocalDate.of(2025, 2, 15), response.getStartDate());
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("PATCH /teachers/classes/{teacherClassId}/dates - Should update only endDate when startDate is null")
+    void updateTeachingDates_onlyEndDate_shouldSucceed(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherClassId = 4L;
+
+        TeacherClassRequestDTO request = TeacherClassRequestDTO.builder()
+                .endDate(java.time.LocalDate.of(2025, 6, 15))
+                .build();
+
+        TeacherClassResponseDTO response = webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/dates", teacherClassId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(response);
+        assertEquals(java.time.LocalDate.of(2025, 6, 15), response.getEndDate());
     }
 
     // ==========================================

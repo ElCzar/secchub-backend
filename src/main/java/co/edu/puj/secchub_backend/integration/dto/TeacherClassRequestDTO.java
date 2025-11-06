@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.integration.dto;
 
+import java.time.LocalDate;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,4 +22,6 @@ public class TeacherClassRequestDTO {
     private Integer fullTimeExtraHours;
     private Integer adjunctExtraHours;
     private String observation;
+    private LocalDate startDate;
+    private LocalDate endDate;
 }

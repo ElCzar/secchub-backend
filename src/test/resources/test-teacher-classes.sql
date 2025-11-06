@@ -15,36 +15,36 @@
 -- 1. Pending Assignment - Data Structures
 -- ==================
 -- Purpose: New assignment awaiting teacher confirmation
-INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id)
-VALUES (1, 2, 1, 1, 4, 0, 0, NULL, NULL, 4);
+INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id, start_date, end_date)
+VALUES (1, 2, 1, 1, 4, 0, 0, NULL, NULL, 4, '2025-01-15', '2025-05-15');
 
 -- ==================
 -- 2. Accepted Assignment - Algorithms
 -- ==================
 -- Purpose: Assignment accepted by teacher
-INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id)
-VALUES (2, 2, 1, 2, 4, 0, 0, TRUE, 'Looking forward to teaching this course', 6);
+INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id, start_date, end_date)
+VALUES (2, 2, 1, 2, 4, 0, 0, TRUE, 'Looking forward to teaching this course', 6, '2025-01-20', '2025-05-20');
 
 -- ==================
 -- 3. Rejected Assignment - Database Systems
 -- ==================
 -- Purpose: Assignment rejected by teacher with reason
-INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id)
-VALUES (3, 2, 1, 3, 6, 0, 0, FALSE, 'Schedule conflict with research project', 7);
+INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id, start_date, end_date)
+VALUES (3, 2, 1, 3, 6, 0, 0, FALSE, 'Schedule conflict with research project', 7, '2025-01-25', '2025-05-25');
 
 -- ==================
 -- 4. Pending Assignment with Extra Hours - Operating Systems
 -- ==================
 -- Purpose: Assignment with additional hours compensation
-INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id)
-VALUES (4, 2, 1, 4, 4, 2, 0, NULL, NULL, 4);
+INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id, start_date, end_date)
+VALUES (4, 2, 1, 4, 4, 2, 0, NULL, NULL, 4, '2025-02-01', '2025-05-30');
 
 -- ==================
 -- 5. Previous Semester - Web Development (Accepted, Completed)
 -- ==================
 -- Purpose: Historical assignment for filtering tests
-INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id)
-VALUES (5, 1, 1, 5, 3, 0, 0, TRUE, 'Successfully completed', 6);
+INSERT INTO teacher_class (id, semester_id, teacher_id, class_id, work_hours, full_time_extra_hours, adjunct_extra_hours, decision, observation, status_id, start_date, end_date)
+VALUES (5, 1, 1, 5, 3, 0, 0, TRUE, 'Successfully completed', 6, '2024-08-15', '2024-12-15');
 
 -- ============================================
 -- Usage Notes:

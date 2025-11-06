@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.integration.dto;
 
+import java.time.LocalDate;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,6 +26,8 @@ public class TeacherClassResponseDTO {
     private Boolean decision;
     private String observation;
     private Long statusId;
+    private LocalDate startDate;
+    private LocalDate endDate;
     
     // Teacher information fields
     private String teacherName;

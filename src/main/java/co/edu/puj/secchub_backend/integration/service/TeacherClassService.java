@@ -14,6 +14,8 @@ import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDate;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -229,6 +231,56 @@ public class TeacherClassService {
                 }
                 log.error("Error deleting teacher class: {}", error.getMessage());
                 throw new TeacherClassServerErrorException("Failed to delete teacher class");
+            });
+    }
+
+    /**
+     * Gets a teacher-class assignment by teacher ID and class ID.
+     * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
+     * @param teacherId Teacher ID
+     * @param classId Class ID
+     * @return TeacherClassResponseDTO
+     */
+    public Mono<TeacherClassResponseDTO> getTeacherClassByTeacherAndClass(Long teacherId, Long classId) {
+        return repository.findByTeacherIdAndClassId(teacherId, classId)
+            .filterWhen(this::filterTeacherClass)
+            .switchIfEmpty(Mono.error(new TeacherClassNotFoundException(
+                "TeacherClass not found with teacherId: " + teacherId + " and classId: " + classId)))
+            .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            .onErrorMap(error -> {
+                if (error instanceof TeacherClassNotFoundException) {
+                    return error;
+                }
+                log.error("Error retrieving teacher class by teacher and class: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to retrieve teacher class by teacher and class");
+            });
+    }
+
+    /**
+     * Updates a teacher-class assignment dates
+     * @param teacherClassId Teacher-Class assignment ID
+     * @param startDate New start date
+     * @param endDate New end date
+     * @return Updated teacher-class assignment
+     */
+    public Mono<TeacherClassResponseDTO> updateTeachingDates(Long teacherClassId, LocalDate startDate, LocalDate endDate) {
+        return repository.findById(teacherClassId)
+            .filterWhen(this::filterTeacherClass)
+            .switchIfEmpty(Mono.error(new TeacherClassNotFoundException(
+                "TeacherClass not found for updating dates with id: " + teacherClassId)))
+            .flatMap(teacherClass -> {
+                teacherClass.setStartDate(startDate);
+                teacherClass.setEndDate(endDate);
+                return repository.save(teacherClass);
+            })
+            .map(saved -> modelMapper.map(saved, TeacherClassResponseDTO.class))
+            .as(transactionalOperator::transactional)
+            .onErrorMap(error -> {
+                if (error instanceof TeacherClassNotFoundException) {
+                    return error;
+                }
+                log.error("Error updating teaching dates: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to update teaching dates");
             });
     }
 

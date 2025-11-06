@@ -6,6 +6,7 @@ import static org.mockito.Mockito.*;
 
 import org.mockito.ArgumentMatchers;
 
+import java.time.LocalDate;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
@@ -87,6 +88,8 @@ class TeacherClassServiceTest {
                 .statusId(STATUS_PENDING_ID)
                 .decision(null)
                 .observation(null)
+                .startDate(LocalDate.of(2024, 1, 15))
+                .endDate(LocalDate.of(2024, 5, 30))
                 .build();
 
         testTeacherClassResponseDTO = TeacherClassResponseDTO.builder()
@@ -97,6 +100,8 @@ class TeacherClassServiceTest {
                 .statusId(STATUS_PENDING_ID)
                 .decision(null)
                 .observation(null)
+                .startDate(LocalDate.of(2024, 1, 15))
+                .endDate(LocalDate.of(2024, 5, 30))
                 .build();
 
         testTeacherClassRequestDTO = TeacherClassRequestDTO.builder()
@@ -798,4 +803,279 @@ class TeacherClassServiceTest {
         verify(classService).isClassInSection(100L, 2L);
         verify(repository, never()).deleteById(anyLong());
     }
+
+    // ==================== GET TEACHER CLASS BY TEACHER AND CLASS TESTS ====================
+
+    @ParameterizedTest(name = "getTeacherClassByTeacherAndClass - When user has section {0} returns class")
+    @MethodSource("userSectionProvider")
+    @DisplayName("getTeacherClassByTeacherAndClass - Should return class based on user section")
+    void testGetTeacherClassByTeacherAndClass_BasedOnUserSection_ReturnsClass(Long userSection) {
+        setUpUserMocking(userSection);
+
+        when(repository.findByTeacherIdAndClassId(10L, 100L)).thenReturn(Mono.just(testTeacherClass));
+        when(classService.isClassInSection(100L, userSection)).thenReturn(Mono.just(true));
+        when(modelMapper.map(testTeacherClass, TeacherClassResponseDTO.class)).thenReturn(testTeacherClassResponseDTO);
+
+        TeacherClassResponseDTO result = teacherClassService.getTeacherClassByTeacherAndClass(10L, 100L).block();
+
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals(10L, result.getTeacherId());
+        assertEquals(100L, result.getClassId());
+        assertEquals(LocalDate.of(2024, 1, 15), result.getStartDate());
+        assertEquals(LocalDate.of(2024, 5, 30), result.getEndDate());
+        verify(repository).findByTeacherIdAndClassId(10L, 100L);
+        verify(classService).isClassInSection(100L, userSection);
+    }
+
+    @Test
+    @DisplayName("getTeacherClassByTeacherAndClass - When teacher role returns their class")
+    void testGetTeacherClassByTeacherAndClass_TeacherRole_ReturnsTheirClass() {
+        setUpTeacherMocking(10L);
+
+        when(repository.findByTeacherIdAndClassId(10L, 100L)).thenReturn(Mono.just(testTeacherClass));
+        when(modelMapper.map(testTeacherClass, TeacherClassResponseDTO.class)).thenReturn(testTeacherClassResponseDTO);
+
+        TeacherClassResponseDTO result = teacherClassService.getTeacherClassByTeacherAndClass(10L, 100L).block();
+
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals(10L, result.getTeacherId());
+        assertEquals(100L, result.getClassId());
+        verify(userService).getUserIdByEmail("teacher@test.com");
+        verify(teacherService).getTeacherIdByUserId(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherClassByTeacherAndClass - When teacher role tries to get other teacher class throws exception")
+    void testGetTeacherClassByTeacherAndClass_TeacherRole_OtherTeacherClass_ThrowsException() {
+        setUpTeacherMocking(99L); // Different teacher ID
+
+        when(repository.findByTeacherIdAndClassId(10L, 100L)).thenReturn(Mono.just(testTeacherClass)); // teacherId = 10L
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.getTeacherClassByTeacherAndClass(10L, 100L);
+
+        assertThrows(TeacherClassNotFoundException.class, result::block);
+        verify(userService).getUserIdByEmail("teacher@test.com");
+        verify(teacherService).getTeacherIdByUserId(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherClassByTeacherAndClass - When teacher class not found throws TeacherClassNotFoundException")
+    void testGetTeacherClassByTeacherAndClass_NotFound_ThrowsException() {
+        when(repository.findByTeacherIdAndClassId(10L, 999L)).thenReturn(Mono.empty());
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.getTeacherClassByTeacherAndClass(10L, 999L);
+
+        assertThrows(TeacherClassNotFoundException.class, result::block);
+        verify(repository).findByTeacherIdAndClassId(10L, 999L);
+    }
+
+    @Test
+    @DisplayName("getTeacherClassByTeacherAndClass - When section user tries to get different section class throws exception")
+    void testGetTeacherClassByTeacherAndClass_DifferentSection_ThrowsException() {
+        setUpUserMocking(2L); // Section 2
+
+        when(repository.findByTeacherIdAndClassId(10L, 100L)).thenReturn(Mono.just(testTeacherClass));
+        when(classService.isClassInSection(100L, 2L)).thenReturn(Mono.just(false)); // Class not in section 2
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.getTeacherClassByTeacherAndClass(10L, 100L);
+
+        assertThrows(TeacherClassNotFoundException.class, result::block);
+        verify(repository).findByTeacherIdAndClassId(10L, 100L);
+        verify(classService).isClassInSection(100L, 2L);
+    }
+
+    @Test
+    @DisplayName("getTeacherClassByTeacherAndClass - When repository error throws TeacherClassServerErrorException")
+    void testGetTeacherClassByTeacherAndClass_RepositoryError_ThrowsException() {
+        when(repository.findByTeacherIdAndClassId(10L, 100L)).thenReturn(Mono.error(new RuntimeException("Database error")));
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.getTeacherClassByTeacherAndClass(10L, 100L);
+
+        assertThrows(TeacherClassServerErrorException.class, result::block);
+        verify(repository).findByTeacherIdAndClassId(10L, 100L);
+    }
+
+    // ==================== UPDATE TEACHING DATES TESTS ====================
+
+    @ParameterizedTest(name = "updateTeachingDates - When user has section {0} updates dates successfully")
+    @MethodSource("userSectionProvider")
+    @DisplayName("updateTeachingDates - Should update dates based on user section")
+    void testUpdateTeachingDates_BasedOnUserSection_UpdatesSuccessfully(Long userSection) {
+        setUpUserMocking(userSection);
+
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        TeacherClass updatedTeacherClass = TeacherClass.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .observation(null)
+                .startDate(newStartDate)
+                .endDate(newEndDate)
+                .build();
+
+        TeacherClassResponseDTO updatedDTO = TeacherClassResponseDTO.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .observation(null)
+                .startDate(newStartDate)
+                .endDate(newEndDate)
+                .build();
+
+        when(repository.findById(1L)).thenReturn(Mono.just(testTeacherClass));
+        when(classService.isClassInSection(100L, userSection)).thenReturn(Mono.just(true));
+        when(repository.save(any(TeacherClass.class))).thenReturn(Mono.just(updatedTeacherClass));
+        when(modelMapper.map(updatedTeacherClass, TeacherClassResponseDTO.class)).thenReturn(updatedDTO);
+
+        TeacherClassResponseDTO result = teacherClassService.updateTeachingDates(1L, newStartDate, newEndDate).block();
+
+        assertNotNull(result);
+        assertEquals(newStartDate, result.getStartDate());
+        assertEquals(newEndDate, result.getEndDate());
+        verify(repository).findById(1L);
+        verify(repository).save(any(TeacherClass.class));
+        verify(classService).isClassInSection(100L, userSection);
+    }
+
+    @Test
+    @DisplayName("updateTeachingDates - When teacher role updates their class dates successfully")
+    void testUpdateTeachingDates_TeacherRole_UpdatesSuccessfully() {
+        setUpTeacherMocking(10L);
+
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        TeacherClass updatedTeacherClass = TeacherClass.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .observation(null)
+                .startDate(newStartDate)
+                .endDate(newEndDate)
+                .build();
+
+        TeacherClassResponseDTO updatedDTO = TeacherClassResponseDTO.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .observation(null)
+                .startDate(newStartDate)
+                .endDate(newEndDate)
+                .build();
+
+        when(repository.findById(1L)).thenReturn(Mono.just(testTeacherClass));
+        when(repository.save(any(TeacherClass.class))).thenReturn(Mono.just(updatedTeacherClass));
+        when(modelMapper.map(updatedTeacherClass, TeacherClassResponseDTO.class)).thenReturn(updatedDTO);
+
+        TeacherClassResponseDTO result = teacherClassService.updateTeachingDates(1L, newStartDate, newEndDate).block();
+
+        assertNotNull(result);
+        assertEquals(newStartDate, result.getStartDate());
+        assertEquals(newEndDate, result.getEndDate());
+        verify(userService).getUserIdByEmail("teacher@test.com");
+        verify(teacherService).getTeacherIdByUserId(100L);
+        verify(repository).save(any(TeacherClass.class));
+    }
+
+    @Test
+    @DisplayName("updateTeachingDates - When teacher role tries to update other teacher class throws exception")
+    void testUpdateTeachingDates_TeacherRole_OtherTeacherClass_ThrowsException() {
+        setUpTeacherMocking(99L); // Different teacher ID
+
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        when(repository.findById(1L)).thenReturn(Mono.just(testTeacherClass)); // teacherId = 10L
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.updateTeachingDates(1L, newStartDate, newEndDate);
+
+        assertThrows(TeacherClassNotFoundException.class, result::block);
+        verify(userService).getUserIdByEmail("teacher@test.com");
+        verify(teacherService).getTeacherIdByUserId(100L);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateTeachingDates - When teacher class not found throws TeacherClassNotFoundException")
+    void testUpdateTeachingDates_NotFound_ThrowsException() {
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        when(repository.findById(99L)).thenReturn(Mono.empty());
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.updateTeachingDates(99L, newStartDate, newEndDate);
+
+        assertThrows(TeacherClassNotFoundException.class, result::block);
+        verify(repository).findById(99L);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateTeachingDates - When section user tries to update different section class throws exception")
+    void testUpdateTeachingDates_DifferentSection_ThrowsException() {
+        setUpUserMocking(2L); // Section 2
+
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        when(repository.findById(1L)).thenReturn(Mono.just(testTeacherClass));
+        when(classService.isClassInSection(100L, 2L)).thenReturn(Mono.just(false)); // Class not in section 2
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.updateTeachingDates(1L, newStartDate, newEndDate);
+
+        assertThrows(TeacherClassNotFoundException.class, result::block);
+        verify(repository).findById(1L);
+        verify(classService).isClassInSection(100L, 2L);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateTeachingDates - When repository error throws TeacherClassServerErrorException")
+    void testUpdateTeachingDates_RepositoryError_ThrowsException() {
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        when(repository.findById(1L)).thenReturn(Mono.error(new RuntimeException("Database error")));
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.updateTeachingDates(1L, newStartDate, newEndDate);
+
+        assertThrows(TeacherClassServerErrorException.class, result::block);
+        verify(repository).findById(1L);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateTeachingDates - When save operation fails throws TeacherClassServerErrorException")
+    void testUpdateTeachingDates_SaveFails_ThrowsException() {
+        setUpTeacherMocking(10L);
+
+        LocalDate newStartDate = LocalDate.of(2024, 2, 1);
+        LocalDate newEndDate = LocalDate.of(2024, 6, 15);
+
+        when(repository.findById(1L)).thenReturn(Mono.just(testTeacherClass));
+        when(repository.save(any(TeacherClass.class))).thenReturn(Mono.error(new RuntimeException("Save failed")));
+
+        Mono<TeacherClassResponseDTO> result = teacherClassService.updateTeachingDates(1L, newStartDate, newEndDate);
+
+        assertThrows(TeacherClassServerErrorException.class, result::block);
+        verify(repository).findById(1L);
+        verify(repository).save(any(TeacherClass.class));
+    }
 }
+

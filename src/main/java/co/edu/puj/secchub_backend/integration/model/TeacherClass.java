@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.integration.model;
 
+import java.time.LocalDate;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
@@ -50,4 +52,10 @@ public class TeacherClass {
     
     @Column("status_id")
     private Long statusId;
+
+    @Column("start_date")
+    private LocalDate startDate;
+
+    @Column("end_date")
+    private LocalDate endDate;
 }
