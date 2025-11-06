@@ -4,8 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.sql.Time;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
 
 import org.junit.jupiter.api.AfterEach;
@@ -109,8 +109,8 @@ class StudentApplicationServiceTest {
                 .id(1L)
                 .studentApplicationId(1L)
                 .day("Monday")
-                .startTime(Time.valueOf("08:00:00"))
-                .endTime(Time.valueOf("10:00:00"))
+                .startTime(LocalTime.parse("08:00:00"))
+                .endTime(LocalTime.parse("10:00:00"))
                 .build();
 
         testStudentApplicationRequestDTO = StudentApplicationRequestDTO.builder()
@@ -217,7 +217,7 @@ class StudentApplicationServiceTest {
         when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
         when(modelMapper.map(testStudentApplicationRequestDTO, StudentApplication.class)).thenReturn(mappedApplication);
         when(userService.getUserIdByEmail("student@test.com")).thenReturn(Mono.just(100L));
-        when(studentApplicationRepository.findByUserIdAndSemesterId(100L, 1L)).thenReturn(Mono.empty());
+        when(studentApplicationRepository.findByUserIdAndSemesterId(100L, 1L)).thenReturn(Flux.empty());
         when(studentApplicationRepository.save(any(StudentApplication.class))).thenReturn(Mono.just(savedApplication));
         when(requestScheduleRepository.saveAll(anyList())).thenReturn(Flux.just(testSchedule));
         when(requestScheduleRepository.findByStudentApplicationId(1L)).thenReturn(Flux.just(testSchedule));
@@ -272,7 +272,7 @@ class StudentApplicationServiceTest {
         when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
         when(modelMapper.map(requestWithoutSchedules, StudentApplication.class)).thenReturn(mappedApplication);
         when(userService.getUserIdByEmail("student@test.com")).thenReturn(Mono.just(100L));
-        when(studentApplicationRepository.findByUserIdAndSemesterId(100L, 1L)).thenReturn(Mono.empty());
+        when(studentApplicationRepository.findByUserIdAndSemesterId(100L, 1L)).thenReturn(Flux.empty());
         when(studentApplicationRepository.save(any(StudentApplication.class))).thenReturn(Mono.just(savedApplication));
         when(requestScheduleRepository.findByStudentApplicationId(1L)).thenReturn(Flux.empty());
 
@@ -299,7 +299,7 @@ class StudentApplicationServiceTest {
         mockedReactiveSecurityContextHolder.when(ReactiveSecurityContextHolder::getContext)
                 .thenReturn(Mono.just(securityContext));
 
-        StudentApplicationResponseDTO resultApplicationResponseDTO = StudentApplicationResponseDTO.builder()
+        StudentApplication resultApplicationResponseDTO = StudentApplication.builder()
                 .id(2L)
                 .userId(100L)
                 .courseId(10L)
@@ -317,7 +317,7 @@ class StudentApplicationServiceTest {
         when(modelMapper.map(testStudentApplicationRequestDTO, StudentApplication.class)).thenReturn(newStudentApplication);
         when(userService.getUserIdByEmail("student@test.com")).thenReturn(Mono.just(100L));
         when(studentApplicationRepository.findByUserIdAndSemesterId(100L, 1L))
-                .thenReturn(Mono.just(resultApplicationResponseDTO));
+                .thenReturn(Flux.just(resultApplicationResponseDTO));
         when(modelMapper.map(testStudentApplicationRequestDTO, StudentApplication.class)).thenReturn(newStudentApplication);
 
         Mono<StudentApplicationResponseDTO> result = studentApplicationService.createStudentApplication(testStudentApplicationRequestDTO);

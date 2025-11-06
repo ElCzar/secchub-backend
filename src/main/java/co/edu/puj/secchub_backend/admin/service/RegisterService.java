@@ -86,12 +86,18 @@ public class RegisterService {
      * @return Created user ID
      */
     public Mono<TeacherResponseDTO> registerTeacher(TeacherRegisterRequestDTO teacherRegisterRequestDTO) {
+        log.debug("Registering teacher with email: {}", teacherRegisterRequestDTO.getUser().getEmail());
         return createUserInSecurityModule(teacherRegisterRequestDTO.getUser(), ROLE_TEACHER)
+            .doOnSuccess(userId -> log.debug("Created user with ID: {}", userId))
             .flatMap(userId -> {
                 TeacherCreateRequestDTO teacherCreateRequestDTO = modelMapper.map(teacherRegisterRequestDTO, TeacherCreateRequestDTO.class);
                 teacherCreateRequestDTO.setUserId(userId);
+                log.debug("Creating teacher profile for userId: {}", userId);
                 return teacherService.createTeacher(teacherCreateRequestDTO);
-            });
+            })
+            .doOnSuccess(response -> log.debug("Teacher registration completed. Teacher ID: {}, User ID: {}", 
+                                                response.getId(), response.getUserId()))
+            .doOnError(error -> log.error("Error during teacher registration", error));
     }
 
     /**
@@ -100,10 +106,17 @@ public class RegisterService {
      * @return Created section ID
      */
     public Mono<SectionResponseDTO> registerSection(SectionRegisterRequestDTO sectionRegisterRequestDTO) {
+        log.debug("Registering section with name: {}", sectionRegisterRequestDTO.getName());
         return createUserInSecurityModule(sectionRegisterRequestDTO.getUser(), ROLE_USER)
-            .flatMap(teacher -> {
+            .doOnSuccess(userId -> log.debug("Created user with ID: {}", userId))
+            .flatMap(userId -> {
                 SectionCreateRequestDTO sectionCreateRequestDTO = modelMapper.map(sectionRegisterRequestDTO, SectionCreateRequestDTO.class);
+                sectionCreateRequestDTO.setUserId(userId);
+                log.debug("Creating section for userId: {}", userId);
                 return sectionService.createSection(sectionCreateRequestDTO);
-            });
+            })
+            .doOnSuccess(response -> log.debug("Section registration completed. Section ID: {}, User ID: {}", 
+                                                response.getId(), response.getUserId()))
+            .doOnError(error -> log.error("Error during section registration", error));
     }
 }

@@ -95,7 +95,7 @@ public class PlanningController {
      * @return Empty response with no content code 204
      */
     @DeleteMapping("/classes/{classId}")
-    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER') or hasRole('ROLE_TEACHER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> deleteClass(@PathVariable Long classId) {
         return planningService.deleteClass(classId)
                 .then(Mono.just(ResponseEntity.noContent().<Void>build()));

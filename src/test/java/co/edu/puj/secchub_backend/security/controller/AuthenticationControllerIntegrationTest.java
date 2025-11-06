@@ -1,11 +1,13 @@
 package co.edu.puj.secchub_backend.security.controller;
 
 import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
-import co.edu.puj.secchub_backend.SqlScriptExecutor;
+import co.edu.puj.secchub_backend.R2dbcTestUtils;
 import co.edu.puj.secchub_backend.security.dto.AuthTokenResponseDTO;
 import co.edu.puj.secchub_backend.security.dto.LoginRequestDTO;
 import co.edu.puj.secchub_backend.security.dto.RefreshTokenRequestDTO;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
+import io.r2dbc.spi.ConnectionFactory;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -45,18 +47,22 @@ class AuthenticationControllerIntegrationTest extends DatabaseContainerIntegrati
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    private SqlScriptExecutor sqlScriptExecutor;
+    @Autowired
+    private ConnectionFactory connectionFactory;
 
     @BeforeEach
     void setUp() {
-        sqlScriptExecutor = new SqlScriptExecutor(databaseClient);
-        sqlScriptExecutor.executeSqlScript("/test-cleanup.sql");
-        sqlScriptExecutor.executeSqlScript("/test-users.sql");
+        R2dbcTestUtils.executeScripts(connectionFactory,
+                "/test-cleanup.sql",
+                "/test-users.sql"
+        );
     }
 
     @AfterEach
     void tearDown() {
-        sqlScriptExecutor.executeSqlScript("/test-cleanup.sql");
+        R2dbcTestUtils.executeScripts(connectionFactory,
+                "/test-cleanup.sql"
+        );
     }
 
     // ==========================================

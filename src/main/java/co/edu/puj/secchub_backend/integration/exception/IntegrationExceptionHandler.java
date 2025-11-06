@@ -124,21 +124,6 @@ public class IntegrationExceptionHandler {
     }
 
     /**
-     * Manages generic exceptions and returns a 500 error with details.
-     * @param ex Generic exception
-     * @return HTTP response with error information
-     */
-    @ExceptionHandler(Exception.class)
-    public Mono<ResponseEntity<Object>> handleGeneric(Exception ex) {
-        log.error("Unexpected exception occurred", ex);
-        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                TIMESTAMP_KEY, Instant.now().toString(),
-                ERROR_KEY, GENERIC_ERROR_MESSAGE,
-                MESSAGE_KEY, ex.getMessage()
-        )));
-    }
-
-    /**
      * Manages academic request bad request exceptions and returns a 400 error with details.
      * @param ex Academic request bad request exception
      * @return HTTP response with error information

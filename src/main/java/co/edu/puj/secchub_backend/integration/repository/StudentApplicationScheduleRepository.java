@@ -10,6 +10,6 @@ import reactor.core.publisher.Flux;
 
 public interface StudentApplicationScheduleRepository extends R2dbcRepository<StudentApplicationSchedule, Long> {
     
-    @Query("SELECT s FROM StudentApplicationSchedule s WHERE s.studentApplication.id = :studentApplicationId")
+    @Query("SELECT * FROM student_application_schedule WHERE student_application_id = :studentApplicationId")
     Flux<StudentApplicationSchedule> findByStudentApplicationId(@Param("studentApplicationId") Long studentApplicationId);
 }

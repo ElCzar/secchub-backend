@@ -32,6 +32,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -71,6 +72,8 @@ public class AcademicRequestService {
                     academicRequest.setUserId(userId);
                     academicRequest.setSemesterId(currentSemesterId);
                     academicRequest.setRequestDate(LocalDate.now());
+                    academicRequest.setAccepted(false);
+                    academicRequest.setCombined(false);
 
                     return academicRequestRepository.save(academicRequest)
                         .flatMap(savedRequest -> {
@@ -198,6 +201,8 @@ public class AcademicRequestService {
             .flatMap(request -> {
                 RequestSchedule schedule = modelMapper.map(requestScheduleRequestDTO, RequestSchedule.class);
                 schedule.setAcademicRequestId(requestId);
+                schedule.setStartTime(LocalTime.parse(requestScheduleRequestDTO.getStartTime()));
+                schedule.setEndTime(LocalTime.parse(requestScheduleRequestDTO.getEndTime()));
                 return requestScheduleRepository.save(schedule);
             })
             .map(savedSchedule -> modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class))
@@ -241,6 +246,8 @@ public class AcademicRequestService {
             .flatMap(schedule -> {
                 modelMapper.getConfiguration().setPropertyCondition(context -> context.getSource() != null);
                 modelMapper.map(requestScheduleRequestDTO, schedule);
+                schedule.setStartTime(LocalTime.parse(requestScheduleRequestDTO.getStartTime()));
+                schedule.setEndTime(LocalTime.parse(requestScheduleRequestDTO.getEndTime()));
                 return requestScheduleRepository.save(schedule);
             })
             .map(savedSchedule -> modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class))
@@ -296,6 +303,13 @@ public class AcademicRequestService {
                     }
                 });
                 modelMapper.map(updateDTO, schedule);
+                if (updateDTO.getStartTime() != null) {
+                    schedule.setStartTime(LocalTime.parse(updateDTO.getStartTime()));
+                }
+
+                if (updateDTO.getEndTime() != null) {
+                    schedule.setEndTime(LocalTime.parse(updateDTO.getEndTime()));
+                }
                 return requestScheduleRepository.save(schedule);
             })
             .map(savedSchedule -> modelMapper.map(savedSchedule, RequestScheduleResponseDTO.class))

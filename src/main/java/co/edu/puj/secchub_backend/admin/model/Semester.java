@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.admin.model;
 
+import java.time.LocalDate;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
@@ -34,8 +36,8 @@ public class Semester {
     private Boolean isCurrent;
 
     @Column("start_date")
-    private String startDate;
+    private LocalDate startDate;
 
     @Column("end_date")
-    private String endDate;
+    private LocalDate endDate;
 }

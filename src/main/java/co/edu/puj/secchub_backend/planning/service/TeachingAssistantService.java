@@ -22,7 +22,6 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.sql.Time;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -297,13 +296,12 @@ public class TeachingAssistantService {
      * @return java.sql.Time object or null if timeString is null/empty
      * @throws IllegalArgumentException if the time string format is invalid
      */
-    private Time parseTimeString(String timeString) {
+    private LocalTime parseTimeString(String timeString) {
         if (timeString == null || timeString.trim().isEmpty()) {
             return null;
         }
         try {
-            LocalTime localTime = LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HH:mm:ss"));
-            return Time.valueOf(localTime);
+            return LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HH:mm:ss"));
         } catch (DateTimeParseException e) {
             throw new IllegalArgumentException("Invalid time format: '" + timeString + "'. Expected format: HH:mm:ss", e);
         }

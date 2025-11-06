@@ -1,6 +1,6 @@
 package co.edu.puj.secchub_backend.integration.model;
 
-import java.sql.Time;
+import java.time.LocalTime;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -31,10 +31,10 @@ public class StudentApplicationSchedule {
     private String day;
 
     @Column("start_time")
-    private Time startTime;
+    private LocalTime startTime;
 
     @Column("end_time")
-    private Time endTime;
+    private LocalTime endTime;
 
     @Column("student_application_id")
     private Long studentApplicationId;

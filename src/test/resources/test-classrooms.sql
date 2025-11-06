@@ -11,6 +11,7 @@
 -- ============================================
 
 INSERT INTO classroom (
+    id,                 -- Primary key (auto-incremented)
     classroom_type_id,  -- FK to classroom_type table
     campus,             -- Campus name/location
     location,           -- Building and floor details
@@ -23,6 +24,7 @@ INSERT INTO classroom (
 -- Purpose: Standard lecture rooms for regular classes
 -- Use in tests: Basic CRUD operations, list all classrooms
 (
+    1,
     1,                  -- Aula type
     'Campus Central',
     'Edificio A - Piso 1',
@@ -30,6 +32,7 @@ INSERT INTO classroom (
     30
 ),
 (
+    2,
     1,                  -- Aula type
     'Campus Central',
     'Edificio A - Piso 2',
@@ -37,6 +40,7 @@ INSERT INTO classroom (
     40
 ),
 (
+    3,
     1,                  -- Aula type
     'Campus Norte',
     'Edificio B - Piso 1',
@@ -44,6 +48,7 @@ INSERT INTO classroom (
     35
 ),
 (
+    4,
     1,                  -- Aula type
     'Campus Sur',
     'Edificio C - Piso 3',
@@ -57,6 +62,7 @@ INSERT INTO classroom (
 -- Purpose: Science and computer labs with specialized equipment
 -- Use in tests: Filter by type, capacity constraints
 (
+    5,
     2,                  -- Laboratorio type
     'Campus Central',
     'Edificio de Ciencias - Piso 2',
@@ -64,6 +70,7 @@ INSERT INTO classroom (
     25
 ),
 (
+    6,
     2,                  -- Laboratorio type
     'Campus Sur',
     'Edificio de Computación - Piso 1',
@@ -71,6 +78,7 @@ INSERT INTO classroom (
     30
 ),
 (
+    7,
     2,                  -- Laboratorio type
     'Campus Sur',
     'Edificio de Computación - Piso 2',
@@ -78,6 +86,7 @@ INSERT INTO classroom (
     28
 ),
 (
+    8,
     2,                  -- Laboratorio type
     'Campus Oeste',
     'Edificio de Investigación - Piso 3',
@@ -91,6 +100,7 @@ INSERT INTO classroom (
 -- Purpose: Flexible classrooms that can be adapted for different purposes
 -- Use in tests: Special room type handling, update operations
 (
+    9,
     3,                  -- Aula Movil type
     'Campus Central',
     'Módulo Temporal - Zona A',
@@ -98,6 +108,7 @@ INSERT INTO classroom (
     25
 ),
 (
+    10,
     3,                  -- Aula Movil type
     'Campus Norte',
     'Módulo Temporal - Zona B',
@@ -105,6 +116,7 @@ INSERT INTO classroom (
     22
 ),
 (
+    11,
     3,                  -- Aula Movil type
     'Campus Este',
     'Edificio Polivalente - Piso 1',
@@ -118,6 +130,7 @@ INSERT INTO classroom (
 -- Purpose: Large capacity venues for conferences and major lectures
 -- Use in tests: Large capacity queries, special venue handling
 (
+    12,
     4,                  -- Auditorio type
     'Campus Central',
     'Centro de Conferencias',
@@ -125,6 +138,7 @@ INSERT INTO classroom (
     200
 ),
 (
+    13,
     4,                  -- Auditorio type
     'Campus Norte',
     'Sala de Eventos',
@@ -132,6 +146,7 @@ INSERT INTO classroom (
     150
 ),
 (
+    14,
     4,                  -- Auditorio type
     'Campus Sur',
     'Teatro Universitario',
@@ -145,6 +160,7 @@ INSERT INTO classroom (
 -- Purpose: Various scenarios for comprehensive testing
 -- Use in tests: Edge cases, delete operations, campus filters
 (
+    15,
     1,                  -- Aula type
     'Campus Oeste',
     'Edificio D - Piso 1',
@@ -152,6 +168,7 @@ INSERT INTO classroom (
     38
 ),
 (
+    16,
     2,                  -- Laboratorio type
     'Campus Central',
     'Edificio de Ingeniería - Piso 2',

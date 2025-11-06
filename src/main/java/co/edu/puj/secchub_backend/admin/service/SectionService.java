@@ -8,6 +8,8 @@ import co.edu.puj.secchub_backend.admin.model.Section;
 import co.edu.puj.secchub_backend.admin.repository.SectionRepository;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.modelmapper.ModelMapper;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -21,6 +23,7 @@ import reactor.core.scheduler.Schedulers;
  * Handles operations for creating, querying, updating sections.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class SectionService implements AdminModuleSectionContract{
     
@@ -34,9 +37,19 @@ public class SectionService implements AdminModuleSectionContract{
      * @return Created section
      */
     public Mono<SectionResponseDTO> createSection(SectionCreateRequestDTO sectionCreateRequestDTO) {
+        log.debug("Creating section with name: {}, userId: {}", 
+                    sectionCreateRequestDTO.getName(), 
+                    sectionCreateRequestDTO.getUserId());
         Section section = modelMapper.map(sectionCreateRequestDTO, Section.class);
+        log.debug("Mapped to Section entity: {}", section);
         return sectionRepository.save(section)
-                .map(savedSection -> modelMapper.map(savedSection, SectionResponseDTO.class))
+                .doOnSuccess(savedSection -> log.debug("Successfully saved section: {}", savedSection))
+                .doOnError(error -> log.error("Error saving section", error))
+                .map(savedSection -> {
+                    SectionResponseDTO responseDTO = modelMapper.map(savedSection, SectionResponseDTO.class);
+                    log.debug("Mapped to SectionResponseDTO: {}", responseDTO);
+                    return responseDTO;
+                })
                 .subscribeOn(Schedulers.boundedElastic());
     }
 

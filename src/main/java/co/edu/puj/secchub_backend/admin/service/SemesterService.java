@@ -109,6 +109,7 @@ public class SemesterService implements AdminModuleSemesterContract {
      */
     public Mono<SemesterResponseDTO> getSemesterByYearAndPeriod(Integer year, Integer period) {
         return semesterRepository.findByYearAndPeriod(year, period)
+                .switchIfEmpty(Mono.error(new SemesterNotFoundException("Semester was not found for year " + year + "and period " + period)))
                 .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class));
     }
 }

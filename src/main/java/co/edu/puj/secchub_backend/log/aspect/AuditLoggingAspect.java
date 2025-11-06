@@ -75,9 +75,9 @@ public class AuditLoggingAspect {
         // Execute the actual method
         Object result = joinPoint.proceed();
         
-        // If result is a Mono, extract email from reactive context and pass it to logAuditEntry
+        // If result is a Mono, extract email from reactive context and log without affecting the result
         if (result instanceof Mono<?> mono) {
-            result = mono.then(
+            result = mono.flatMap(value ->
                 ReactiveSecurityContextHolder.getContext()
                     .map(securityContext -> securityContext.getAuthentication().getName())
                     .defaultIfEmpty(ANONYMOUS_USER)
@@ -90,7 +90,7 @@ public class AuditLoggingAspect {
                         logAuditEntry(ANONYMOUS_USER, action, methodName);
                         return Mono.empty();
                     })
-                    .then()
+                    .thenReturn(value) // Return the original value instead of discarding it
             );
         } else {
             // For non-reactive methods, log as anonymous (no reactive context available)

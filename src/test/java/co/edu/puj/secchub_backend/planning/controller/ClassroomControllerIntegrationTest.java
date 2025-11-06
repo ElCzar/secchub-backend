@@ -23,12 +23,13 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
-import co.edu.puj.secchub_backend.SqlScriptExecutor;
+import co.edu.puj.secchub_backend.R2dbcTestUtils;
 import co.edu.puj.secchub_backend.planning.dto.ClassroomRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassroomResponseDTO;
 import co.edu.puj.secchub_backend.planning.model.Classroom;
 import co.edu.puj.secchub_backend.planning.repository.ClassroomRepository;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
+import io.r2dbc.spi.ConnectionFactory;
 
 @SpringBootTest
 @AutoConfigureWebTestClient
@@ -47,22 +48,23 @@ class ClassroomControllerIntegrationTest extends DatabaseContainerIntegration {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    private SqlScriptExecutor sqlScriptExecutor;
+    @Autowired
+    private ConnectionFactory connectionFactory;
 
     @BeforeEach
     void setUp() {
-        sqlScriptExecutor = new SqlScriptExecutor(databaseClient);
-        // Clean up any existing test data (preserves parametric data)
-        sqlScriptExecutor.executeSqlScript("/test-cleanup.sql");
-        // Load test data
-        sqlScriptExecutor.executeSqlScript("/test-users.sql");
-        sqlScriptExecutor.executeSqlScript("/test-classrooms.sql");
+        R2dbcTestUtils.executeScripts(connectionFactory,
+                "/test-cleanup.sql",
+                "/test-users.sql",
+                "/test-classrooms.sql"
+        );
     }
 
     @AfterEach
     void tearDown() {
-        // Clean up after each test
-        sqlScriptExecutor.executeSqlScript("/test-cleanup.sql");
+        R2dbcTestUtils.executeScripts(connectionFactory,
+                "/test-cleanup.sql"
+        );
     }
 
     // ==========================================

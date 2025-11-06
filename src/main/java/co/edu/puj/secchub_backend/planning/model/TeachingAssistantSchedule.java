@@ -1,6 +1,6 @@
 package co.edu.puj.secchub_backend.planning.model;
 
-import java.sql.Time;
+import java.time.LocalTime;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -33,8 +33,8 @@ public class TeachingAssistantSchedule {
     private String day;
 
     @Column("start_time")
-    private Time startTime;
+    private LocalTime startTime;
 
     @Column("end_time")
-    private Time endTime;
+    private LocalTime endTime;
 }

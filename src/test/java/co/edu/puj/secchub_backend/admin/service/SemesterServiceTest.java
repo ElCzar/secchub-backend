@@ -53,8 +53,8 @@ class SemesterServiceTest {
         SemesterRequestDTO request = SemesterRequestDTO.builder()
                 .year(2025)
                 .period(1)
-                .startDate(String.valueOf(LocalDate.of(2025, 1, 10)))
-                .endDate(String.valueOf(LocalDate.of(2025, 6, 15)))
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 6, 15))
                 .build();
 
         Semester currentSemester = Semester.builder()
@@ -228,13 +228,12 @@ class SemesterServiceTest {
     }
 
     @Test
-    @DisplayName("getSemesterByYearAndPeriod - When not found returns Mono empty")
+    @DisplayName("getSemesterByYearAndPeriod - When not found throws SemesterNotFoundException")
     void testGetSemesterByYearAndPeriod_NotFound_ReturnsEmpty() {
         when(semesterRepository.findByYearAndPeriod(2025, 2)).thenReturn(Mono.empty());
 
-        SemesterResponseDTO result = semesterService.getSemesterByYearAndPeriod(2025, 2).block();
+        Mono<SemesterResponseDTO> result = semesterService.getSemesterByYearAndPeriod(2025, 2);
 
-        assertNull(result);
-        verify(semesterRepository).findByYearAndPeriod(2025, 2);
+        assertThrows(SemesterNotFoundException.class, result::block);
     }
 }

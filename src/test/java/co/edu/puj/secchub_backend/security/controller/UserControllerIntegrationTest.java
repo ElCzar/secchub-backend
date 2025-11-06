@@ -21,11 +21,12 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
-import co.edu.puj.secchub_backend.SqlScriptExecutor;
+import co.edu.puj.secchub_backend.R2dbcTestUtils;
 import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
 import co.edu.puj.secchub_backend.security.model.User;
 import co.edu.puj.secchub_backend.security.repository.UserRepository;
+import io.r2dbc.spi.ConnectionFactory;
 import reactor.core.publisher.Mono;
 
 @SpringBootTest
@@ -45,18 +46,22 @@ class UserControllerIntegrationTest extends DatabaseContainerIntegration {
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
-    private SqlScriptExecutor sqlScriptExecutor;
+@Autowired
+    private ConnectionFactory connectionFactory;
 
     @BeforeEach
     void setUp() {
-        sqlScriptExecutor = new SqlScriptExecutor(databaseClient);
-        sqlScriptExecutor.executeSqlScript("/test-cleanup.sql");
-        sqlScriptExecutor.executeSqlScript("/test-users.sql");
+        R2dbcTestUtils.executeScripts(connectionFactory,
+                "/test-cleanup.sql",
+                "/test-users.sql"
+        );
     }
 
     @AfterEach
     void tearDown() {
-        sqlScriptExecutor.executeSqlScript("/test-cleanup.sql");
+        R2dbcTestUtils.executeScripts(connectionFactory,
+                "/test-cleanup.sql"
+        );
     }
 
     // ==========================================

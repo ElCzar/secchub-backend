@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -114,8 +115,8 @@ class AcademicRequestServiceTest {
         testSchedule = RequestSchedule.builder()
                 .id(1L)
                 .academicRequestId(1L)
-                .startTime(java.sql.Time.valueOf("08:00:00"))
-                .endTime(java.sql.Time.valueOf("10:00:00"))
+                .startTime(LocalTime.parse("08:00:00"))
+                .endTime(LocalTime.parse("10:00:00"))
                 .day("Monday")
                 .classRoomTypeId(1L)
                 .modalityId(1L)
@@ -494,8 +495,8 @@ class AcademicRequestServiceTest {
         doAnswer(invocation -> {
             RequestScheduleRequestDTO source = invocation.getArgument(0);
             RequestSchedule target = invocation.getArgument(1);
-            target.setStartTime(java.sql.Time.valueOf(source.getStartTime() + ":00"));
-            target.setEndTime(java.sql.Time.valueOf(source.getEndTime() + ":00"));
+            target.setStartTime(LocalTime.parse(source.getStartTime()));
+            target.setEndTime(LocalTime.parse(source.getEndTime()));
             target.setDay(source.getDay());
             return null;
         }).when(modelMapper).map(any(RequestScheduleRequestDTO.class), any(RequestSchedule.class));
@@ -552,10 +553,10 @@ class AcademicRequestServiceTest {
             RequestScheduleResponseDTO source = invocation.getArgument(0);
             RequestSchedule target = invocation.getArgument(1);
             if (source.getStartTime() != null) {
-                target.setStartTime(java.sql.Time.valueOf(source.getStartTime() + ":00"));
+                target.setStartTime(LocalTime.parse(source.getStartTime() + ":00"));
             }
             if (source.getEndTime() != null) {
-                target.setEndTime(java.sql.Time.valueOf(source.getEndTime() + ":00"));
+                target.setEndTime(LocalTime.parse(source.getEndTime() + ":00"));
             }
             if (source.getDay() != null) {
                 target.setDay(source.getDay());

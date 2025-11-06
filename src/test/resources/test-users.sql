@@ -11,6 +11,7 @@
 -- ============================================
 
 INSERT INTO users (
+    id,                 -- Primary key (auto-incremented)
     username,           -- Login username
     password,           -- BCrypt encoded password
     faculty,            -- Academic faculty/department
@@ -28,6 +29,7 @@ INSERT INTO users (
 -- ==================
 -- Email: testAdmin@example.com
 (
+    1,
     'adminuser',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
     'Engineering',
@@ -46,6 +48,7 @@ INSERT INTO users (
 -- ==================
 -- Email: testUser@example.com
 (
+    2,
     'regularuser',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
     'Engineering',
@@ -64,6 +67,7 @@ INSERT INTO users (
 -- ==================
 -- Email: testStudent@example.com
 (
+    3,
     'student',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
     'Engineering',
@@ -82,6 +86,7 @@ INSERT INTO users (
 -- ==================
 -- Email: testTeacher@example.com
 (
+    4,
     'teacher',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
     'Science',
@@ -100,6 +105,7 @@ INSERT INTO users (
 -- ==================
 -- Email: testProgram@example.com
 (
+    5,
     'programuser',
     '$2a$10$8y88Ox9NYdBZ/4y.SUr.suOAF3qT0g/zfGQMWLwMRRoUk8p/YjhTq',
     'Arts',

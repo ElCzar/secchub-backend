@@ -7,7 +7,6 @@ import co.edu.puj.secchub_backend.integration.contract.IntegrationModuleStudentA
 import co.edu.puj.secchub_backend.integration.dto.*;
 import co.edu.puj.secchub_backend.integration.exception.StudentApplicationBadRequestException;
 import co.edu.puj.secchub_backend.integration.exception.StudentApplicationNotFoundException;
-import co.edu.puj.secchub_backend.integration.exception.TimeParsingException;
 import co.edu.puj.secchub_backend.integration.model.*;
 import co.edu.puj.secchub_backend.integration.repository.*;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
@@ -23,11 +22,8 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.sql.Time;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 
 
@@ -82,8 +78,8 @@ public class StudentApplicationService implements IntegrationModuleStudentApplic
                         StudentApplicationSchedule schedule = new StudentApplicationSchedule();
                         schedule.setStudentApplicationId(savedApplication.getId());
                         schedule.setDay(dto.getDay());
-                        schedule.setStartTime(parseTimeString(dto.getStartTime()));
-                        schedule.setEndTime(parseTimeString(dto.getEndTime()));
+                        schedule.setStartTime(LocalTime.parse(dto.getStartTime()));
+                        schedule.setEndTime(LocalTime.parse(dto.getEndTime()));
                         return schedule;
                     })
                     .toList();
@@ -94,25 +90,6 @@ public class StudentApplicationService implements IntegrationModuleStudentApplic
             })
             .flatMap(this::getStudentApplicationWithSchedules)
             .as(transactionalOperator::transactional);
-    }
-
-    /**
-     * Helper method to parse time string (HH:mm:ss) to java.sql.Time
-     * @param timeString Time in format "HH:mm:ss"
-     * @return java.sql.Time object or null if timeString is null/empty
-     * @throws TimeParsingException if the time string format is invalid
-     */
-    private Time parseTimeString(String timeString) {
-        if (timeString == null || timeString.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            // Parse the time string and convert to java.sql.Time
-            LocalTime localTime = LocalTime.parse(timeString, DateTimeFormatter.ofPattern("HH:mm:ss"));
-            return Time.valueOf(localTime);
-        } catch (DateTimeParseException e) {
-            throw new TimeParsingException("Invalid time format: '" + timeString + "'. Expected format: HH:mm:ss", e);
-        }
     }
 
     /**
@@ -305,7 +282,7 @@ public class StudentApplicationService implements IntegrationModuleStudentApplic
                         boolean sameCourse = (application.getCourseId() != null && application.getCourseId().equals(existingApplication.getCourseId()));
                         return sameSection || sameCourse;
                     })
-                    .hasElement()
+                    .hasElements()
                     .flatMap(exists -> {
                         if (Boolean.TRUE.equals(exists)) {
                             return Mono.empty();

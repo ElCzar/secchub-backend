@@ -54,9 +54,20 @@ public class TeacherService implements AdminModuleTeacherContract{
      * @return Created teacher response
      */
     public Mono<TeacherResponseDTO> createTeacher(TeacherCreateRequestDTO teacherCreateRequestDTO) {
+        log.debug("Creating teacher with userId: {}, employmentTypeId: {}, maxHours: {}", 
+                    teacherCreateRequestDTO.getUserId(), 
+                    teacherCreateRequestDTO.getEmploymentTypeId(), 
+                    teacherCreateRequestDTO.getMaxHours());
         Teacher teacher = modelMapper.map(teacherCreateRequestDTO, Teacher.class);
+        log.debug("Mapped to Teacher entity: {}", teacher);
         return teacherRepository.save(teacher)
-                .map(savedTeacher -> modelMapper.map(savedTeacher, TeacherResponseDTO.class));
+                .doOnSuccess(savedTeacher -> log.debug("Successfully saved teacher: {}", savedTeacher))
+                .doOnError(error -> log.error("Error saving teacher", error))
+                .map(savedTeacher -> {
+                    TeacherResponseDTO responseDTO = modelMapper.map(savedTeacher, TeacherResponseDTO.class);
+                    log.debug("Mapped to TeacherResponseDTO: {}", responseDTO);
+                    return responseDTO;
+                });
     }
 
     /**

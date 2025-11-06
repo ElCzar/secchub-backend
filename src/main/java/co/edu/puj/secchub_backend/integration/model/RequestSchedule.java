@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.integration.model;
 
+import java.time.LocalTime;
+
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
@@ -31,10 +33,10 @@ public class RequestSchedule {
     private Long classRoomTypeId;
 
     @Column("start_time")
-    private java.sql.Time startTime;
+    private LocalTime startTime;
 
     @Column("end_time")
-    private java.sql.Time endTime;
+    private LocalTime endTime;
 
     @Column("day")
     private String day;

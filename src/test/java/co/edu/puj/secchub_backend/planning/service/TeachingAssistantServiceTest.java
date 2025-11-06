@@ -116,8 +116,8 @@ class TeachingAssistantServiceTest {
                 .id(1L)
                 .teachingAssistantId(1L)
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         testScheduleResponseDTO = TeachingAssistantScheduleResponseDTO.builder()
@@ -727,8 +727,8 @@ class TeachingAssistantServiceTest {
                 .id(scheduleId)
                 .teachingAssistantId(teachingAssistants.get(0).getId())
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         when(scheduleRepository.findById(scheduleId))
@@ -759,8 +759,8 @@ class TeachingAssistantServiceTest {
                 .id(scheduleId)
                 .teachingAssistantId(teachingAssistants.get(1).getId())
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         when(scheduleRepository.findById(scheduleId))
@@ -785,8 +785,8 @@ class TeachingAssistantServiceTest {
                 .id(scheduleId)
                 .teachingAssistantId(testTeachingAssistant.getId())
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         when(scheduleRepository.findById(scheduleId))
@@ -834,8 +834,8 @@ class TeachingAssistantServiceTest {
                 .id(scheduleId)
                 .teachingAssistantId(teachingAssistants.get(0).getId())
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         when(scheduleRepository.findById(scheduleId))
@@ -863,8 +863,8 @@ class TeachingAssistantServiceTest {
                 .id(scheduleId)
                 .teachingAssistantId(teachingAssistants.get(1).getId())
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         when(scheduleRepository.findById(scheduleId))
@@ -889,8 +889,8 @@ class TeachingAssistantServiceTest {
                 .id(scheduleId)
                 .teachingAssistantId(testTeachingAssistant.getId())
                 .day("Monday")
-                .startTime(Time.valueOf(LocalTime.of(9, 0)))
-                .endTime(Time.valueOf(LocalTime.of(11, 0)))
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
                 .build();
 
         when(scheduleRepository.findById(scheduleId))

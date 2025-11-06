@@ -588,6 +588,15 @@ public class PlanningService implements PlanningModuleClassContract {
                     // Admin can see all classes
                     return Mono.just(true);
                 }
+
+                // Check if user has TEACHER role
+                boolean isTeacher = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_TEACHER"));
+
+                if (isTeacher) {
+                    // Teacher can see all classes
+                    return Mono.just(true);
+                }
                 
                 // For ROLE_SECTION users, filter by their section
                 String userEmail = authentication.getName();
