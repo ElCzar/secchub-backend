@@ -34,7 +34,7 @@ public class AuthenticationController {
 	@PostMapping("/login")
 	@PreAuthorize("permitAll()")
 	public Mono<ResponseEntity<AuthTokenResponseDTO>> login(@RequestBody LoginRequestDTO loginRequestDTO) {
-		return Mono.fromCallable(() -> authenticationService.authenticate(loginRequestDTO.getEmail(), loginRequestDTO.getPassword()))
+		return authenticationService.authenticate(loginRequestDTO)
 				.map(ResponseEntity::ok);
 	}
 
@@ -47,7 +47,7 @@ public class AuthenticationController {
 	@PostMapping("/refresh")
 	@PreAuthorize("permitAll()")
 	public Mono<ResponseEntity<AuthTokenResponseDTO>> refresh(@RequestBody RefreshTokenRequestDTO refreshToken) {
-		return Mono.fromCallable(() -> authenticationService.refreshToken(refreshToken))
+		return authenticationService.refreshToken(refreshToken)
 				.map(ResponseEntity::ok);
 	}
 }

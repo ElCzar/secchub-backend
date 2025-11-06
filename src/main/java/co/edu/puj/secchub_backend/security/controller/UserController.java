@@ -3,7 +3,7 @@ package co.edu.puj.secchub_backend.security.controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import co.edu.puj.secchub_backend.security.dto.UserInformationResponseDTO;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import co.edu.puj.secchub_backend.security.service.UserService;
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;

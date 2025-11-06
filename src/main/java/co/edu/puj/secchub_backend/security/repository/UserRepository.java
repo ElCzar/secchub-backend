@@ -1,23 +1,21 @@
 package co.edu.puj.secchub_backend.security.repository;
 
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.r2dbc.repository.Modifying;
+import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
 import co.edu.puj.secchub_backend.security.model.User;
-
-import java.util.Optional;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
-    Optional<User> findByUsername(String username);
-    Optional<User> findByEmail(String email);
-
-    // Find users by role id (e.g., 4 = ROLE_TEACHER)
-    java.util.List<User> findByRoleId(Long roleId);
+public interface UserRepository extends R2dbcRepository<User, Long> {
+    Mono<User> findByUsername(String username);
+    Mono<User> findByEmail(String email);
+    Flux<User> findByRoleId(Long roleId);
 
     @Modifying
     @Transactional

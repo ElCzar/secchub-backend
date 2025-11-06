@@ -40,12 +40,17 @@ public class RegisterService {
      * @param role to assign to the user
      * @return Created user ID
      */
-    private Long createUserInSecurityModule(UserRegisterRequestDTO userRegisterRequestDTO, String role) {
+    private Mono<Long> createUserInSecurityModule(UserRegisterRequestDTO userRegisterRequestDTO, String role) {
         log.debug("Creating user in security module with email: {}", userRegisterRequestDTO.getEmail());
-        UserCreationRequestDTO userCreationRequestDTO = modelMapper.map(userRegisterRequestDTO, UserCreationRequestDTO.class);
-        userCreationRequestDTO.setRoleId(parametricService.getRoleByName(role).getId());
-        userCreationRequestDTO.setStatusId(parametricService.getStatusByName(STATUS).getId());
-        return userService.createUser(userCreationRequestDTO);
+        return parametricService.getRoleByName(role)
+            .flatMap(roleEntity -> parametricService.getStatusByName(STATUS)
+                .flatMap(statusEntity -> {
+                    UserCreationRequestDTO userCreationRequestDTO = modelMapper.map(userRegisterRequestDTO, UserCreationRequestDTO.class);
+                    userCreationRequestDTO.setRoleId(roleEntity.getId());
+                    userCreationRequestDTO.setStatusId(statusEntity.getId());
+                    return userService.createUser(userCreationRequestDTO);
+                })
+            );
     }
 
     /**
@@ -54,8 +59,7 @@ public class RegisterService {
      * @return Created user ID
      */
     public Mono<Long> registerStudent(UserRegisterRequestDTO userRegisterRequestDTO) {
-        return Mono.fromCallable(() -> createUserInSecurityModule(userRegisterRequestDTO, ROLE_STUDENT))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return createUserInSecurityModule(userRegisterRequestDTO, ROLE_STUDENT);
     }
 
     /**
@@ -64,8 +68,7 @@ public class RegisterService {
      * @return Created user ID
      */
     public Mono<Long> registerAdmin(UserRegisterRequestDTO userRegisterRequestDTO) {
-        return Mono.fromCallable(() -> createUserInSecurityModule(userRegisterRequestDTO, ROLE_ADMIN))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return createUserInSecurityModule(userRegisterRequestDTO, ROLE_ADMIN);
     }
 
     /**
@@ -74,8 +77,7 @@ public class RegisterService {
      * @return Created user ID
      */
     public Mono<Long> registerProgram(UserRegisterRequestDTO userRegisterRequestDTO) {
-        return Mono.fromCallable(() -> createUserInSecurityModule(userRegisterRequestDTO, ROLE_PROGRAM))
-                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        return createUserInSecurityModule(userRegisterRequestDTO, ROLE_PROGRAM);
     }
 
     /**
@@ -84,12 +86,18 @@ public class RegisterService {
      * @return Created user ID
      */
     public Mono<TeacherResponseDTO> registerTeacher(TeacherRegisterRequestDTO teacherRegisterRequestDTO) {
-        return Mono.fromCallable(() -> {
-            Long createdUserId = createUserInSecurityModule(teacherRegisterRequestDTO.getUser(), ROLE_TEACHER);
-            TeacherCreateRequestDTO teacherCreateRequestDTO = modelMapper.map(teacherRegisterRequestDTO, TeacherCreateRequestDTO.class);
-            teacherCreateRequestDTO.setUserId(createdUserId);
-            return teacherService.createTeacher(teacherCreateRequestDTO);
-        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        log.debug("Registering teacher with email: {}", teacherRegisterRequestDTO.getUser().getEmail());
+        return createUserInSecurityModule(teacherRegisterRequestDTO.getUser(), ROLE_TEACHER)
+            .doOnSuccess(userId -> log.debug("Created user with ID: {}", userId))
+            .flatMap(userId -> {
+                TeacherCreateRequestDTO teacherCreateRequestDTO = modelMapper.map(teacherRegisterRequestDTO, TeacherCreateRequestDTO.class);
+                teacherCreateRequestDTO.setUserId(userId);
+                log.debug("Creating teacher profile for userId: {}", userId);
+                return teacherService.createTeacher(teacherCreateRequestDTO);
+            })
+            .doOnSuccess(response -> log.debug("Teacher registration completed. Teacher ID: {}, User ID: {}", 
+                                                response.getId(), response.getUserId()))
+            .doOnError(error -> log.error("Error during teacher registration", error));
     }
 
     /**
@@ -98,11 +106,17 @@ public class RegisterService {
      * @return Created section ID
      */
     public Mono<SectionResponseDTO> registerSection(SectionRegisterRequestDTO sectionRegisterRequestDTO) {
-        return Mono.fromCallable(() -> {
-            Long createdUserId = createUserInSecurityModule(sectionRegisterRequestDTO.getUser(), ROLE_USER);
-            SectionCreateRequestDTO sectionCreateRequestDTO = modelMapper.map(sectionRegisterRequestDTO, SectionCreateRequestDTO.class);
-            sectionCreateRequestDTO.setUserId(createdUserId);
-            return sectionService.createSection(sectionCreateRequestDTO);
-        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+        log.debug("Registering section with name: {}", sectionRegisterRequestDTO.getName());
+        return createUserInSecurityModule(sectionRegisterRequestDTO.getUser(), ROLE_USER)
+            .doOnSuccess(userId -> log.debug("Created user with ID: {}", userId))
+            .flatMap(userId -> {
+                SectionCreateRequestDTO sectionCreateRequestDTO = modelMapper.map(sectionRegisterRequestDTO, SectionCreateRequestDTO.class);
+                sectionCreateRequestDTO.setUserId(userId);
+                log.debug("Creating section for userId: {}", userId);
+                return sectionService.createSection(sectionCreateRequestDTO);
+            })
+            .doOnSuccess(response -> log.debug("Section registration completed. Section ID: {}, User ID: {}", 
+                                                response.getId(), response.getUserId()))
+            .doOnError(error -> log.error("Error during section registration", error));
     }
 }

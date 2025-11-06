@@ -1,6 +1,5 @@
 package co.edu.puj.secchub_backend.log.model;
 
-import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -8,31 +7,32 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
 /**
  * Entity mapped to 'audit_log'.
  * Represents an audit log entry for tracking create, update, and delete operations.
  */
-@Entity
 @Table(name = "audit_log")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuditLog {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "email", nullable = false, length = 150)
+    @Column("email")
     private String email;
 
-    @Column(name = "action", nullable = false, length = 50)
-    private String action; // CREATE, UPDATE, DELETE
+    @Column("action")
+    private String action;
 
-    @Column(name = "method_name", nullable = false, length = 150)
+    @Column("method_name")
     private String methodName;
 
-    @Column(name = "timestamp", nullable = false)
+    @Column("timestamp")
     private LocalDateTime timestamp;
 }

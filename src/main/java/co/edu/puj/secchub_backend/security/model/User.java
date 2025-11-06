@@ -2,13 +2,12 @@ package co.edu.puj.secchub_backend.security.model;
 
 import java.time.LocalDateTime;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -16,35 +15,38 @@ import lombok.NoArgsConstructor;
  * Entity representing a user in the system.
  * Contains personal and authentication details.
  */
-@Entity
-@Table(name = "users")
+@Table("users")
 @Data
 @NoArgsConstructor 
 @AllArgsConstructor
+@Builder
 public class User {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+
+    @Id
     private Long id;
 
     private String username;
     private String password;
     private String faculty;
     private String name;
-    @Column(name = "last_name")
+
+    @Column("last_name")
     private String lastName;
+
     private String email;
 
-    @Column(name = "status_id")
+    @Column("status_id")
     private Long statusId;
 
-    @Column(name = "last_access")
+    @Column("last_access")
     private LocalDateTime lastAccess;
 
-    @Column(name = "role_id")
+    @Column("role_id")
     private Long roleId;
 
-    @Column(name = "document_type_id")
+    @Column("document_type_id")
     private Long documentTypeId;
 
-    @Column(name = "document_number")
+    @Column("document_number")
     private String documentNumber;
 }

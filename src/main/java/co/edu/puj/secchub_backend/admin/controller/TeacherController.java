@@ -29,7 +29,9 @@ public class TeacherController {
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherResponseDTO>>> getAllTeachers() {
-        return Mono.fromCallable(() -> ResponseEntity.ok(teacherService.getAllTeachers()));
+        return teacherService.getAllTeachers()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -80,7 +82,9 @@ public class TeacherController {
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherResponseDTO>>> getTeachersByEmploymentType(
             @PathVariable Long employmentTypeId) {
-        return Mono.fromCallable(() -> ResponseEntity.ok(teacherService.getTeachersByEmploymentType(employmentTypeId)));
+        return teacherService.getTeachersByEmploymentType(employmentTypeId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -91,6 +95,9 @@ public class TeacherController {
     @GetMapping("/min-hours/{minHours}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<TeacherResponseDTO>>> getTeachersWithMinHours(@PathVariable Integer minHours) {
-        return Mono.fromCallable(() -> ResponseEntity.ok(teacherService.getTeachersWithMinHours(minHours)));
+        return teacherService.getTeachersWithMinHours(minHours)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
+    
 }

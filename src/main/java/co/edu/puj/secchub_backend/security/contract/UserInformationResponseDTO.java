@@ -22,6 +22,6 @@ public class UserInformationResponseDTO {
     private String email;
     private Long statusId;
     private Long roleId;
-    private Long documentType;
+    private Long documentTypeId;
     private String documentNumber;
 }

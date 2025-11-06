@@ -347,3 +347,17 @@ CREATE TABLE `audit_log` (
   INDEX `idx_action` (`action`),
   INDEX `idx_timestamp` (`timestamp`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- =========================
+-- Spring Modulith Events
+-- =========================
+CREATE TABLE `event_publication` (
+  ID               VARCHAR(36) NOT NULL,
+  LISTENER_ID      VARCHAR(512) NOT NULL,
+  EVENT_TYPE       VARCHAR(512) NOT NULL,
+  SERIALIZED_EVENT VARCHAR(4000) NOT NULL,
+  PUBLICATION_DATE TIMESTAMP(6) NOT NULL,
+  COMPLETION_DATE  TIMESTAMP(6) DEFAULT NULL NULL,
+  PRIMARY KEY (ID),
+  INDEX EVENT_PUBLICATION_BY_COMPLETION_DATE_IDX (COMPLETION_DATE)
+);

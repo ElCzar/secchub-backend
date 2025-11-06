@@ -22,6 +22,8 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setMaxPoolSize(2);
         executor.setQueueCapacity(50);
         executor.setThreadNamePrefix("audit-log-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(5);
         executor.initialize();
         return executor;
     }

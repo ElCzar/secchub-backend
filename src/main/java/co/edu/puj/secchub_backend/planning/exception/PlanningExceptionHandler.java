@@ -31,6 +31,7 @@ public class PlanningExceptionHandler {
     private static final String NOT_FOUND_ERROR_MESSAGE = "Not Found";
     private static final String BAD_REQUEST_ERROR_MESSAGE = "Bad Request";
     private static final String CONFLICT_ERROR_MESSAGE = "Conflict";
+    private static final String INTERNAL_SERVER_ERROR_MESSAGE = "Internal Server Error";
 
     /**
      * Handles ClassNotFoundException and returns a Mono<ResponseEntity<Object>>.
@@ -133,6 +134,81 @@ public class PlanningExceptionHandler {
         return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                 TIMESTAMP_KEY, System.currentTimeMillis(),
                 ERROR_KEY, BAD_REQUEST_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Handles ClassroomBadRequestException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the ClassroomBadRequestException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(ClassroomBadRequestException.class)
+    public Mono<ResponseEntity<Object>> handleClassroomBadRequestException(ClassroomBadRequestException ex) {
+        log.warn("Classroom bad request exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, BAD_REQUEST_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Handles ClassCreationException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the ClassCreationException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(ClassCreationException.class)
+    public Mono<ResponseEntity<Object>> handleClassCreationException(ClassCreationException ex) {
+        log.error("Class creation exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, INTERNAL_SERVER_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Handles PlanningServerErrorException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the PlanningServerErrorException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(PlanningServerErrorException.class)
+    public Mono<ResponseEntity<Object>> handlePlanningServerErrorException(PlanningServerErrorException ex) {
+        log.error("Planning server error exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, INTERNAL_SERVER_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Handles TeachingAssistantBadRequestException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the TeachingAssistantBadRequestException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(TeachingAssistantBadRequestException.class)
+    public Mono<ResponseEntity<Object>> handleTeachingAssistantBadRequestException(TeachingAssistantBadRequestException ex) {
+        log.warn("Teaching assistant bad request exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, BAD_REQUEST_ERROR_MESSAGE,
+                MESSAGE_KEY, ex.getMessage()
+        )));
+    }
+
+    /**
+     * Handles TeachingAssistantServerErrorException and returns a Mono<ResponseEntity<Object>>.
+     * @param ex the TeachingAssistantServerErrorException
+     * @return a Mono<ResponseEntity<Object>> with the error details
+     */
+    @ExceptionHandler(TeachingAssistantServerErrorException.class)
+    public Mono<ResponseEntity<Object>> handleTeachingAssistantServerErrorException(TeachingAssistantServerErrorException ex) {
+        log.error("Teaching assistant server error exception occurred: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                TIMESTAMP_KEY, System.currentTimeMillis(),
+                ERROR_KEY, INTERNAL_SERVER_ERROR_MESSAGE,
                 MESSAGE_KEY, ex.getMessage()
         )));
     }

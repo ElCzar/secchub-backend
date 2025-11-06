@@ -45,7 +45,9 @@ public class StudentApplicationController {
     @GetMapping("/current-semester")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getCurrentSemesterStudentApplications() {
-        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listCurrentSemesterStudentApplications()));
+        return studentApplicationService.listCurrentSemesterStudentApplications()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -55,7 +57,9 @@ public class StudentApplicationController {
     @GetMapping
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getAllStudentApplications() {
-        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listAllStudentApplications()));
+        return studentApplicationService.listAllStudentApplications()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -104,7 +108,9 @@ public class StudentApplicationController {
     @GetMapping("/status/{statusId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getStudentApplicationByStatus(@PathVariable Long statusId) {
-        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listStudentApplicationsByStatus(statusId)));
+        return studentApplicationService.listStudentApplicationsByStatus(statusId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -115,6 +121,8 @@ public class StudentApplicationController {
     @GetMapping("/section/{sectionId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<StudentApplicationResponseDTO>>> getStudentApplicationBySection(@PathVariable Long sectionId) {
-        return Mono.fromCallable(() -> ResponseEntity.ok(studentApplicationService.listStudentApplicationsForSection(sectionId)));
+        return studentApplicationService.listStudentApplicationsForSection(sectionId)
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 }

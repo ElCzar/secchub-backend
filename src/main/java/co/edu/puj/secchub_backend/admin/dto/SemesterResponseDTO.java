@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.admin.dto;
 
+import java.time.LocalDate;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +19,7 @@ public class SemesterResponseDTO {
     private Long id;
     private Integer period;
     private Integer year;
-    private String startDate;
-    private String endDate;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private Boolean isCurrent;
 }

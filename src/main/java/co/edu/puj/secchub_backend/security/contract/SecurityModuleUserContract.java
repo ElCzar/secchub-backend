@@ -13,14 +13,14 @@ public interface SecurityModuleUserContract {
      * @param email user's email
      * @return user id
      */
-    Long getUserIdByEmail(String email);
+    Mono<Long> getUserIdByEmail(String email);
 
     /**
      * Creates a new user with the given information.
      * @param userCreationRequestDTO DTO containing the user's creation information (e.g., email and password)
      * @return created user's id
      */
-    Long createUser(UserCreationRequestDTO userCreationRequestDTO);
+    Mono<Long> createUser(UserCreationRequestDTO userCreationRequestDTO);
 
     /**
      * Gets user information by email including name, lastName, etc.

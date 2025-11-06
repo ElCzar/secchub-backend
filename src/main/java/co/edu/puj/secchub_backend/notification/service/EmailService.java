@@ -1,12 +1,9 @@
 package co.edu.puj.secchub_backend.notification.service;
 
-import java.util.List;
-
 import org.modelmapper.ModelMapper;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import co.edu.puj.secchub_backend.notification.dto.EmailSendRequestDTO;
 import co.edu.puj.secchub_backend.notification.dto.EmailTemplateRequestDTO;
@@ -17,6 +14,8 @@ import co.edu.puj.secchub_backend.notification.model.EmailTemplate;
 import co.edu.puj.secchub_backend.notification.repository.EmailTemplateRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * Service to handle email-related operations.
@@ -33,15 +32,9 @@ public class EmailService {
      * Fetches all email templates.
      * @return A list of email templates.
      */
-    public List<EmailTemplateResponseDTO> getAllEmailTemplates() {
+    public Flux<EmailTemplateResponseDTO> getAllEmailTemplates() {
         return emailTemplateRepository.findAll()
-                .stream()
-                .map(emailTemplate -> new EmailTemplateResponseDTO(
-                        emailTemplate.getId(),
-                        emailTemplate.getName(),
-                        emailTemplate.getSubject(),
-                        emailTemplate.getBody()))
-                .toList();
+                .map(template -> modelMapper.map(template, EmailTemplateResponseDTO.class));
     }
 
     /**
@@ -49,18 +42,20 @@ public class EmailService {
      * @param emailSendRequestDTO containing email details
      * @throws EmailSendingException if sending the email fails
      */
-    public void sendEmail(EmailSendRequestDTO emailSendRequestDTO) {
-        try {
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(emailSendRequestDTO.getTo());
-            message.setSubject(emailSendRequestDTO.getSubject());
-            message.setText(emailSendRequestDTO.getBody());
-            javaMailSender.send(message);
-            log.info("Email sent to {}", emailSendRequestDTO.getTo());
-        } catch (Exception e) {
-            log.error("Error sending email: {}", e.getMessage());
-            throw new EmailSendingException("Failed to send email: " + e.getMessage());
-        }
+    public Mono<Void> sendEmail(EmailSendRequestDTO emailSendRequestDTO) {
+        return Mono.fromRunnable(() -> {
+            try {
+                SimpleMailMessage message = new SimpleMailMessage();
+                message.setTo(emailSendRequestDTO.getTo());
+                message.setSubject(emailSendRequestDTO.getSubject());
+                message.setText(emailSendRequestDTO.getBody());
+                javaMailSender.send(message);
+                log.info("Email sent to {}", emailSendRequestDTO.getTo());
+            } catch (Exception e) {
+                log.error("Error sending email: {}", e.getMessage());
+                throw new EmailSendingException("Failed to send email: " + e.getMessage());
+            }
+        });
     }
 
     /**
@@ -68,12 +63,11 @@ public class EmailService {
      * @param emailTemplateRequestDTO DTO with template information
      * @return Created template DTO
      */
-    @Transactional
-    public EmailTemplateResponseDTO createEmailTemplate(EmailTemplateRequestDTO emailTemplateRequestDTO) {
+    public Mono<EmailTemplateResponseDTO> createEmailTemplate(EmailTemplateRequestDTO emailTemplateRequestDTO) {
         EmailTemplate emailTemplate = modelMapper.map(emailTemplateRequestDTO, EmailTemplate.class);
-        EmailTemplate savedTemplate = emailTemplateRepository.save(emailTemplate);
-        log.info("Email template created with ID: {}", savedTemplate.getId());
-        return modelMapper.map(savedTemplate, EmailTemplateResponseDTO.class);
+        return emailTemplateRepository.save(emailTemplate)
+                .doOnSuccess(savedTemplate -> log.info("Email template created with ID: {}", savedTemplate.getId()))
+                .map(savedTemplate -> modelMapper.map(savedTemplate, EmailTemplateResponseDTO.class));
     }
 
     /**
@@ -81,10 +75,10 @@ public class EmailService {
      * @param templateId Template ID
      * @return Email template found
      */
-    public EmailTemplateResponseDTO getEmailTemplateById(Long templateId) {
-        EmailTemplate template = emailTemplateRepository.findById(templateId)
-                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template not found for ID: " + templateId));
-        return modelMapper.map(template, EmailTemplateResponseDTO.class);
+    public Mono<EmailTemplateResponseDTO> getEmailTemplateById(Long templateId) {
+        return emailTemplateRepository.findById(templateId)
+                .map(template -> modelMapper.map(template, EmailTemplateResponseDTO.class))
+                .switchIfEmpty(Mono.error(new EmailTemplateNotFoundException("Email template not found for ID: " + templateId)));
     }
 
     /**
@@ -92,10 +86,10 @@ public class EmailService {
      * @param templateName Template name
      * @return Email template found
      */
-    public EmailTemplateResponseDTO getEmailTemplateByName(String templateName) {
-        EmailTemplate template = emailTemplateRepository.findByName(templateName)
-                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template not found for name: " + templateName));
-        return modelMapper.map(template, EmailTemplateResponseDTO.class);
+    public Mono<EmailTemplateResponseDTO> getEmailTemplateByName(String templateName) {
+        return emailTemplateRepository.findByName(templateName)
+                .map(template -> modelMapper.map(template, EmailTemplateResponseDTO.class))
+                .switchIfEmpty(Mono.error(new EmailTemplateNotFoundException("Email template not found for name: " + templateName)));
     }
 
     /**
@@ -104,31 +98,25 @@ public class EmailService {
      * @param emailTemplateRequestDTO DTO with updated data
      * @return Updated template
      */
-    @Transactional
-    public EmailTemplateResponseDTO updateEmailTemplate(Long templateId, EmailTemplateRequestDTO emailTemplateRequestDTO) {
-        EmailTemplate template = emailTemplateRepository.findById(templateId)
-                .orElseThrow(() -> new EmailTemplateNotFoundException("Email template for update not found for ID: " + templateId));
-
-        ModelMapper notNullMapper = new ModelMapper();
-        notNullMapper.getConfiguration().setPropertyCondition(context ->
-            context.getSource() != null);
-        notNullMapper.map(emailTemplateRequestDTO, template);
-
-        EmailTemplate savedTemplate = emailTemplateRepository.save(template);
-        log.info("Email template updated with ID: {}", savedTemplate.getId());
-        return notNullMapper.map(savedTemplate, EmailTemplateResponseDTO.class);
+    public Mono<EmailTemplateResponseDTO> updateEmailTemplate(Long templateId, EmailTemplateRequestDTO emailTemplateRequestDTO) {
+        return emailTemplateRepository.findById(templateId)
+                .flatMap(template -> {
+                    ModelMapper notNullMapper = new ModelMapper();
+                    notNullMapper.getConfiguration().setPropertyCondition(context -> context.getSource() != null);
+                    notNullMapper.map(emailTemplateRequestDTO, template);
+                    return emailTemplateRepository.save(template);
+                })
+                .map(savedTemplate -> modelMapper.map(savedTemplate, EmailTemplateResponseDTO.class))
+                .switchIfEmpty(Mono.error(new EmailTemplateNotFoundException("Email template for update not found for ID: " + templateId)));
     }
 
     /**
      * Deletes an email template by ID.
      * @param templateId Template ID
      */
-    @Transactional
-    public void deleteEmailTemplate(Long templateId) {
-        if (!emailTemplateRepository.existsById(templateId)) {
-            throw new EmailTemplateNotFoundException("Email template for deletion not found for ID: " + templateId);
-        }
-        emailTemplateRepository.deleteById(templateId);
-        log.info("Email template deleted with ID: {}", templateId);
+    public Mono<Void> deleteEmailTemplate(Long templateId) {
+        return emailTemplateRepository.findById(templateId)
+                .switchIfEmpty(Mono.error(new EmailTemplateNotFoundException("Email template for deletion not found for ID: " + templateId)))
+                .flatMap(emailTemplateRepository::delete);
     }
 }

@@ -39,8 +39,8 @@ public class EmailController {
     @PostMapping("/templates")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<EmailTemplateResponseDTO>> createEmailTemplate(@RequestBody EmailTemplateRequestDTO emailTemplateRequestDTO) {
-        return Mono.fromCallable(() -> emailService.createEmailTemplate(emailTemplateRequestDTO))
-                .map(createdTemplate -> ResponseEntity.status(HttpStatus.CREATED).body(createdTemplate));
+        return emailService.createEmailTemplate(emailTemplateRequestDTO)
+                .map(createdTemplate -> new ResponseEntity<>(createdTemplate, HttpStatus.CREATED));
     }
 
     /**
@@ -50,7 +50,8 @@ public class EmailController {
     @GetMapping("/templates")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<EmailTemplateResponseDTO>>> getAllEmailTemplates() {
-        return Mono.fromCallable(emailService::getAllEmailTemplates)
+        return emailService.getAllEmailTemplates()
+                .collectList()
                 .map(ResponseEntity::ok);
     }
 
@@ -62,7 +63,7 @@ public class EmailController {
     @GetMapping("/templates/{templateId}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<EmailTemplateResponseDTO>> getEmailTemplateById(@PathVariable Long templateId) {
-        return Mono.fromCallable(() -> emailService.getEmailTemplateById(templateId))
+        return emailService.getEmailTemplateById(templateId)
                 .map(ResponseEntity::ok);
     }
 
@@ -74,7 +75,7 @@ public class EmailController {
     @GetMapping("/templates/name/{templateName}")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<EmailTemplateResponseDTO>> getEmailTemplateByName(@PathVariable String templateName) {
-        return Mono.fromCallable(() -> emailService.getEmailTemplateByName(templateName))
+        return emailService.getEmailTemplateByName(templateName)
                 .map(ResponseEntity::ok);
     }
 
@@ -89,7 +90,7 @@ public class EmailController {
     public Mono<ResponseEntity<EmailTemplateResponseDTO>> updateEmailTemplate(
             @PathVariable Long templateId,
             @RequestBody EmailTemplateRequestDTO emailTemplateRequestDTO) {
-        return Mono.fromCallable(() -> emailService.updateEmailTemplate(templateId, emailTemplateRequestDTO))
+        return emailService.updateEmailTemplate(templateId, emailTemplateRequestDTO)
                 .map(ResponseEntity::ok);
     }
 
@@ -101,8 +102,8 @@ public class EmailController {
     @DeleteMapping("/templates/{templateId}")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<Void>> deleteEmailTemplate(@PathVariable Long templateId) {
-        return Mono.fromRunnable(() -> emailService.deleteEmailTemplate(templateId))
-                .then(Mono.just(ResponseEntity.noContent().<Void>build()));
+        return emailService.deleteEmailTemplate(templateId)
+                .map(v -> ResponseEntity.noContent().build());
     }
 
     /**
@@ -113,7 +114,7 @@ public class EmailController {
     @PostMapping("/send")
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Void>> sendEmail(@RequestBody EmailSendRequestDTO emailSendRequestDTO) {
-        return Mono.fromRunnable(() -> emailService.sendEmail(emailSendRequestDTO))
-                .then(Mono.just(ResponseEntity.ok().<Void>build()));
+        return emailService.sendEmail(emailSendRequestDTO)
+                .map(v -> ResponseEntity.ok().build());
     }
 }

@@ -8,11 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import co.edu.puj.secchub_backend.planning.dto.ClassroomRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassroomResponseDTO;
+import co.edu.puj.secchub_backend.planning.exception.ClassroomBadRequestException;
 import co.edu.puj.secchub_backend.planning.exception.ClassroomNotFoundException;
 import co.edu.puj.secchub_backend.planning.model.Classroom;
 import co.edu.puj.secchub_backend.planning.repository.ClassroomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -29,17 +31,15 @@ public class ClassroomService {
 
     /**
      * Gets all classrooms.
-     * @return Mono containing list of all classroom response DTOs
+     * @return Flux containing all classroom response DTOs
      */
-    public Mono<List<ClassroomResponseDTO>> getAllClassrooms() {
+    public Flux<ClassroomResponseDTO> getAllClassrooms() {
         log.debug("Getting all classrooms");
-        return Mono.fromCallable(() -> 
-            classroomRepository.findAll()
-                .stream()
-                .map(this::mapToResponseDTO)
-                .toList()
-        );
+
+        return classroomRepository.findAll()
+                .map(this::mapToResponseDTO);
     }
+
 
     /**
      * Gets a classroom by its ID.
@@ -49,25 +49,36 @@ public class ClassroomService {
      */
     public Mono<ClassroomResponseDTO> getClassroomById(Long id) {
         log.debug("Getting classroom by ID: {}", id);
-        return Mono.fromCallable(() -> 
-            classroomRepository.findById(id)
-                .map(this::mapToResponseDTO)
-                .orElseThrow(() -> new ClassroomNotFoundException("Classroom not found for ID: " + id))
-        );
+
+        return classroomRepository.findById(id)
+            .switchIfEmpty(Mono.error(new ClassroomNotFoundException("Classroom not found for ID: " + id)))
+            .map(this::mapToResponseDTO);
     }
 
     /**
      * Creates a new classroom.
      * @param classroomRequestDTO the classroom request data
-     * @return Mono containing the created classroom response DTO
+     * @return The created classroom response DTO
      */
-    @Transactional
     public Mono<ClassroomResponseDTO> createClassroom(ClassroomRequestDTO classroomRequestDTO) {
-        log.debug("Creating new classroom: {}", classroomRequestDTO.getRoom());
-        return Mono.fromCallable(() -> {
+        return Mono.defer(() -> {
+            if (classroomRequestDTO.getClassroomTypeId() == null ||
+                classroomRequestDTO.getCampus() == null ||
+                classroomRequestDTO.getLocation() == null ||
+                classroomRequestDTO.getRoom() == null ||
+                classroomRequestDTO.getCapacity() == null ||
+                classroomRequestDTO.getCapacity() <= 0) {
+                return Mono.error(new ClassroomBadRequestException("Invalid classroom data provided"));
+            }
+
+            log.debug("Creating new classroom: {}", classroomRequestDTO.getRoom());
+
             Classroom classroom = mapToEntity(classroomRequestDTO);
-            Classroom savedClassroom = classroomRepository.save(classroom);
-            return mapToResponseDTO(savedClassroom);
+
+            return classroomRepository.save(classroom)
+                    .map(this::mapToResponseDTO)
+                    .doOnSuccess(saved -> log.info("Classroom created successfully: {}", saved.getRoom()))
+                    .doOnError(e -> log.error("Error creating classroom: {}", e.getMessage(), e));
         });
     }
 
@@ -75,26 +86,24 @@ public class ClassroomService {
      * Updates an existing classroom.
      * @param id the classroom ID
      * @param classroomRequestDTO the updated classroom data
-     * @return Mono containing the updated classroom response DTO
+     * @return The updated classroom response DTO
      * @throws ClassroomNotFoundException if classroom not found
      */
-    @Transactional
     public Mono<ClassroomResponseDTO> updateClassroom(Long id, ClassroomRequestDTO classroomRequestDTO) {
         log.debug("Updating classroom with ID: {}", id);
-        return Mono.fromCallable(() -> {
-            Classroom existingClassroom = classroomRepository.findById(id)
-                .orElseThrow(() -> new ClassroomNotFoundException("Classroom not found for ID: " + id));
-            
-            // Update fields
-            existingClassroom.setClassroomTypeId(classroomRequestDTO.getClassroomTypeId());
-            existingClassroom.setCampus(classroomRequestDTO.getCampus());
-            existingClassroom.setLocation(classroomRequestDTO.getLocation());
-            existingClassroom.setRoom(classroomRequestDTO.getRoom());
-            existingClassroom.setCapacity(classroomRequestDTO.getCapacity());
-            
-            Classroom updatedClassroom = classroomRepository.save(existingClassroom);
-            return mapToResponseDTO(updatedClassroom);
-        });
+
+        return classroomRepository.findById(id)
+            .switchIfEmpty(Mono.error(new ClassroomNotFoundException("Classroom to update not found for ID: " + id)))
+            .flatMap(existingClassroom -> {
+                existingClassroom.setClassroomTypeId(classroomRequestDTO.getClassroomTypeId() != null ? classroomRequestDTO.getClassroomTypeId() : existingClassroom.getClassroomTypeId());
+                existingClassroom.setCampus(classroomRequestDTO.getCampus() != null ? classroomRequestDTO.getCampus() : existingClassroom.getCampus());
+                existingClassroom.setLocation(classroomRequestDTO.getLocation() != null ? classroomRequestDTO.getLocation() : existingClassroom.getLocation());
+                existingClassroom.setRoom(classroomRequestDTO.getRoom() != null ? classroomRequestDTO.getRoom() : existingClassroom.getRoom());
+                existingClassroom.setCapacity(classroomRequestDTO.getCapacity() != null && classroomRequestDTO.getCapacity() > 0 ? classroomRequestDTO.getCapacity() : existingClassroom.getCapacity());
+
+                return classroomRepository.save(existingClassroom);
+            })
+            .map(this::mapToResponseDTO);
     }
 
     /**
@@ -106,12 +115,15 @@ public class ClassroomService {
     @Transactional
     public Mono<Void> deleteClassroom(Long id) {
         log.debug("Deleting classroom with ID: {}", id);
-        return Mono.fromRunnable(() -> {
-            if (!classroomRepository.existsById(id)) {
-                throw new ClassroomNotFoundException("Classroom not found for ID: " + id);
-            }
-            classroomRepository.deleteById(id);
-        });
+        return classroomRepository.existsById(id)
+            .flatMap(exists -> {
+                if (Boolean.FALSE.equals(exists)) {
+                    return Mono.error(new ClassroomNotFoundException("Classroom to delete not found for ID: " + id));
+                }
+                return classroomRepository.deleteById(id)
+                    .doOnSuccess(v -> log.info("Classroom with ID: {} deleted successfully", id))
+                    .doOnError(e -> log.error("Error deleting classroom with ID: {}: {}", id, e.getMessage(), e));
+            });
     }
 
     /**
@@ -121,12 +133,9 @@ public class ClassroomService {
      */
     public Mono<List<ClassroomResponseDTO>> getClassroomsByType(Long typeId) {
         log.debug("Getting classrooms by type ID: {}", typeId);
-        return Mono.fromCallable(() -> 
-            classroomRepository.findByClassroomTypeId(typeId)
-                .stream()
-                .map(this::mapToResponseDTO)
-                .toList()
-        );
+        return classroomRepository.findByClassroomTypeId(typeId)
+            .map(this::mapToResponseDTO)
+            .collectList();
     }
 
     /**

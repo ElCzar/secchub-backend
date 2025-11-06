@@ -1,23 +1,21 @@
 package co.edu.puj.secchub_backend.admin.service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.reactive.TransactionalOperator;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.admin.dto.SemesterRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SemesterResponseDTO;
 import co.edu.puj.secchub_backend.admin.exception.SemesterBadRequestException;
+import co.edu.puj.secchub_backend.admin.exception.SemesterNotFoundException;
 import co.edu.puj.secchub_backend.admin.model.Semester;
 import co.edu.puj.secchub_backend.admin.repository.SemesterRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
@@ -25,9 +23,10 @@ import reactor.core.publisher.Mono;
  * Provides methods to create, query, update and delete semesters.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class SemesterService implements AdminModuleSemesterContract {
-
+    private final TransactionalOperator transactionalOperator;
     private final SemesterRepository semesterRepository;
     private final ModelMapper modelMapper;
     private final SectionService sectionService;
@@ -39,26 +38,34 @@ public class SemesterService implements AdminModuleSemesterContract {
      * @return semesterResponseDTO with created semester data
      * @throws SemesterBadRequestException if semester data is invalid
      */
-    @Transactional
     @CacheEvict(value = {"current-semester", "current-semester-id"}, allEntries = true)
     public Mono<SemesterResponseDTO> createSemester(SemesterRequestDTO semesterRequestDTO) {
-        return Mono.fromCallable(() -> {
-            if (semesterRequestDTO.getYear() == null || semesterRequestDTO.getStartDate() == null || semesterRequestDTO.getEndDate() == null || semesterRequestDTO.getPeriod() == null) {
-                throw new SemesterBadRequestException("Semester year, start date, end date and period cannot be null");
-            }
+        if (semesterRequestDTO.getYear() == null ||
+            semesterRequestDTO.getStartDate() == null ||
+            semesterRequestDTO.getEndDate() == null ||
+            semesterRequestDTO.getPeriod() == null) {
+            return Mono.error(new SemesterBadRequestException(
+                "Semester year, start date, end date and period cannot be null"
+            ));
+        }
 
-            Optional<Semester> currentSemester = semesterRepository.findByIsCurrentTrue();
-            currentSemester.ifPresent(semester -> {
-                semester.setIsCurrent(false);
-                semesterRepository.save(semester);
-            });
-
+        return semesterRepository.findByIsCurrentTrue()
+        .flatMap(existingSemester -> {
+            existingSemester.setIsCurrent(false);
+            return semesterRepository.save(existingSemester);
+        })
+        .then(Mono.defer(() -> {
             Semester semester = modelMapper.map(semesterRequestDTO, Semester.class);
             semester.setIsCurrent(true);
-            semesterRepository.save(semester);
-            sectionService.openPlanningForAllSections();
-            return modelMapper.map(semester, SemesterResponseDTO.class);
-        });
+            return semesterRepository.save(semester);
+        }))
+        .flatMap(savedSemester ->
+            Mono.fromRunnable(sectionService::openPlanningForAllSections)
+                .thenReturn(savedSemester)
+        )
+        .map(savedSemester -> modelMapper.map(savedSemester, SemesterResponseDTO.class))
+        .as(transactionalOperator::transactional);
+
     }
 
     /**
@@ -68,43 +75,30 @@ public class SemesterService implements AdminModuleSemesterContract {
      */
     @Cacheable("current-semester")
     public Mono<SemesterResponseDTO> getCurrentSemester() {
-        return Mono.fromCallable(() -> {
-            System.out.println("🔍 SemesterService: Buscando semestre actual...");
-            Semester currentSemester = semesterRepository.findByIsCurrentTrue()
-                    .orElseThrow(() -> new SemesterBadRequestException("No current semester found"));
-            
-            System.out.println("📅 SemesterService: Semestre encontrado - ID: " + currentSemester.getId());
-            System.out.println("📅 SemesterService: Año: " + currentSemester.getYear());
-            System.out.println("📅 SemesterService: Período: " + currentSemester.getPeriod());
-            System.out.println("📅 SemesterService: Fecha inicio: " + currentSemester.getStartDate());
-            System.out.println("📅 SemesterService: Fecha fin: " + currentSemester.getEndDate());
-            System.out.println("📅 SemesterService: Es actual: " + currentSemester.getIsCurrent());
-            
-            SemesterResponseDTO response = modelMapper.map(currentSemester, SemesterResponseDTO.class);
-            System.out.println("✅ SemesterService: DTO mapeado: " + response);
-            return response;
-        });
+        return semesterRepository.findByIsCurrentTrue()
+                .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class))
+                .switchIfEmpty(Mono.error(new SemesterNotFoundException("No current semester found")));
     }
 
+    /**
+     * Implementation of AdminModuleSemesterContract.
+     * Gets the current semester ID.
+     */
     @Override
     @Cacheable("current-semester-id")
-    public Long getCurrentSemesterId() {
-        Semester currentSemester = semesterRepository.findByIsCurrentTrue()
-                .orElseThrow(() -> new SemesterBadRequestException("No current semester found"));
-        return currentSemester.getId();
+    public Mono<Long> getCurrentSemesterId() {
+        return semesterRepository.findByIsCurrentTrue()
+                .map(Semester::getId)
+                .switchIfEmpty(Mono.error(new SemesterNotFoundException("No current semester found")));
     }
 
     /**
      * Gets all semesters.
      * @return List of semesterResponseDTO with all semesters data
      */
-    public Mono<List<SemesterResponseDTO>> getAllSemesters() {
-        return Mono.fromCallable(() -> {
-            List<Semester> semesters = semesterRepository.findAll();
-            return semesters.stream()
-                    .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class))
-                    .toList();
-        });
+    public Flux<SemesterResponseDTO> getAllSemesters() {
+        return semesterRepository.findAll()
+                .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class));
     }
 
     /**
@@ -114,36 +108,8 @@ public class SemesterService implements AdminModuleSemesterContract {
      * @return SemesterResponseDTO with semester data or null if not found
      */
     public Mono<SemesterResponseDTO> getSemesterByYearAndPeriod(Integer year, Integer period) {
-        return Mono.fromCallable(() -> {
-            Optional<Semester> semester = semesterRepository.findByYearAndPeriod(year, period);
-            return semester.map(s -> modelMapper.map(s, SemesterResponseDTO.class))
-                          .orElse(null);
-        });
-    }
-
-    /**
-     * Implementation of AdminModuleSemesterContract.
-     * Gets all past semesters (excluding current active semester).
-     */
-    @Override
-    public List<Map<String, Object>> getPastSemesters() {
-        Long currentSemesterId = getCurrentSemesterId();
-        List<Semester> allSemesters = semesterRepository.findAll();
-        
-        return allSemesters.stream()
-                .filter(semester -> !semester.getId().equals(currentSemesterId))
-                .map(semester -> {
-                    Map<String, Object> semesterInfo = new HashMap<>();
-                    semesterInfo.put("id", semester.getId());
-                    // Generar nombre descriptivo basado en año y periodo
-                    String name = String.format("%d-%d", semester.getYear(), semester.getPeriod());
-                    semesterInfo.put("name", name);
-                    semesterInfo.put("year", semester.getYear());
-                    semesterInfo.put("period", semester.getPeriod());
-                    semesterInfo.put("startDate", semester.getStartDate());
-                    semesterInfo.put("endDate", semester.getEndDate());
-                    return semesterInfo;
-                })
-                .toList();
+        return semesterRepository.findByYearAndPeriod(year, period)
+                .switchIfEmpty(Mono.error(new SemesterNotFoundException("Semester was not found for year " + year + "and period " + period)))
+                .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class));
     }
 }

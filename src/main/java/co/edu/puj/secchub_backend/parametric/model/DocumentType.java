@@ -1,33 +1,27 @@
 package co.edu.puj.secchub_backend.parametric.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 /**
  * Entity representing document types in the system.
  * Used for user identification documents.
  */
-@Entity
-@Table(name = "document_type")
-@Getter
-@Setter
+@Table("document_type")
+@Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class DocumentType {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "name", nullable = false, unique = true, length = 100)
+    @Column("name")
     private String name;
-
-    @Override
-    public String toString() {
-        return "DocumentType{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                '}';
-    }
 }

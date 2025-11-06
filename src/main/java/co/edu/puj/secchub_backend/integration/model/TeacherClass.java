@@ -1,46 +1,53 @@
 package co.edu.puj.secchub_backend.integration.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity mapped to 'teacher_class'.
  * Represents the assignment of a teacher to a class along with their workload and decision status.
  */
-@Entity
-@Table(name = "teacher_class")
-@Getter @Setter @Builder
-@NoArgsConstructor @AllArgsConstructor
+@Table("teacher_class")
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TeacherClass {
-
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "semester_id")
+    @Column("semester_id")
     private Long semesterId;
 
-    @Column(name = "teacher_id")
+    @Column("teacher_id")
     private Long teacherId;
 
-    @Column(name = "class_id")
+    @Column("class_id")
     private Long classId;
 
-    @Column(name = "work_hours")
+    @Column("work_hours")
     private Integer workHours;
 
-    @Column(name = "full_time_extra_hours")
+    @Column("full_time_extra_hours")
     private Integer fullTimeExtraHours;
 
-    @Column(name = "adjunct_extra_hours")
+    @Column("adjunct_extra_hours")
     private Integer adjunctExtraHours;
     
-    @Column(name = "decision")
+    @Column("decision")
     private Boolean decision;
 
-    @Column(name = "observation")
+    @Column("observation")
     private String observation;
     
-    @Column(name = "status_id")
+    @Column("status_id")
     private Long statusId;
 }

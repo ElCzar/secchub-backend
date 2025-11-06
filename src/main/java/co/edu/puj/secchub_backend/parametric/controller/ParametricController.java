@@ -33,7 +33,9 @@ public class ParametricController {
     @GetMapping("/statuses")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<StatusDTO>>> getAllStatuses() {
-        return Mono.just(ResponseEntity.ok(parametricService.getAllStatuses()));
+        return parametricService.getAllStatuses()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -44,7 +46,8 @@ public class ParametricController {
     @GetMapping("/statuses/{id}")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getStatusById(@PathVariable Long id) {
-        return Mono.just(ResponseEntity.ok(parametricService.getStatusNameById(id)));
+        return parametricService.getStatusNameById(id)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -54,7 +57,9 @@ public class ParametricController {
     @GetMapping("/roles")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<RoleDTO>>> getAllRoles() {
-        return Mono.just(ResponseEntity.ok(parametricService.getAllRoles()));
+        return parametricService.getAllRoles()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -65,7 +70,8 @@ public class ParametricController {
     @GetMapping("/roles/{id}")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getRoleById(@PathVariable Long id) {
-        return Mono.just(ResponseEntity.ok(parametricService.getRoleNameById(id)));
+        return parametricService.getRoleNameById(id)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -75,7 +81,9 @@ public class ParametricController {
     @GetMapping("/document-types")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<DocumentTypeDTO>>> getAllDocumentTypes() {
-        return Mono.just(ResponseEntity.ok(parametricService.getAllDocumentTypes()));
+        return parametricService.getAllDocumentTypes()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -86,7 +94,8 @@ public class ParametricController {
     @GetMapping("/document-types/{id}")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getDocumentTypeById(@PathVariable Long id) {
-        return Mono.just(ResponseEntity.ok(parametricService.getDocumentTypeNameById(id)));
+        return parametricService.getDocumentTypeNameById(id)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -96,7 +105,9 @@ public class ParametricController {
     @GetMapping("/employment-types")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<List<EmploymentTypeDTO>>> getAllEmploymentTypes() {
-        return Mono.just(ResponseEntity.ok(parametricService.getAllEmploymentTypes()));
+        return parametricService.getAllEmploymentTypes()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -107,7 +118,8 @@ public class ParametricController {
     @GetMapping("/employment-types/{id}")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getEmploymentTypeById(@PathVariable Long id) {
-        return Mono.just(ResponseEntity.ok(parametricService.getEmploymentTypeNameById(id)));
+        return parametricService.getEmploymentTypeNameById(id)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -117,7 +129,9 @@ public class ParametricController {
     @GetMapping("/modalities")
     @PreAuthorize("isAuthenticated() or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<ModalityDTO>>> getAllModalities() {
-        return Mono.just(ResponseEntity.ok(parametricService.getAllModalities()));
+        return parametricService.getAllModalities()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -128,7 +142,8 @@ public class ParametricController {
     @GetMapping("/modalities/{id}")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getModalityById(@PathVariable Long id) {
-        return Mono.just(ResponseEntity.ok(parametricService.getModalityNameById(id)));
+        return parametricService.getModalityNameById(id)
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -138,7 +153,9 @@ public class ParametricController {
     @GetMapping("/classroom-types")
     @PreAuthorize("isAuthenticated() or hasRole('ROLE_PROGRAM')")
     public Mono<ResponseEntity<List<ClassroomTypeDTO>>> getAllClassroomTypes() {
-        return Mono.just(ResponseEntity.ok(parametricService.getAllClassroomTypes()));
+        return parametricService.getAllClassroomTypes()
+                .collectList()
+                .map(ResponseEntity::ok);
     }
 
     /**
@@ -149,6 +166,7 @@ public class ParametricController {
     @GetMapping("/classroom-types/{id}")
     @PreAuthorize("isAuthenticated()")
     public Mono<ResponseEntity<String>> getClassroomTypeById(@PathVariable Long id) {
-        return Mono.just(ResponseEntity.ok(parametricService.getClassroomTypeNameById(id)));
+        return parametricService.getClassroomTypeNameById(id)
+                .map(ResponseEntity::ok);
     }
 }

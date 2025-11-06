@@ -1,46 +1,49 @@
 package co.edu.puj.secchub_backend.integration.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import java.time.LocalTime;
 
-import jakarta.persistence.*;
-import lombok.*;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Entity mapped to 'request_schedule'.
  * Represents the schedule details associated with an academic request.
  */
-@Entity
-@Table(name = "request_schedule")
-@Getter @Setter @Builder
-@NoArgsConstructor @AllArgsConstructor
+@Table("request_schedule")
+@Getter 
+@Setter 
+@Builder
+@NoArgsConstructor 
+@AllArgsConstructor
 public class RequestSchedule {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "academic_request_id")
+    @Column("academic_request_id")
     private Long academicRequestId;
 
-    @Column(name = "classroom_type_id")
+    @Column("classroom_type_id")
     private Long classRoomTypeId;
 
-    @Column(name = "start_time")
-    private java.sql.Time startTime;
+    @Column("start_time")
+    private LocalTime startTime;
 
-    @Column(name = "end_time")
-    private java.sql.Time endTime;
+    @Column("end_time")
+    private LocalTime endTime;
 
-    @Column(name = "day")
+    @Column("day")
     private String day;
 
-    @Column(name = "modality_id")
+    @Column("modality_id")
     private Long modalityId;
 
-    @Column(name = "disability")
+    @Column("disability")
     private Boolean disability;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "academic_request_id", insertable = false, updatable = false)
-    @JsonBackReference
-    private AcademicRequest academicRequest;
 }
