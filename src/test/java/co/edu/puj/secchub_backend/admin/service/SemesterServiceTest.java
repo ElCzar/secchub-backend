@@ -55,6 +55,7 @@ class SemesterServiceTest {
                 .period(1)
                 .startDate(LocalDate.of(2025, 1, 10))
                 .endDate(LocalDate.of(2025, 6, 15))
+                .startSpecialWeek(LocalDate.of(2025, 3, 10))
                 .build();
 
         Semester currentSemester = Semester.builder()

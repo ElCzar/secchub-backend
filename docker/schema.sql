@@ -119,6 +119,7 @@ CREATE TABLE `semester` (
   `is_current` BOOLEAN NULL,
   `start_date` DATE NULL,
   `end_date` DATE NULL,
+  `start_special_week` DATE NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 

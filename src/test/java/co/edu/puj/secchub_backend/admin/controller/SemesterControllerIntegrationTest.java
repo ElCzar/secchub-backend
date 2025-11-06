@@ -120,6 +120,7 @@ class SemesterControllerIntegrationTest extends DatabaseContainerIntegration {
                 .period(1)
                 .startDate(LocalDate.of(2027, 1, 15))
                 .endDate(LocalDate.of(2027, 6, 30))
+                .startSpecialWeek(LocalDate.of(2027, 3, 15))
                 .build();
 
         SemesterResponseDTO responseDTO = webTestClient.post()
@@ -139,6 +140,7 @@ class SemesterControllerIntegrationTest extends DatabaseContainerIntegration {
         assertEquals(1, responseDTO.getPeriod(), "Period should match");
         assertEquals(LocalDate.of(2027, 1, 15), responseDTO.getStartDate(), "Start date should match");
         assertEquals(LocalDate.of(2027, 6, 30), responseDTO.getEndDate(), "End date should match");
+        assertEquals(LocalDate.of(2027, 3, 15), responseDTO.getStartSpecialWeek(), "Start special week should match");
 
         // Verify semester exists in database
         Long count = databaseClient.sql("SELECT COUNT(*) FROM semester WHERE year = :year AND period = :period")
@@ -428,6 +430,7 @@ class SemesterControllerIntegrationTest extends DatabaseContainerIntegration {
                 .period(1)
                 .startDate(LocalDate.of(2026, 1, 15))
                 .endDate(LocalDate.of(2026, 6, 30))
+                .startSpecialWeek(LocalDate.of(2026, 3, 15))
                 .build();
 
         SemesterResponseDTO responseFirstSemester = webTestClient.post()
@@ -451,6 +454,7 @@ class SemesterControllerIntegrationTest extends DatabaseContainerIntegration {
                 .period(2)
                 .startDate(LocalDate.of(2026, 7, 1))
                 .endDate(LocalDate.of(2026, 12, 20))
+                .startSpecialWeek(LocalDate.of(2026, 10, 15))
                 .build();
 
         SemesterResponseDTO responseSecondSemester = webTestClient.post()

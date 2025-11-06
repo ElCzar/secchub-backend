@@ -20,4 +20,5 @@ public class SemesterRequestDTO {
     private Integer year;
     private LocalDate startDate;
     private LocalDate endDate;
+    private LocalDate startSpecialWeek;
 }

@@ -40,4 +40,7 @@ public class Semester {
 
     @Column("end_date")
     private LocalDate endDate;
+
+    @Column("start_special_week")
+    private LocalDate startSpecialWeek;
 }

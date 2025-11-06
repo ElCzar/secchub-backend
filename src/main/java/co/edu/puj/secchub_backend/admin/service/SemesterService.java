@@ -43,9 +43,10 @@ public class SemesterService implements AdminModuleSemesterContract {
         if (semesterRequestDTO.getYear() == null ||
             semesterRequestDTO.getStartDate() == null ||
             semesterRequestDTO.getEndDate() == null ||
-            semesterRequestDTO.getPeriod() == null) {
+            semesterRequestDTO.getPeriod() == null ||
+            semesterRequestDTO.getStartSpecialWeek() == null) {
             return Mono.error(new SemesterBadRequestException(
-                "Semester year, start date, end date and period cannot be null"
+                "Semester year, start date, end date, period or start special week cannot be null"
             ));
         }
 
