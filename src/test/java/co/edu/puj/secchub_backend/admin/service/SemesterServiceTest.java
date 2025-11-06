@@ -237,4 +237,90 @@ class SemesterServiceTest {
 
         assertThrows(SemesterNotFoundException.class, result::block);
     }
+
+    @Test
+    @DisplayName("getSemesterById - When found returns mapped DTO")
+    void testGetSemesterById_ReturnsMappedDTO() {
+        Long semesterId = 5L;
+        Semester semester = Semester.builder()
+                .id(semesterId)
+                .year(2025)
+                .period(1)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 6, 15))
+                .isCurrent(true)
+                .build();
+
+        SemesterResponseDTO dto = SemesterResponseDTO.builder()
+                .id(semesterId)
+                .year(2025)
+                .period(1)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 6, 15))
+                .isCurrent(true)
+                .build();
+
+        when(semesterRepository.findById(semesterId)).thenReturn(Mono.just(semester));
+        when(modelMapper.map(semester, SemesterResponseDTO.class)).thenReturn(dto);
+
+        SemesterResponseDTO result = semesterService.getSemesterById(semesterId).block();
+
+        assertNotNull(result);
+        assertEquals(semesterId, result.getId());
+        assertEquals(2025, result.getYear());
+        assertEquals(1, result.getPeriod());
+        assertTrue(result.getIsCurrent());
+        verify(semesterRepository).findById(semesterId);
+        verify(modelMapper).map(semester, SemesterResponseDTO.class);
+    }
+
+    @Test
+    @DisplayName("getSemesterById - When not found throws SemesterNotFoundException")
+    void testGetSemesterById_NotFound_ThrowsException() {
+        Long semesterId = 999L;
+        when(semesterRepository.findById(semesterId)).thenReturn(Mono.empty());
+
+        Mono<SemesterResponseDTO> result = semesterService.getSemesterById(semesterId);
+
+        SemesterNotFoundException exception = assertThrows(SemesterNotFoundException.class, result::block);
+        assertTrue(exception.getMessage().contains("Semester was not found for id " + semesterId));
+        verify(semesterRepository).findById(semesterId);
+        verify(modelMapper, never()).map(any(), any());
+    }
+
+    @Test
+    @DisplayName("getSemesterById - When found with different ID returns correct semester")
+    void testGetSemesterById_DifferentId_ReturnsCorrectSemester() {
+        Long semesterId = 15L;
+        Semester semester = Semester.builder()
+                .id(semesterId)
+                .year(2024)
+                .period(2)
+                .startDate(LocalDate.of(2024, 7, 1))
+                .endDate(LocalDate.of(2024, 12, 20))
+                .isCurrent(false)
+                .build();
+
+        SemesterResponseDTO dto = SemesterResponseDTO.builder()
+                .id(semesterId)
+                .year(2024)
+                .period(2)
+                .startDate(LocalDate.of(2024, 7, 1))
+                .endDate(LocalDate.of(2024, 12, 20))
+                .isCurrent(false)
+                .build();
+
+        when(semesterRepository.findById(semesterId)).thenReturn(Mono.just(semester));
+        when(modelMapper.map(semester, SemesterResponseDTO.class)).thenReturn(dto);
+
+        SemesterResponseDTO result = semesterService.getSemesterById(semesterId).block();
+
+        assertNotNull(result);
+        assertEquals(semesterId, result.getId());
+        assertEquals(2024, result.getYear());
+        assertEquals(2, result.getPeriod());
+        assertFalse(result.getIsCurrent());
+        verify(semesterRepository).findById(semesterId);
+        verify(modelMapper).map(semester, SemesterResponseDTO.class);
+    }
 }

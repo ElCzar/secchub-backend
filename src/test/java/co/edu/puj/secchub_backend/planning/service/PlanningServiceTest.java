@@ -33,6 +33,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.transaction.reactive.TransactionalOperator;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.dto.SemesterResponseDTO;
 import co.edu.puj.secchub_backend.admin.service.CourseService;
 import co.edu.puj.secchub_backend.admin.service.SectionService;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
@@ -2031,6 +2032,8 @@ class PlanningServiceTest {
                 .section(userSection)
                 .courseId(100L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .capacity(30)
                 .build();
 
@@ -2051,8 +2054,17 @@ class PlanningServiceTest {
         ClassResponseDTO responseDTO = ClassResponseDTO.builder()
                 .id(2L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .build();
 
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.fromIterable(classes));
         when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
         when(classScheduleRepository.findByClassId(sourceClass.getId())).thenReturn(Flux.just(sourceSchedule));
@@ -2069,6 +2081,7 @@ class PlanningServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.size());
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
         verify(classRepository, atLeastOnce()).save(any(Class.class));
         verify(classScheduleRepository, atLeastOnce()).save(any(ClassSchedule.class));
@@ -2090,6 +2103,8 @@ class PlanningServiceTest {
                 .section(1L)
                 .courseId(100L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .capacity(30)
                 .build();
         ClassSchedule sourceSchedule = ClassSchedule.builder()
@@ -2107,8 +2122,17 @@ class PlanningServiceTest {
         ClassResponseDTO responseDTO = ClassResponseDTO.builder()
                 .id(2L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .build();
         
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.just(sourceClass));
         when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
         when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.just(sourceSchedule));
@@ -2125,6 +2149,7 @@ class PlanningServiceTest {
         
         assertNotNull(result);
         assertEquals(1, result.size());
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
         verify(classRepository, atLeastOnce()).save(any(Class.class));
         verify(classScheduleRepository, atLeastOnce()).save(any(ClassSchedule.class));
@@ -2147,14 +2172,25 @@ class PlanningServiceTest {
                 .section(1L)
                 .courseId(100L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .capacity(30)
                 .build();
 
         ClassResponseDTO responseDTO = ClassResponseDTO.builder()
                 .id(2L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .build();
 
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.just(sourceClass));
         when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
         when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
@@ -2167,6 +2203,7 @@ class PlanningServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.size());
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
         verify(classRepository).save(any(Class.class));
         verify(classScheduleRepository, never()).save(any(ClassSchedule.class));
@@ -2175,6 +2212,13 @@ class PlanningServiceTest {
     @Test
     @DisplayName("duplicateSemesterPlanning - When there are no classes returns empty list and does nothing")
     void testDuplicateSemesterPlanning_NoClasses_ReturnsEmptyList() {
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.empty());
 
         List<ClassResponseDTO> result = planningService.duplicateSemesterPlanning(1L, 2L).collectList().block();
@@ -2189,12 +2233,12 @@ class PlanningServiceTest {
     @Test
     @DisplayName("duplicateSemesterPlanning - When semester not found error occurs throws PlanningServerErrorException")
     void testDuplicateSemesterPlanning_ErrorOccurs_ThrowsException() {
-        when(classRepository.findBySemesterId(1L)).thenReturn(Flux.error(new RuntimeException("Database error")));
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.error(new RuntimeException("Semester not found")));
 
         Mono<List<ClassResponseDTO>> result = planningService.duplicateSemesterPlanning(1L, 2L).collectList();
 
         assertThrows(PlanningServerErrorException.class, result::block);
-        verify(classRepository).findBySemesterId(1L);
+        verify(semesterService).getSemesterById(2L);
     }
 
     @ParameterizedTest(name = "applySemesterPlanningToCurrent - Should only apply classes for own section {0}")
@@ -2210,15 +2254,26 @@ class PlanningServiceTest {
                 .section(userSection)
                 .courseId(userSection)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .capacity(30)
                 .build();
 
         ClassResponseDTO responseDTO = ClassResponseDTO.builder()
                 .id(2L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .build();
 
         when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(2L));
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.fromIterable(classes));
         when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
         when(classScheduleRepository.findByClassId(sourceClass.getId())).thenReturn(Flux.empty());
@@ -2233,6 +2288,7 @@ class PlanningServiceTest {
         assertEquals(1, result.size());
         assertEquals(2L, result.get(0).getSemesterId());
         verify(semesterService).getCurrentSemesterId();
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
     }
 
@@ -2253,15 +2309,26 @@ class PlanningServiceTest {
                 .section(1L)
                 .courseId(100L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .capacity(30)
                 .build();
 
         ClassResponseDTO responseDTO = ClassResponseDTO.builder()
                 .id(2L)
                 .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
                 .build();
 
         when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(2L));
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.just(sourceClass));
         when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
         when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
@@ -2276,13 +2343,21 @@ class PlanningServiceTest {
         assertEquals(1, result.size());
         assertEquals(2L, result.get(0).getSemesterId());
         verify(semesterService).getCurrentSemesterId();
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
     }
 
     @Test
     @DisplayName("applySemesterPlanningToCurrent - When no classes in source semester returns empty list")
     void testApplySemesterPlanningToCurrent_NoClasses_ReturnsEmptyList() {
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
         when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(2L));
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.empty());
 
         List<ClassResponseDTO> result = planningService.applySemesterPlanningToCurrent(1L).collectList().block();
@@ -2290,6 +2365,7 @@ class PlanningServiceTest {
         assertNotNull(result);
         assertTrue(result.isEmpty());
         verify(semesterService).getCurrentSemesterId();
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
     }
 
@@ -2297,13 +2373,13 @@ class PlanningServiceTest {
     @DisplayName("applySemesterPlanningToCurrent - When error occurs throws PlanningServerErrorException")
     void testApplySemesterPlanningToCurrent_ErrorOccurs_ThrowsException() {
         when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(2L));
-        when(classRepository.findBySemesterId(1L)).thenReturn(Flux.error(new RuntimeException("Database error")));
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.error(new RuntimeException("Semester not found")));
 
         Mono<List<ClassResponseDTO>> result = planningService.applySemesterPlanningToCurrent(1L).collectList();
 
         assertThrows(PlanningServerErrorException.class, result::block);
         verify(semesterService).getCurrentSemesterId();
-        verify(classRepository).findBySemesterId(1L);
+        verify(semesterService).getSemesterById(2L);
     }
 
     // ==================== PATCH CLASS SCHEDULE ADVANCED TESTS ====================
@@ -2458,12 +2534,20 @@ class PlanningServiceTest {
     @Test
     @DisplayName("duplicateSemesterPlanning - When source semester has no classes returns empty flux")
     void testDuplicateSemesterPlanning_NoClasses_ReturnsEmpty() {
+        SemesterResponseDTO targetSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 10))
+                .endDate(LocalDate.of(2025, 5, 10))
+                .build();
+
+        when(semesterService.getSemesterById(2L)).thenReturn(Mono.just(targetSemester));
         when(classRepository.findBySemesterId(1L)).thenReturn(Flux.empty());
 
         List<ClassResponseDTO> result = planningService.duplicateSemesterPlanning(1L, 2L).collectList().block();
 
         assertNotNull(result);
         assertEquals(0, result.size());
+        verify(semesterService).getSemesterById(2L);
         verify(classRepository).findBySemesterId(1L);
         verify(classRepository, never()).save(any());
     }

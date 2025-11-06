@@ -113,4 +113,15 @@ public class SemesterService implements AdminModuleSemesterContract {
                 .switchIfEmpty(Mono.error(new SemesterNotFoundException("Semester was not found for year " + year + "and period " + period)))
                 .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class));
     }
+
+    /**
+     * Implementation of AdminModuleSemesterContract.
+     * Gets semester by its id.
+     */
+    @Override
+    public Mono<SemesterResponseDTO> getSemesterById(Long semesterId) {
+        return semesterRepository.findById(semesterId)
+                .map(semester -> modelMapper.map(semester, SemesterResponseDTO.class))
+                .switchIfEmpty(Mono.error(new SemesterNotFoundException("Semester was not found for id " + semesterId)));
+    }
 }

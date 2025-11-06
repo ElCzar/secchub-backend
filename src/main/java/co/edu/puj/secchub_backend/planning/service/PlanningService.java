@@ -461,27 +461,32 @@ public class PlanningService implements PlanningModuleClassContract {
      * @return Flux of created classes in target semester
      */
     public Flux<ClassResponseDTO> duplicateSemesterPlanning(Long sourceSemesterId, Long targetSemesterId) {
-        return classRepository.findBySemesterId(sourceSemesterId)
-        .filterWhen(this::filterClassByUserSection)
-        .flatMap(src -> {
-            Class copy = new Class();
-            modelMapper.map(src, copy);
-            copy.setId(null);
-            copy.setSemesterId(targetSemesterId);
-            return classRepository.save(copy)
-            .flatMapMany(saved ->
-                classScheduleRepository.findByClassId(src.getId())
-                .flatMap(schedule -> {
-                    ClassSchedule scheduleCopy = new ClassSchedule();
-                    modelMapper.map(schedule, scheduleCopy);
-                    scheduleCopy.setId(null);
-                    scheduleCopy.setClassId(saved.getId());
-                    return classScheduleRepository.save(scheduleCopy);
-                })
-                .then(Mono.just(saved))
-            );
-        })
-        .flatMap(this::getClassSchedulesForClass)
+        return semesterService.getSemesterById(targetSemesterId)
+        .flatMapMany(targetSemester ->
+            classRepository.findBySemesterId(sourceSemesterId)
+            .filterWhen(this::filterClassByUserSection)
+            .flatMap(src -> {
+                Class copy = new Class();
+                modelMapper.map(src, copy);
+                copy.setId(null);
+                copy.setSemesterId(targetSemesterId);
+                copy.setStartDate(targetSemester.getStartDate());
+                copy.setEndDate(targetSemester.getEndDate());
+                return classRepository.save(copy)
+                .flatMapMany(saved ->
+                    classScheduleRepository.findByClassId(src.getId())
+                    .flatMap(schedule -> {
+                        ClassSchedule scheduleCopy = new ClassSchedule();
+                        modelMapper.map(schedule, scheduleCopy);
+                        scheduleCopy.setId(null);
+                        scheduleCopy.setClassId(saved.getId());
+                        return classScheduleRepository.save(scheduleCopy);
+                    })
+                    .then(Mono.just(saved))
+                );
+            })
+            .flatMap(this::getClassSchedulesForClass)
+        )
         .as(transactionalOperator::transactional)
         .onErrorMap(e -> {
             log.error("Error duplicating semester planning from {} to {}: {}", sourceSemesterId, targetSemesterId, e.getMessage());

@@ -27,6 +27,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
 import co.edu.puj.secchub_backend.R2dbcTestUtils;
+import co.edu.puj.secchub_backend.admin.model.Semester;
+import co.edu.puj.secchub_backend.admin.repository.SemesterRepository;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
@@ -46,6 +48,9 @@ class PlanningControllerIntegrationTest extends DatabaseContainerIntegration {
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private SemesterRepository semesterRepository;
 
     @Autowired
     private ConnectionFactory connectionFactory;
@@ -766,6 +771,19 @@ class PlanningControllerIntegrationTest extends DatabaseContainerIntegration {
         // Verify all duplicated classes have target semester ID
         assertTrue(duplicatedClasses.stream()
                 .allMatch(c -> c.getSemesterId().equals(targetSemesterId)));
+
+        // Verify if duplicate has new semester dates
+        // Search in db
+        Semester semester = semesterRepository.findById(targetSemesterId).block();
+        assertNotNull(semester);
+
+        LocalDate expectedStartDate = semester.getStartDate();
+        LocalDate expectedEndDate = semester.getEndDate();
+
+        for (ClassResponseDTO classDto : duplicatedClasses) {
+            assertEquals(expectedStartDate, classDto.getStartDate());
+            assertEquals(expectedEndDate, classDto.getEndDate());
+        }
     }
 
     // ==========================================
