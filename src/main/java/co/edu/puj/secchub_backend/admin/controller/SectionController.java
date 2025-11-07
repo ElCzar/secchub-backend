@@ -1,6 +1,8 @@
 package co.edu.puj.secchub_backend.admin.controller;
 
+import co.edu.puj.secchub_backend.admin.dto.PlanningStatusStatsDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
+import co.edu.puj.secchub_backend.admin.dto.SectionSummaryDTO;
 import co.edu.puj.secchub_backend.admin.service.SectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -76,6 +78,30 @@ public class SectionController {
     @PreAuthorize("hasRole('ROLE_USER')")
     public Mono<ResponseEntity<Boolean>> isPlanningClosedForCurrentUser() {
         return sectionService.isPlanningClosedForCurrentUser()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Gets planning status statistics (count of open and closed sections)
+     * @return Map with openCount and closedCount
+     */
+    @GetMapping("/planning-status-stats")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<PlanningStatusStatsDTO>> getPlanningStatusStats() {
+        return sectionService.getPlanningStatusStats()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Get sections summary for admin dashboard
+     * Returns name, planning status, assigned classes count, and unconfirmed teachers count
+     * @return List of section summaries
+     */
+    @GetMapping("/summary")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<List<SectionSummaryDTO>>> getSectionsSummary() {
+        return sectionService.getSectionsSummary()
+                .collectList()
                 .map(ResponseEntity::ok);
     }
 }

@@ -50,7 +50,14 @@ class SectionControllerIntegrationTest extends DatabaseContainerIntegration {
         R2dbcTestUtils.executeScripts(connectionFactory,
                 "/test-cleanup.sql",
                 "/test-users.sql",
-                "/test-sections.sql"
+                "/test-sections.sql",
+                "/test-courses.sql",
+                "/test-semesters.sql",
+                "/test-teachers.sql",
+                "/test-classrooms.sql",
+                "/test-classes.sql",
+                "/test-class-schedules.sql",
+                "/test-teacher-classes.sql"
         );
     }
 
@@ -423,5 +430,211 @@ class SectionControllerIntegrationTest extends DatabaseContainerIntegration {
 
         assertNotNull(newStatus, "New status should not be null");
         assertEquals(true, newStatus, "Planning should be closed after closing");
+    }
+
+    // ==========================================
+    // GET Planning Status Stats Tests
+    // ==========================================
+    
+    @Test
+    @DisplayName("GET /sections/planning-status-stats as ADMIN should return correct statistics")
+    void getPlanningStatusStats_asAdmin_returnsStats() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // Get counts from database
+        Long totalCount = databaseClient.sql("SELECT COUNT(*) FROM section")
+                .map(row -> row.get(0, Long.class))
+                .one()
+                .block();
+        
+        Long closedCount = databaseClient.sql("SELECT COUNT(*) FROM section WHERE planning_closed = TRUE")
+                .map(row -> row.get(0, Long.class))
+                .one()
+                .block();
+        
+        Long openCount = totalCount - closedCount;
+
+        webTestClient.get()
+                .uri("/sections/planning-status-stats")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.openCount").isEqualTo(openCount.intValue())
+                .jsonPath("$.closedCount").isEqualTo(closedCount.intValue())
+                .jsonPath("$.totalCount").isEqualTo(totalCount.intValue());
+    }
+
+    @Test
+    @DisplayName("GET /sections/planning-status-stats as non-ADMIN should return 403")
+    void getPlanningStatusStats_asNonAdmin_returns403() {
+        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
+
+        webTestClient.get()
+                .uri("/sections/planning-status-stats")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /sections/planning-status-stats unauthenticated should return 401")
+    void getPlanningStatusStats_unauthenticated_returns401() {
+        webTestClient.get()
+                .uri("/sections/planning-status-stats")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    // ==========================================
+    // GET Sections Summary Tests
+    // ==========================================
+    
+    @Test
+    @DisplayName("GET /sections/summary as ADMIN should return summaries with class counts")
+    void getSectionsSummary_asAdmin_returnsSummaries() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // Get section count from database
+        Long sectionCount = databaseClient.sql("SELECT COUNT(*) FROM section")
+                .map(row -> row.get(0, Long.class))
+                .one()
+                .block();
+        assertNotNull(sectionCount, "Section count should not be null");
+
+        webTestClient.get()
+                .uri("/sections/summary")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.length()").isEqualTo(sectionCount.intValue())
+                .jsonPath("$[0].name").exists()
+                .jsonPath("$[0].planningClosed").exists()
+                .jsonPath("$[0].assignedClasses").exists()
+                .jsonPath("$[0].unconfirmedTeachers").exists();
+    }
+
+    @Test
+    @DisplayName("GET /sections/summary should return correct class counts from database")
+    void getSectionsSummary_shouldReturnCorrectClassCounts() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // Get first section and calculate expected values
+        Long sectionId = databaseClient.sql("SELECT id FROM section ORDER BY id ASC LIMIT 1")
+                .map(row -> row.get(0, Long.class))
+                .one()
+                .block();
+        assertNotNull(sectionId, "Section ID should not be null");
+
+        // Count classes in current semester for this section
+        Long expectedClassCount = databaseClient.sql(
+                """
+                SELECT COUNT(c.id)
+                FROM class c
+                INNER JOIN course co ON c.course_id = co.id
+                INNER JOIN semester s ON c.semester_id = s.id
+                WHERE co.section_id = :sectionId
+                AND s.is_current = TRUE
+                """)
+                .bind("sectionId", sectionId)
+                .map(row -> row.get(0, Long.class))
+                .one()
+                .block();
+
+        // Count classes without teachers in current semester for this section
+        Long expectedClassesWithoutTeachers = databaseClient.sql(
+                """
+                SELECT COUNT(c.id)
+                FROM class c
+                INNER JOIN course co ON c.course_id = co.id
+                INNER JOIN semester s ON c.semester_id = s.id
+                LEFT JOIN teacher_class tc ON c.id = tc.class_id
+                WHERE co.section_id = :sectionId
+                AND s.is_current = TRUE
+                AND tc.id IS NULL
+                """)
+                .bind("sectionId", sectionId)
+                .map(row -> row.get(0, Long.class))
+                .one()
+                .block();
+
+        webTestClient.get()
+                .uri("/sections/summary")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].assignedClasses").isEqualTo(expectedClassCount != null ? expectedClassCount.intValue() : 0)
+                .jsonPath("$[0].unconfirmedTeachers").isEqualTo(expectedClassesWithoutTeachers != null ? expectedClassesWithoutTeachers.intValue() : 0);
+    }
+
+    @Test
+    @DisplayName("GET /sections/summary should reflect planning status from database")
+    void getSectionsSummary_shouldReflectPlanningStatus() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // Get a section's planning status from database
+        Boolean expectedPlanningClosed = databaseClient.sql(
+                "SELECT planning_closed FROM section ORDER BY id ASC LIMIT 1")
+                .map(row -> row.get(0, Boolean.class))
+                .one()
+                .block();
+        assertNotNull(expectedPlanningClosed, "Planning closed status should not be null");
+
+        webTestClient.get()
+                .uri("/sections/summary")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$[0].planningClosed").isEqualTo(expectedPlanningClosed);
+    }
+
+    @Test
+    @DisplayName("GET /sections/summary as non-ADMIN should return 403")
+    void getSectionsSummary_asNonAdmin_returns403() {
+        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
+
+        webTestClient.get()
+                .uri("/sections/summary")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /sections/summary unauthenticated should return 401")
+    void getSectionsSummary_unauthenticated_returns401() {
+        webTestClient.get()
+                .uri("/sections/summary")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("GET /sections/summary should handle sections with no classes gracefully")
+    void getSectionsSummary_withNoClasses_shouldReturnZeroCounts() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // Find a section with no classes (if any)
+        webTestClient.get()
+                .uri("/sections/summary")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$").isArray()
+                .jsonPath("$[*].assignedClasses").exists()
+                .jsonPath("$[*].unconfirmedTeachers").exists();
     }
 }

@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
 
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
@@ -36,6 +37,9 @@ class SectionServiceTest {
 
     @Mock
     private ModelMapper modelMapper;
+
+    @Mock
+    private DatabaseClient databaseClient;
 
     @Mock
     private SectionRepository sectionRepository;
@@ -253,5 +257,79 @@ class SectionServiceTest {
 
         verify(sectionRepository).findAll();
         verify(sectionRepository, times(2)).save(any(Section.class));
+    }
+
+    @Test
+    @DisplayName("getPlanningStatusStats - Should return correct open, closed and total counts")
+    void testGetPlanningStatusStats_ReturnsCorrectCounts() {
+        Section openSection1 = Section.builder().id(1L).planningClosed(false).build();
+        Section openSection2 = Section.builder().id(2L).planningClosed(false).build();
+        Section closedSection = Section.builder().id(3L).planningClosed(true).build();
+
+        when(sectionRepository.findAll()).thenReturn(Flux.just(openSection1, openSection2, closedSection));
+
+        StepVerifier.create(sectionService.getPlanningStatusStats())
+                .assertNext(stats -> {
+                    assertEquals(2, stats.getOpenCount());
+                    assertEquals(1, stats.getClosedCount());
+                    assertEquals(3, stats.getTotalCount());
+                })
+                .verifyComplete();
+
+        verify(sectionRepository).findAll();
+    }
+
+    @Test
+    @DisplayName("getPlanningStatusStats - Should return zero counts when no sections exist")
+    void testGetPlanningStatusStats_EmptySections() {
+        when(sectionRepository.findAll()).thenReturn(Flux.empty());
+
+        StepVerifier.create(sectionService.getPlanningStatusStats())
+                .assertNext(stats -> {
+                    assertEquals(0, stats.getOpenCount());
+                    assertEquals(0, stats.getClosedCount());
+                    assertEquals(0, stats.getTotalCount());
+                })
+                .verifyComplete();
+
+        verify(sectionRepository).findAll();
+    }
+
+    @Test
+    @DisplayName("getPlanningStatusStats - Should return all closed when all sections are closed")
+    void testGetPlanningStatusStats_AllClosed() {
+        Section closed1 = Section.builder().id(1L).planningClosed(true).build();
+        Section closed2 = Section.builder().id(2L).planningClosed(true).build();
+
+        when(sectionRepository.findAll()).thenReturn(Flux.just(closed1, closed2));
+
+        StepVerifier.create(sectionService.getPlanningStatusStats())
+                .assertNext(stats -> {
+                    assertEquals(0, stats.getOpenCount());
+                    assertEquals(2, stats.getClosedCount());
+                    assertEquals(2, stats.getTotalCount());
+                })
+                .verifyComplete();
+
+        verify(sectionRepository).findAll();
+    }
+
+    @Test
+    @DisplayName("getPlanningStatusStats - Should return all open when all sections are open")
+    void testGetPlanningStatusStats_AllOpen() {
+        Section open1 = Section.builder().id(1L).planningClosed(false).build();
+        Section open2 = Section.builder().id(2L).planningClosed(false).build();
+
+        when(sectionRepository.findAll()).thenReturn(Flux.just(open1, open2));
+
+        StepVerifier.create(sectionService.getPlanningStatusStats())
+                .assertNext(stats -> {
+                    assertEquals(2, stats.getOpenCount());
+                    assertEquals(0, stats.getClosedCount());
+                    assertEquals(2, stats.getTotalCount());
+                })
+                .verifyComplete();
+
+        verify(sectionRepository).findAll();
     }
 }
