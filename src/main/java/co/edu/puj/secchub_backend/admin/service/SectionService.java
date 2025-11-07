@@ -177,9 +177,9 @@ public class SectionService implements AdminModuleSectionContract{
         return sectionRepository.findAll()
             .flatMap(section -> {
                 Mono<Integer> classCountMono = countClassesInCurrentSemesterForSection(section.getId());
-                Mono<Integer> classesWithoutTeachersMono = countClassesWithoutTeachersInCurrentSemesterForSection(section.getId());
+                Mono<Integer> pendingTeachersMono = countPendingTeacherClassesForSection(section.getId());
 
-                return Mono.zip(classCountMono, classesWithoutTeachersMono)
+                return Mono.zip(classCountMono, pendingTeachersMono)
                     .map(tuple -> SectionSummaryDTO.builder()
                         .name(section.getName())
                         .planningClosed(section.isPlanningClosed())
@@ -216,23 +216,23 @@ public class SectionService implements AdminModuleSectionContract{
     }
 
     /**
-     * Counts the number of classes without assigned teachers in the current semester for a given section.
-     * A class is considered without teachers if it has no teacher_class records.
+     * Counts the number of pending teacher class assignments in the current semester for a given section.
+     * A teacher class is considered pending if its status_id is 4 (Pending).
      * Uses DatabaseClient to execute a native SQL query.
      * 
      * @param sectionId Section ID
-     * @return Mono with the count of classes without teachers in current semester
+     * @return Mono with the count of pending teacher class assignments in current semester
      */
-    private Mono<Integer> countClassesWithoutTeachersInCurrentSemesterForSection(Long sectionId) {
+    private Mono<Integer> countPendingTeacherClassesForSection(Long sectionId) {
         String sql = """
-            SELECT COUNT(c.id) as count
-            FROM class c
+            SELECT COUNT(tc.id) as count
+            FROM teacher_class tc
+            INNER JOIN class c ON tc.class_id = c.id
             INNER JOIN course co ON c.course_id = co.id
             INNER JOIN semester s ON c.semester_id = s.id
-            LEFT JOIN teacher_class tc ON c.id = tc.class_id
             WHERE co.section_id = :sectionId
             AND s.is_current = TRUE
-            AND tc.id IS NULL
+            AND tc.status_id = 4
             """;
 
         return databaseClient.sql(sql)

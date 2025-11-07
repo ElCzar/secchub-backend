@@ -520,7 +520,7 @@ class SectionControllerIntegrationTest extends DatabaseContainerIntegration {
     }
 
     @Test
-    @DisplayName("GET /sections/summary should return correct class counts from database")
+    @DisplayName("GET /sections/summary should return correct pending teacher counts from database")
     void getSectionsSummary_shouldReturnCorrectClassCounts() {
         String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
 
@@ -546,17 +546,17 @@ class SectionControllerIntegrationTest extends DatabaseContainerIntegration {
                 .one()
                 .block();
 
-        // Count classes without teachers in current semester for this section
-        Long expectedClassesWithoutTeachers = databaseClient.sql(
+        // Count pending teacher class assignments in current semester for this section
+        Long expectedPendingTeachers = databaseClient.sql(
                 """
-                SELECT COUNT(c.id)
-                FROM class c
+                SELECT COUNT(tc.id)
+                FROM teacher_class tc
+                INNER JOIN class c ON tc.class_id = c.id
                 INNER JOIN course co ON c.course_id = co.id
                 INNER JOIN semester s ON c.semester_id = s.id
-                LEFT JOIN teacher_class tc ON c.id = tc.class_id
                 WHERE co.section_id = :sectionId
                 AND s.is_current = TRUE
-                AND tc.id IS NULL
+                AND tc.status_id = 4
                 """)
                 .bind("sectionId", sectionId)
                 .map(row -> row.get(0, Long.class))
@@ -571,7 +571,7 @@ class SectionControllerIntegrationTest extends DatabaseContainerIntegration {
                 .expectStatus().isOk()
                 .expectBody()
                 .jsonPath("$[0].assignedClasses").isEqualTo(expectedClassCount != null ? expectedClassCount.intValue() : 0)
-                .jsonPath("$[0].unconfirmedTeachers").isEqualTo(expectedClassesWithoutTeachers != null ? expectedClassesWithoutTeachers.intValue() : 0);
+                .jsonPath("$[0].unconfirmedTeachers").isEqualTo(expectedPendingTeachers != null ? expectedPendingTeachers.intValue() : 0);
     }
 
     @Test
@@ -621,11 +621,11 @@ class SectionControllerIntegrationTest extends DatabaseContainerIntegration {
     }
 
     @Test
-    @DisplayName("GET /sections/summary should handle sections with no classes gracefully")
+    @DisplayName("GET /sections/summary should handle sections with no pending teachers gracefully")
     void getSectionsSummary_withNoClasses_shouldReturnZeroCounts() {
         String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
 
-        // Find a section with no classes (if any)
+        // Find sections and verify response structure
         webTestClient.get()
                 .uri("/sections/summary")
                 .header("Authorization", "Bearer " + token)
