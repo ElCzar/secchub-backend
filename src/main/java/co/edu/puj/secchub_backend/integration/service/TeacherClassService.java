@@ -321,7 +321,7 @@ public class TeacherClassService {
                     .flatMap(userInfo ->
                         Mono.just(
                             TeacherClassAssignHoursResponseDTO.builder()
-                            .teacherName(userInfo.getName() + ' ' + userInfo.getLastName())
+                            .teacherName(userInfo.getName())
                             .maxHours(teacher.getMaxHours())
                             .totalAssignedHours(currentAssignedHours)
                             .workHoursToAssign(workHoursToAssign)
@@ -333,7 +333,7 @@ public class TeacherClassService {
             .onErrorMap(
                 error -> {
                     log.error("Error getting teacher extra hours warning: {}", error.getMessage());
-                    throw new TeacherClassServerErrorException("Failed to get teacher extra hours warning");
+                    return new TeacherClassServerErrorException("Failed to get teacher extra hours warning");
                 }
             );
     }

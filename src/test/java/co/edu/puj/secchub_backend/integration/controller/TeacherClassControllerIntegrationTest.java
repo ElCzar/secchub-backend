@@ -903,14 +903,14 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 15);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.teacherName").isEqualTo("Teacher")
                 .jsonPath("$.maxHours").isEqualTo(40)
                 .jsonPath("$.totalAssignedHours").isEqualTo(18)
                 .jsonPath("$.workHoursToAssign").isEqualTo(15)
@@ -930,14 +930,14 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 30);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.teacherName").isEqualTo("Teacher")
                 .jsonPath("$.maxHours").isEqualTo(40)
                 .jsonPath("$.totalAssignedHours").isEqualTo(18)
                 .jsonPath("$.workHoursToAssign").isEqualTo(30)
@@ -957,14 +957,14 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 22);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.teacherName").isEqualTo("Teacher")
                 .jsonPath("$.maxHours").isEqualTo(40)
                 .jsonPath("$.totalAssignedHours").isEqualTo(18)
                 .jsonPath("$.workHoursToAssign").isEqualTo(22)
@@ -982,14 +982,14 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 0);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
-                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.teacherName").isEqualTo("Teacher")
                 .jsonPath("$.maxHours").isEqualTo(40)
                 .jsonPath("$.totalAssignedHours").isEqualTo(18)
                 .jsonPath("$.workHoursToAssign").isEqualTo(0)
@@ -1003,7 +1003,7 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 10);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
                 .exchange()
@@ -1018,7 +1018,7 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 10);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
@@ -1035,7 +1035,7 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 10);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", nonExistentTeacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", nonExistentTeacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
@@ -1056,7 +1056,7 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         Map<String, Integer> request = Map.of("workHoursToAssign", 5);
 
         webTestClient.post()
-                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .uri("/teachers/{teacherId}/extra-hours-warning", teacherId)
                 .header("Authorization", "Bearer " + token)
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(request)
