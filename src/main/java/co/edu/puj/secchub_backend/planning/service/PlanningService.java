@@ -555,6 +555,41 @@ public class PlanningService implements PlanningModuleClassContract {
         });
     }
     
+
+    /**
+     * Finds all classes without classroom assigned in the current semester.
+     * If the current user has ROLE_SECTION, only the classes for their section are returned.
+     * @return Flux of classes without classroom assigned
+     */
+    public Flux<ClassResponseDTO> findClassesWithoutClassroomAssigned() {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            classRepository.findBySemesterIdAndNoClassroomAssigned(currentSemesterId)
+                .filterWhen(this::filterClassByUserSection)
+                .flatMap(this::getClassSchedulesForClass)
+        ).onErrorMap(e -> {
+            log.error("Error retrieving classes without classroom assigned for current semester: {}", e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classes without classroom assigned for current semester: " + e.getMessage());
+        });
+    }
+
+    /**
+     * Finds all classes without teacher assigned in the current semester.
+     * If the current user has ROLE_SECTION, only the classes for their section are returned.
+     * @return Flux of classes without teacher assigned
+     */
+    public Flux<ClassResponseDTO> findClassesWithoutTeacherAssigned() {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            classRepository.findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId)
+                .filterWhen(this::filterClassByUserSection)
+                .flatMap(this::getClassSchedulesForClass)
+        ).onErrorMap(e -> {
+            log.error("Error retrieving classes without teacher assigned for current semester: {}", e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classes without teacher assigned for current semester: " + e.getMessage());
+        });
+    }
+
     // ========================================================================
     // Private Methods
     // ========================================================================

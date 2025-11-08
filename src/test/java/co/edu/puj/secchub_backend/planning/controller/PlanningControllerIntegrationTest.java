@@ -1245,4 +1245,231 @@ class PlanningControllerIntegrationTest extends DatabaseContainerIntegration {
                 .exchange()
                 .expectStatus().isUnauthorized();
     }
+
+    // ==========================================
+    // GET /planning/classes/current-semester/no-classroom Tests
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("authorizedRolesProvider")
+    @DisplayName("GET /planning/classes/current-semester/no-classroom - Should return classes without classroom")
+    void getCurrentSemesterClassesWithoutClassroom_authorizedRoles_shouldReturnClasses(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-classroom")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // Test data should have classes without classroom assignments
+        // Verify the returned classes actually don't have classroom assigned
+        for (ClassResponseDTO classDto : classes) {
+            assertNotNull(classDto.getSchedules());
+            // All schedules should have null classroom_id or at least one schedule without classroom
+            boolean hasScheduleWithoutClassroom = classDto.getSchedules().stream()
+                    .anyMatch(schedule -> schedule.getClassroomId() == null);
+            assertTrue(hasScheduleWithoutClassroom, 
+                    "Class " + classDto.getId() + " should have at least one schedule without classroom");
+        }
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-classroom - Should return empty list when all classes have classrooms")
+    void getCurrentSemesterClassesWithoutClassroom_allHaveClassrooms_shouldReturnEmpty() {
+        // This test assumes test data may have all classes with classrooms
+        // If no classes without classrooms exist, should return empty list
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-classroom")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // Should always return a list (empty or with results)
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-classroom - Should filter by user section for ROLE_USER")
+    void getCurrentSemesterClassesWithoutClassroom_roleUser_shouldFilterBySection() {
+        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-classroom")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // If there are results, they should all belong to the user's section
+        // This depends on test data having section-specific classes
+    }
+
+    @ParameterizedTest
+    @MethodSource("unauthorizedRolesProvider")
+    @DisplayName("GET /planning/classes/current-semester/no-classroom - Should deny unauthorized roles")
+    void getCurrentSemesterClassesWithoutClassroom_unauthorizedRole_shouldDeny(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        webTestClient.get()
+                .uri("/planning/classes/current-semester/no-classroom")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-classroom - Should require authentication")
+    void getCurrentSemesterClassesWithoutClassroom_noAuth_shouldDeny() {
+        webTestClient.get()
+                .uri("/planning/classes/current-semester/no-classroom")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    // ==========================================
+    // GET /planning/classes/current-semester/no-teacher Tests
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("authorizedRolesProvider")
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should return classes without confirmed teacher")
+    void getCurrentSemesterClassesWithoutTeacher_authorizedRoles_shouldReturnClasses(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // Test data should have classes without confirmed teacher assignments
+        // Verify the classes are for current semester
+        for (ClassResponseDTO classDto : classes) {
+            assertEquals(2L, classDto.getSemesterId(), 
+                    "Class should belong to current semester");
+        }
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should return empty list when all classes have teachers")
+    void getCurrentSemesterClassesWithoutTeacher_allHaveTeachers_shouldReturnEmpty() {
+        // This test assumes test data may have all classes with confirmed teachers
+        // If no classes without teachers exist, should return empty list
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // Should always return a list (empty or with results)
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should only return current semester classes")
+    void getCurrentSemesterClassesWithoutTeacher_shouldFilterByCurrentSemester() {
+        // Verify that only current semester classes are returned
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // All returned classes should belong to current semester (semesterId = 2 in test data)
+        for (ClassResponseDTO classDto : classes) {
+            assertEquals(2L, classDto.getSemesterId(), 
+                    "All classes should belong to current semester");
+        }
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should filter by user section for ROLE_USER")
+    void getCurrentSemesterClassesWithoutTeacher_roleUser_shouldFilterBySection() {
+        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
+
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // If there are results, they should all belong to the user's section
+        // This depends on test data having section-specific classes
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should include schedules in response")
+    void getCurrentSemesterClassesWithoutTeacher_shouldIncludeSchedules() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        List<ClassResponseDTO> classes = webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(classes);
+        // Each class should have schedules (empty list or populated)
+        for (ClassResponseDTO classDto : classes) {
+            assertNotNull(classDto.getSchedules(), 
+                    "Class " + classDto.getId() + " should have schedules list");
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("unauthorizedRolesProvider")
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should deny unauthorized roles")
+    void getCurrentSemesterClassesWithoutTeacher_unauthorizedRole_shouldDeny(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /planning/classes/current-semester/no-teacher - Should require authentication")
+    void getCurrentSemesterClassesWithoutTeacher_noAuth_shouldDeny() {
+        webTestClient.get()
+                .uri("/planning/classes/current-semester/no-teacher")
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
 }

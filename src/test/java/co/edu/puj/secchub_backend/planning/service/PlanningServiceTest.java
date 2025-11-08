@@ -3083,6 +3083,324 @@ class PlanningServiceTest {
         verify(courseService).getCourseSectionId(classId);
     }
 
+    // ==================== FIND CLASSES WITHOUT CLASSROOM ASSIGNED TESTS ====================
+
+    @Test
+    @DisplayName("findClassesWithoutClassroomAssigned - When classes without classroom exist returns them")
+    void testFindClassesWithoutClassroomAssigned_ClassesExist_ReturnsClasses() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Class classWithoutClassroom1 = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(currentSemesterId)
+                .capacity(30)
+                .build();
+        
+        Class classWithoutClassroom2 = Class.builder()
+                .id(2L)
+                .section(1L)
+                .courseId(101L)
+                .semesterId(currentSemesterId)
+                .capacity(25)
+                .build();
+
+        ClassResponseDTO responseDTO1 = new ClassResponseDTO();
+        responseDTO1.setId(1L);
+        responseDTO1.setSchedules(Collections.emptyList());
+
+        ClassResponseDTO responseDTO2 = new ClassResponseDTO();
+        responseDTO2.setId(2L);
+        responseDTO2.setSchedules(Collections.emptyList());
+
+        setupSecurityContext("ROLE_ADMIN");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoClassroomAssigned(currentSemesterId))
+                .thenReturn(Flux.just(classWithoutClassroom1, classWithoutClassroom2));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
+        when(classScheduleRepository.findByClassId(2L)).thenReturn(Flux.empty());
+        when(modelMapper.map(classWithoutClassroom1, ClassResponseDTO.class)).thenReturn(responseDTO1);
+        when(modelMapper.map(classWithoutClassroom2, ClassResponseDTO.class)).thenReturn(responseDTO2);
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutClassroomAssigned())
+                .expectNext(responseDTO1)
+                .expectNext(responseDTO2)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoClassroomAssigned(currentSemesterId);
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutClassroomAssigned - When no classes without classroom exist returns empty")
+    void testFindClassesWithoutClassroomAssigned_NoClasses_ReturnsEmpty() {
+        // Arrange
+        Long currentSemesterId = 1L;
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoClassroomAssigned(currentSemesterId))
+                .thenReturn(Flux.empty());
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutClassroomAssigned())
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoClassroomAssigned(currentSemesterId);
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutClassroomAssigned - When semester service fails returns error")
+    void testFindClassesWithoutClassroomAssigned_SemesterServiceFails_ReturnsError() {
+        when(semesterService.getCurrentSemesterId())
+                .thenReturn(Mono.error(new RuntimeException("Semester service error")));
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutClassroomAssigned())
+                .expectError(PlanningServerErrorException.class)
+                .verify();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository, never()).findBySemesterIdAndNoClassroomAssigned(anyLong());
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutClassroomAssigned - When user has ROLE_SECTION filters by section")
+    void testFindClassesWithoutClassroomAssigned_RoleSection_FiltersClasses() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long userSectionId = 1L;
+        Long courseSectionId = 1L;
+        
+        Class classInSection = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(currentSemesterId)
+                .capacity(30)
+                .build();
+
+        ClassResponseDTO responseDTO = new ClassResponseDTO();
+        responseDTO.setId(1L);
+        responseDTO.setSchedules(Collections.emptyList());
+
+        setupSecurityContext("ROLE_SECTION");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoClassroomAssigned(currentSemesterId))
+                .thenReturn(Flux.just(classInSection));
+        when(userService.getUserIdByEmail("testUser@example.com")).thenReturn(Mono.just(10L));
+        when(sectionService.getSectionIdByUserId(10L)).thenReturn(Mono.just(userSectionId));
+        when(courseService.getCourseSectionId(100L)).thenReturn(Mono.just(courseSectionId));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
+        when(modelMapper.map(classInSection, ClassResponseDTO.class)).thenReturn(responseDTO);
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutClassroomAssigned())
+                .expectNext(responseDTO)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoClassroomAssigned(currentSemesterId);
+        verify(userService).getUserIdByEmail("testUser@example.com");
+        verify(sectionService).getSectionIdByUserId(10L);
+        verify(courseService).getCourseSectionId(100L);
+    }
+
+    // ==================== FIND CLASSES WITHOUT TEACHER ASSIGNED TESTS ====================
+
+    @Test
+    @DisplayName("findClassesWithoutTeacherAssigned - When classes without teacher exist returns them")
+    void testFindClassesWithoutTeacherAssigned_ClassesExist_ReturnsClasses() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Class classWithoutTeacher1 = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(currentSemesterId)
+                .capacity(30)
+                .build();
+        
+        Class classWithoutTeacher2 = Class.builder()
+                .id(2L)
+                .section(1L)
+                .courseId(101L)
+                .semesterId(currentSemesterId)
+                .capacity(25)
+                .build();
+
+        ClassResponseDTO responseDTO1 = new ClassResponseDTO();
+        responseDTO1.setId(1L);
+        responseDTO1.setSchedules(Collections.emptyList());
+
+        ClassResponseDTO responseDTO2 = new ClassResponseDTO();
+        responseDTO2.setId(2L);
+        responseDTO2.setSchedules(Collections.emptyList());
+
+        setupSecurityContext("ROLE_ADMIN");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId))
+                .thenReturn(Flux.just(classWithoutTeacher1, classWithoutTeacher2));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
+        when(classScheduleRepository.findByClassId(2L)).thenReturn(Flux.empty());
+        when(modelMapper.map(classWithoutTeacher1, ClassResponseDTO.class)).thenReturn(responseDTO1);
+        when(modelMapper.map(classWithoutTeacher2, ClassResponseDTO.class)).thenReturn(responseDTO2);
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutTeacherAssigned())
+                .expectNext(responseDTO1)
+                .expectNext(responseDTO2)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId);
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutTeacherAssigned - When no classes without teacher exist returns empty")
+    void testFindClassesWithoutTeacherAssigned_NoClasses_ReturnsEmpty() {
+        // Arrange
+        Long currentSemesterId = 1L;
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId))
+                .thenReturn(Flux.empty());
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutTeacherAssigned())
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId);
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutTeacherAssigned - When semester service fails returns error")
+    void testFindClassesWithoutTeacherAssigned_SemesterServiceFails_ReturnsError() {
+        // Arrange
+        when(semesterService.getCurrentSemesterId())
+                .thenReturn(Mono.error(new RuntimeException("Semester service error")));
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutTeacherAssigned())
+                .expectError(PlanningServerErrorException.class)
+                .verify();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository, never()).findBySemesterIdAndNoConfirmedTeacherAssigned(anyLong());
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutTeacherAssigned - When user has ROLE_SECTION filters by section")
+    void testFindClassesWithoutTeacherAssigned_RoleSection_FiltersClasses() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long userSectionId = 1L;
+        Long courseSectionId = 1L;
+        
+        Class classInSection = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(currentSemesterId)
+                .capacity(30)
+                .build();
+
+        ClassResponseDTO responseDTO = new ClassResponseDTO();
+        responseDTO.setId(1L);
+        responseDTO.setSchedules(Collections.emptyList());
+
+        setupSecurityContext("ROLE_SECTION");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId))
+                .thenReturn(Flux.just(classInSection));
+        when(userService.getUserIdByEmail("testUser@example.com")).thenReturn(Mono.just(10L));
+        when(sectionService.getSectionIdByUserId(10L)).thenReturn(Mono.just(userSectionId));
+        when(courseService.getCourseSectionId(100L)).thenReturn(Mono.just(courseSectionId));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
+        when(modelMapper.map(classInSection, ClassResponseDTO.class)).thenReturn(responseDTO);
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutTeacherAssigned())
+                .expectNext(responseDTO)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId);
+        verify(userService).getUserIdByEmail("testUser@example.com");
+        verify(sectionService).getSectionIdByUserId(10L);
+        verify(courseService).getCourseSectionId(100L);
+    }
+
+    @Test
+    @DisplayName("findClassesWithoutTeacherAssigned - When classes have schedules returns them with schedules")
+    void testFindClassesWithoutTeacherAssigned_ClassesHaveSchedules_ReturnsWithSchedules() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Class classWithoutTeacher = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(currentSemesterId)
+                .capacity(30)
+                .build();
+
+        ClassSchedule schedule1 = ClassSchedule.builder()
+                .id(10L)
+                .classId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(8, 0))
+                .endTime(LocalTime.of(10, 0))
+                .build();
+
+        ClassSchedule schedule2 = ClassSchedule.builder()
+                .id(11L)
+                .classId(1L)
+                .day("Wednesday")
+                .startTime(LocalTime.of(8, 0))
+                .endTime(LocalTime.of(10, 0))
+                .build();
+
+        ClassScheduleResponseDTO scheduleDTO1 = new ClassScheduleResponseDTO();
+        scheduleDTO1.setId(10L);
+        
+        ClassScheduleResponseDTO scheduleDTO2 = new ClassScheduleResponseDTO();
+        scheduleDTO2.setId(11L);
+
+        ClassResponseDTO responseDTO = new ClassResponseDTO();
+        responseDTO.setId(1L);
+        responseDTO.setSchedules(Arrays.asList(scheduleDTO1, scheduleDTO2));
+
+        setupSecurityContext("ROLE_ADMIN");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classRepository.findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId))
+                .thenReturn(Flux.just(classWithoutTeacher));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.just(schedule1, schedule2));
+        when(modelMapper.map(classWithoutTeacher, ClassResponseDTO.class)).thenReturn(responseDTO);
+        when(modelMapper.map(schedule1, ClassScheduleResponseDTO.class)).thenReturn(scheduleDTO1);
+        when(modelMapper.map(schedule2, ClassScheduleResponseDTO.class)).thenReturn(scheduleDTO2);
+
+        // Act & Assert
+        StepVerifier.create(planningService.findClassesWithoutTeacherAssigned())
+                .assertNext(result -> {
+                    assertEquals(1L, result.getId());
+                    assertNotNull(result.getSchedules());
+                    assertEquals(2, result.getSchedules().size());
+                })
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classRepository).findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId);
+        verify(classScheduleRepository).findByClassId(1L);
+    }
+
     // ==================== PARAMETER PROVIDERS ====================
     private static List<Long> userSectionProvider() {
         return Arrays.asList(1L, 2L, 3L);

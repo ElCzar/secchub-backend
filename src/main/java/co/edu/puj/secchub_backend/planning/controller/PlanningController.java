@@ -314,4 +314,27 @@ public class PlanningController {
                 .map(ResponseEntity::ok);
     }
 
+    /**
+     * Get all current semester classes without assigned classroom
+     * @return List of current semester classes without assigned classroom
+     */
+    @GetMapping("/classes/current-semester/no-classroom")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<List<ClassResponseDTO>>> getCurrentSemesterClassesWithoutClassroom() {
+        return planningService.findClassesWithoutClassroomAssigned()
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Get all current semester classes without at least one teacher assigned
+     * @return List of current semester classes without at least one teacher assigned
+     */
+    @GetMapping("/classes/current-semester/no-teacher")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<List<ClassResponseDTO>>> getCurrentSemesterClassesWithoutTeacher() {
+        return planningService.findClassesWithoutTeacherAssigned()
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
 }
