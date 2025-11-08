@@ -506,6 +506,54 @@ public class PlanningService implements PlanningModuleClassContract {
             this.duplicateSemesterPlanning(sourceSemesterId, currentSemesterId)
         );
     }
+
+    /**
+     * Apply planning from source class ids to current semester
+     * @param sourceClassIds List of source class IDs
+     * @return Flux of ClassResponseDTO for the duplicated classes
+     */
+    public Flux<ClassResponseDTO> duplicateClassPlanning(List<Long> sourceClassIds) {
+        return semesterService.getCurrentSemester()
+        .flatMapMany(currentSemester ->
+            Flux.fromIterable(sourceClassIds)
+            .flatMap(sourceClassId ->
+                classRepository.findById(sourceClassId)
+                .filterWhen(this::filterClassByUserSection)
+                .switchIfEmpty(Mono.error(new ClassNotFoundException("Source class not found with id: " + sourceClassId)))
+                .flatMapMany(src -> {
+                    Class copy = new Class();
+                    modelMapper.map(src, copy);
+                    copy.setId(null);
+                    copy.setSemesterId(currentSemester.getId());
+                    copy.setStartDate(currentSemester.getStartDate());
+                    copy.setEndDate(currentSemester.getEndDate());
+                    return classRepository.save(copy)
+                    .flatMapMany(saved ->
+                        classScheduleRepository.findByClassId(src.getId())
+                        .flatMap(schedule -> {
+                            ClassSchedule scheduleCopy = new ClassSchedule();
+                            modelMapper.map(schedule, scheduleCopy);
+                            scheduleCopy.setId(null);
+                            scheduleCopy.setClassId(saved.getId());
+                            return classScheduleRepository.save(scheduleCopy);
+                        })
+                        .then(Mono.just(saved))
+                    );
+                })
+                .flatMap(this::getClassSchedulesForClass)
+            )
+        )
+        .as(transactionalOperator::transactional)
+        .onErrorMap(e -> {
+            log.error("Error duplicating class planning for class IDs {}: {}", sourceClassIds, e.getMessage());
+
+            if (e instanceof ClassNotFoundException) {
+                return e;
+            }
+
+            throw new PlanningServerErrorException("Error duplicating class planning: " + e.getMessage());
+        });
+    }
     
     // ========================================================================
     // Private Methods

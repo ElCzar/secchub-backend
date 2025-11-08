@@ -1024,4 +1024,225 @@ class PlanningControllerIntegrationTest extends DatabaseContainerIntegration {
         assertNotNull(response);
         assertEquals(50, response.getCapacity());
     }
+
+    // ==========================================
+    // POST /planning/duplicate (with request body) Tests - duplicateClassPlanning
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("authorizedRolesProvider")
+    @DisplayName("POST /planning/duplicate/classes with body - Should duplicate specific classes to current semester")
+    void duplicateClassPlanning_shouldDuplicateSpecificClasses(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        // Class IDs from test data (test-classes.sql)
+        List<Long> classIdsToDuplicate = List.of(1L, 2L);
+        
+        List<ClassResponseDTO> duplicatedClasses = webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(duplicatedClasses);
+        assertEquals(2, duplicatedClasses.size(), "Should duplicate exactly 2 classes");
+        
+        // Verify all duplicated classes have current semester ID (2L based on test data)
+        Long currentSemesterId = 2L;
+        assertTrue(duplicatedClasses.stream()
+                .allMatch(c -> c.getSemesterId().equals(currentSemesterId)),
+                "All duplicated classes should belong to current semester");
+
+        // Verify classes have current semester dates
+        Semester currentSemester = semesterRepository.findById(currentSemesterId).block();
+        assertNotNull(currentSemester);
+
+        for (ClassResponseDTO classDto : duplicatedClasses) {
+            assertEquals(currentSemester.getStartDate(), classDto.getStartDate(),
+                    "Start date should match current semester");
+            assertEquals(currentSemester.getEndDate(), classDto.getEndDate(),
+                    "End date should match current semester");
+        }
+    }
+
+    @Test
+    @DisplayName("POST /planning/duplicate/classes with body - Should duplicate single class with schedules")
+    void duplicateClassPlanning_singleClass_shouldIncludeSchedules() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Duplicate only class 1 which has schedules in test data
+        List<Long> classIdsToDuplicate = List.of(1L);
+        
+        List<ClassResponseDTO> duplicatedClasses = webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(duplicatedClasses);
+        assertEquals(1, duplicatedClasses.size());
+        
+        ClassResponseDTO duplicatedClass = duplicatedClasses.get(0);
+        assertNotNull(duplicatedClass.getSchedules(), "Duplicated class should have schedules");
+        assertFalse(duplicatedClass.getSchedules().isEmpty(), 
+                "Duplicated class should have at least one schedule");
+    }
+
+    @Test
+    @DisplayName("POST /planning/duplicate/classes with body - Should preserve class attributes")
+    void duplicateClassPlanning_shouldPreserveAttributes() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Get original class to compare
+        ClassResponseDTO originalClass = webTestClient.get()
+                .uri("/planning/classes/{classId}", 1L)
+                .header("Authorization", "Bearer " + token)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+        
+        assertNotNull(originalClass);
+        
+        // Duplicate the class
+        List<Long> classIdsToDuplicate = List.of(1L);
+        
+        List<ClassResponseDTO> duplicatedClasses = webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(duplicatedClasses);
+        assertEquals(1, duplicatedClasses.size());
+        
+        ClassResponseDTO duplicatedClass = duplicatedClasses.get(0);
+        
+        // Verify preserved attributes
+        assertEquals(originalClass.getSection(), duplicatedClass.getSection(),
+                "Section should be preserved");
+        assertEquals(originalClass.getCourseId(), duplicatedClass.getCourseId(),
+                "Course ID should be preserved");
+        assertEquals(originalClass.getCapacity(), duplicatedClass.getCapacity(),
+                "Capacity should be preserved");
+        
+        // Verify changed attributes
+        assertNotNull(duplicatedClass.getId());
+        assertTrue(duplicatedClass.getId() > originalClass.getId(),
+                "Duplicated class should have new ID");
+        assertEquals(2L, duplicatedClass.getSemesterId(),
+                "Semester ID should be updated to current semester");
+    }
+
+    @Test
+    @DisplayName("POST /planning/duplicate/classes with body - Should handle empty list gracefully")
+    void duplicateClassPlanning_emptyList_shouldReturnEmpty() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        List<Long> emptyList = List.of();
+        
+        List<ClassResponseDTO> duplicatedClasses = webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(emptyList)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(duplicatedClasses);
+        assertTrue(duplicatedClasses.isEmpty(), "Empty input should return empty result");
+    }
+
+    @Test
+    @DisplayName("POST /planning/duplicate/classes with body - Should fail when class not found")
+    void duplicateClassPlanning_nonExistentClass_shouldFail() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        List<Long> classIdsToDuplicate = List.of(999L); // Non-existent class ID
+        
+        webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().is4xxClientError();
+    }
+
+    @Test
+    @DisplayName("POST /planning/duplicate/classes with body - Should duplicate multiple classes with different sections")
+    void duplicateClassPlanning_multipleClasses_shouldHandleDifferentSections() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Duplicate classes from different sections (if available in test data)
+        List<Long> classIdsToDuplicate = List.of(1L, 2L, 3L);
+        
+        List<ClassResponseDTO> duplicatedClasses = webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(ClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(duplicatedClasses);
+        assertTrue(duplicatedClasses.size() > 0, "Should duplicate at least some classes");
+        
+        // Verify all have current semester ID
+        assertTrue(duplicatedClasses.stream()
+                .allMatch(c -> c.getSemesterId().equals(2L)),
+                "All duplicated classes should belong to current semester");
+    }
+
+    @ParameterizedTest
+    @MethodSource("unauthorizedRolesProvider")
+    @DisplayName("POST /planning/duplicate/classes with body - Should deny unauthorized roles")
+    void duplicateClassPlanning_unauthorizedRole_shouldDeny(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        List<Long> classIdsToDuplicate = List.of(1L);
+        
+        webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("POST /planning/duplicate/classes with body - Should require authentication")
+    void duplicateClassPlanning_noAuth_shouldDeny() {
+        List<Long> classIdsToDuplicate = List.of(1L);
+        
+        webTestClient.post()
+                .uri("/planning/duplicate/classes")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(classIdsToDuplicate)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
 }

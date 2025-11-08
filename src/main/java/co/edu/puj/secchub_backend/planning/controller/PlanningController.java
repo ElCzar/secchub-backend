@@ -289,6 +289,19 @@ public class PlanningController {
     }
 
     /**
+     * Duplicate planning from classIds to current semester.
+     * @param classIds List of class IDs to duplicate
+     * @return List of duplicated classes
+     */
+    @PostMapping("/duplicate/classes")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<List<ClassResponseDTO>>> duplicateClassPlanning(@RequestBody List<Long> classIds) {
+        return planningService.duplicateClassPlanning(classIds)
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
      * Apply planning from a previous semester to the current semester
      * @param sourceSemesterId Source semester ID
      * @return List of classes applied to the current semester

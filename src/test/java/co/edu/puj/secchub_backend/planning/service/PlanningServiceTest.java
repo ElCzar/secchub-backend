@@ -2624,6 +2624,415 @@ class PlanningServiceTest {
         return Arrays.asList(class1, class2, class3);
     }
 
+    // ==================== DUPLICATE CLASS PLANNING TESTS ====================
+
+    @Test
+    @DisplayName("duplicateClassPlanning - Should duplicate multiple classes with schedules to current semester")
+    void testDuplicateClassPlanning_MultipleClasses_DuplicatesSuccessfully() {
+        setupSecurityContext("ROLE_ADMIN");
+        
+        // Given
+        List<Long> sourceClassIds = Arrays.asList(1L, 2L);
+        
+        SemesterResponseDTO currentSemester = SemesterResponseDTO.builder()
+                .id(3L)
+                .startDate(LocalDate.of(2025, 8, 1))
+                .endDate(LocalDate.of(2025, 12, 15))
+                .build();
+        
+        Class sourceClass1 = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(1L)
+                .capacity(30)
+                .build();
+                
+        Class sourceClass2 = Class.builder()
+                .id(2L)
+                .section(2L)
+                .courseId(101L)
+                .semesterId(1L)
+                .capacity(25)
+                .build();
+        
+        Class copiedClass1 = Class.builder()
+                .id(10L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(3L)
+                .startDate(LocalDate.of(2025, 8, 1))
+                .endDate(LocalDate.of(2025, 12, 15))
+                .capacity(30)
+                .build();
+                
+        Class copiedClass2 = Class.builder()
+                .id(11L)
+                .section(2L)
+                .courseId(101L)
+                .semesterId(3L)
+                .startDate(LocalDate.of(2025, 8, 1))
+                .endDate(LocalDate.of(2025, 12, 15))
+                .capacity(25)
+                .build();
+        
+        ClassSchedule schedule1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .build();
+                
+        ClassSchedule schedule2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(2L)
+                .day("Tuesday")
+                .startTime(LocalTime.of(10, 0))
+                .build();
+        
+        ClassSchedule copiedSchedule1 = ClassSchedule.builder()
+                .id(20L)
+                .classId(10L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .build();
+                
+        ClassSchedule copiedSchedule2 = ClassSchedule.builder()
+                .id(21L)
+                .classId(11L)
+                .day("Tuesday")
+                .startTime(LocalTime.of(10, 0))
+                .build();
+        
+        ClassResponseDTO responseDTO1 = ClassResponseDTO.builder()
+                .id(10L)
+                .semesterId(3L)
+                .build();
+                
+        ClassResponseDTO responseDTO2 = ClassResponseDTO.builder()
+                .id(11L)
+                .semesterId(3L)
+                .build();
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.just(currentSemester));
+        when(classRepository.findById(1L)).thenReturn(Mono.just(sourceClass1));
+        when(classRepository.findById(2L)).thenReturn(Mono.just(sourceClass2));
+        when(classRepository.save(any(Class.class)))
+                .thenReturn(Mono.just(copiedClass1))
+                .thenReturn(Mono.just(copiedClass2));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.just(schedule1));
+        when(classScheduleRepository.findByClassId(2L)).thenReturn(Flux.just(schedule2));
+        when(classScheduleRepository.findByClassId(10L)).thenReturn(Flux.just(copiedSchedule1));
+        when(classScheduleRepository.findByClassId(11L)).thenReturn(Flux.just(copiedSchedule2));
+        when(classScheduleRepository.save(any(ClassSchedule.class)))
+                .thenReturn(Mono.just(copiedSchedule1))
+                .thenReturn(Mono.just(copiedSchedule2));
+        
+        doNothing().when(modelMapper).map(any(Class.class), any(Class.class));
+        doNothing().when(modelMapper).map(any(ClassSchedule.class), any(ClassSchedule.class));
+        doReturn(responseDTO1, responseDTO2).when(modelMapper).map(any(Class.class), eq(ClassResponseDTO.class));
+        doReturn(testScheduleResponseDTO).when(modelMapper).map(any(ClassSchedule.class), eq(ClassScheduleResponseDTO.class));
+        
+        // Then
+        List<ClassResponseDTO> result = planningService.duplicateClassPlanning(sourceClassIds).collectList().block();
+        
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        verify(semesterService).getCurrentSemester();
+        verify(classRepository).findById(1L);
+        verify(classRepository).findById(2L);
+        verify(classRepository, times(2)).save(any(Class.class));
+        verify(classScheduleRepository, times(2)).save(any(ClassSchedule.class));
+    }
+
+    @Test
+    @DisplayName("duplicateClassPlanning - Should duplicate single class with multiple schedules")
+    void testDuplicateClassPlanning_SingleClassMultipleSchedules_DuplicatesSuccessfully() {
+        setupSecurityContext("ROLE_ADMIN");
+        
+        // Given
+        List<Long> sourceClassIds = Arrays.asList(1L);
+        
+        SemesterResponseDTO currentSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .build();
+        
+        Class sourceClass = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(1L)
+                .capacity(30)
+                .build();
+        
+        Class copiedClass = Class.builder()
+                .id(5L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .capacity(30)
+                .build();
+        
+        ClassSchedule schedule1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .build();
+                
+        ClassSchedule schedule2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(1L)
+                .day("Wednesday")
+                .startTime(LocalTime.of(11, 0))
+                .build();
+        
+        ClassSchedule copiedSchedule1 = ClassSchedule.builder()
+                .id(10L)
+                .classId(5L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .build();
+                
+        ClassSchedule copiedSchedule2 = ClassSchedule.builder()
+                .id(11L)
+                .classId(5L)
+                .day("Wednesday")
+                .startTime(LocalTime.of(11, 0))
+                .build();
+        
+        ClassResponseDTO responseDTO = ClassResponseDTO.builder()
+                .id(5L)
+                .semesterId(2L)
+                .build();
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.just(currentSemester));
+        when(classRepository.findById(1L)).thenReturn(Mono.just(sourceClass));
+        when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.just(schedule1, schedule2));
+        when(classScheduleRepository.findByClassId(5L)).thenReturn(Flux.just(copiedSchedule1, copiedSchedule2));
+        when(classScheduleRepository.save(any(ClassSchedule.class)))
+                .thenReturn(Mono.just(copiedSchedule1))
+                .thenReturn(Mono.just(copiedSchedule2));
+        
+        doNothing().when(modelMapper).map(any(Class.class), any(Class.class));
+        doNothing().when(modelMapper).map(any(ClassSchedule.class), any(ClassSchedule.class));
+        doReturn(responseDTO).when(modelMapper).map(any(Class.class), eq(ClassResponseDTO.class));
+        doReturn(testScheduleResponseDTO).when(modelMapper).map(any(ClassSchedule.class), eq(ClassScheduleResponseDTO.class));
+        
+        // Then
+        List<ClassResponseDTO> result = planningService.duplicateClassPlanning(sourceClassIds).collectList().block();
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        verify(semesterService).getCurrentSemester();
+        verify(classRepository).findById(1L);
+        verify(classRepository).save(any(Class.class));
+        verify(classScheduleRepository, times(2)).save(any(ClassSchedule.class));
+    }
+
+    @Test
+    @DisplayName("duplicateClassPlanning - When class has no schedules copies only class")
+    void testDuplicateClassPlanning_NoSchedules_CopiesOnlyClass() {
+        setupSecurityContext("ROLE_ADMIN");
+        
+        // Given
+        List<Long> sourceClassIds = Arrays.asList(1L);
+        
+        SemesterResponseDTO currentSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .build();
+        
+        Class sourceClass = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(1L)
+                .capacity(30)
+                .build();
+        
+        Class copiedClass = Class.builder()
+                .id(5L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .capacity(30)
+                .build();
+        
+        ClassResponseDTO responseDTO = ClassResponseDTO.builder()
+                .id(5L)
+                .semesterId(2L)
+                .build();
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.just(currentSemester));
+        when(classRepository.findById(1L)).thenReturn(Mono.just(sourceClass));
+        when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
+        when(classScheduleRepository.findByClassId(5L)).thenReturn(Flux.empty());
+        
+        doNothing().when(modelMapper).map(any(Class.class), any(Class.class));
+        doReturn(responseDTO).when(modelMapper).map(any(Class.class), eq(ClassResponseDTO.class));
+        
+        // Then
+        List<ClassResponseDTO> result = planningService.duplicateClassPlanning(sourceClassIds).collectList().block();
+        
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(5L, result.get(0).getId());
+        assertEquals(2L, result.get(0).getSemesterId());
+        verify(semesterService).getCurrentSemester();
+        verify(classRepository).findById(1L);
+        verify(classRepository).save(any(Class.class));
+        verify(classScheduleRepository, never()).save(any(ClassSchedule.class));
+    }
+
+    @Test
+    @DisplayName("duplicateClassPlanning - When class not found throws ClassNotFoundException")
+    void testDuplicateClassPlanning_ClassNotFound_ThrowsException() {
+        // Given
+        List<Long> sourceClassIds = Arrays.asList(999L);
+        
+        SemesterResponseDTO currentSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .build();
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.just(currentSemester));
+        when(classRepository.findById(999L)).thenReturn(Mono.empty());
+        
+        // Then
+        StepVerifier.create(planningService.duplicateClassPlanning(sourceClassIds))
+                .expectError(ClassNotFoundException.class)
+                .verify();
+        
+        verify(semesterService).getCurrentSemester();
+        verify(classRepository).findById(999L);
+        verify(classRepository, never()).save(any(Class.class));
+    }
+
+    @Test
+    @DisplayName("duplicateClassPlanning - When empty list provided returns empty flux")
+    void testDuplicateClassPlanning_EmptyList_ReturnsEmpty() {
+        // Given
+        List<Long> sourceClassIds = Collections.emptyList();
+        
+        SemesterResponseDTO currentSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .build();
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.just(currentSemester));
+        
+        // Then
+        List<ClassResponseDTO> result = planningService.duplicateClassPlanning(sourceClassIds).collectList().block();
+        
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(semesterService).getCurrentSemester();
+        verify(classRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    @DisplayName("duplicateClassPlanning - Should filter classes by user section and throw ClassNotFoundException for inaccessible classes")
+    void testDuplicateClassPlanning_FiltersByUserSection_OnlyDuplicatesAccessibleClasses() {
+        setupSecurityContext("ROLE_SECTION");
+        
+        // Given
+        List<Long> sourceClassIds = Arrays.asList(1L, 2L);
+        Long userSection = 1L;
+        
+        SemesterResponseDTO currentSemester = SemesterResponseDTO.builder()
+                .id(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .build();
+        
+        Class sourceClass1 = Class.builder()
+                .id(1L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(1L)
+                .capacity(30)
+                .build();
+                
+        Class sourceClass2 = Class.builder()
+                .id(2L)
+                .section(2L) // Different section
+                .courseId(101L)
+                .semesterId(1L)
+                .capacity(25)
+                .build();
+        
+        Class copiedClass1 = Class.builder()
+                .id(10L)
+                .section(1L)
+                .courseId(100L)
+                .semesterId(2L)
+                .startDate(LocalDate.of(2025, 1, 15))
+                .endDate(LocalDate.of(2025, 5, 30))
+                .capacity(30)
+                .build();
+        
+        ClassResponseDTO responseDTO1 = ClassResponseDTO.builder()
+                .id(10L)
+                .semesterId(2L)
+                .build();
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.just(currentSemester));
+        when(classRepository.findById(1L)).thenReturn(Mono.just(sourceClass1));
+        when(classRepository.findById(2L)).thenReturn(Mono.just(sourceClass2));
+        when(classRepository.save(any(Class.class))).thenReturn(Mono.just(copiedClass1));
+        when(classScheduleRepository.findByClassId(1L)).thenReturn(Flux.empty());
+        when(classScheduleRepository.findByClassId(10L)).thenReturn(Flux.empty());
+        
+        when(userService.getUserIdByEmail(anyString())).thenReturn(Mono.just(1L));
+        when(sectionService.getSectionIdByUserId(1L)).thenReturn(Mono.just(userSection));
+        when(courseService.getCourseSectionId(100L)).thenReturn(Mono.just(1L));
+        when(courseService.getCourseSectionId(101L)).thenReturn(Mono.just(2L));
+        
+        doNothing().when(modelMapper).map(any(Class.class), any(Class.class));
+        doReturn(responseDTO1).when(modelMapper).map(any(Class.class), eq(ClassResponseDTO.class));
+        
+        // Then
+        Flux<ClassResponseDTO> result = planningService.duplicateClassPlanning(sourceClassIds);
+
+        assertThrows(ClassNotFoundException.class, result::blockLast);
+    }
+
+    @Test
+    @DisplayName("duplicateClassPlanning - When semester service fails throws PlanningServerErrorException")
+    void testDuplicateClassPlanning_SemesterServiceFails_ThrowsException() {
+        // Given
+        List<Long> sourceClassIds = Arrays.asList(1L);
+        
+        // When
+        when(semesterService.getCurrentSemester()).thenReturn(Mono.error(new RuntimeException("Database error")));
+        
+        // Then
+        StepVerifier.create(planningService.duplicateClassPlanning(sourceClassIds))
+                .expectError(PlanningServerErrorException.class)
+                .verify();
+        
+        verify(semesterService).getCurrentSemester();
+        verify(classRepository, never()).findById(anyLong());
+    }
+
     // ==================== IS CLASS IN SECTION TESTS ====================
 
     @Test
