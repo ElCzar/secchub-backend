@@ -65,6 +65,7 @@ public class UserService implements SecurityModuleUserContract {
      * @param userId the user ID
      * @return UserInformationResponseDTO with user details
      */
+    @Override
     public Mono<UserInformationResponseDTO> getUserInformationById(Long userId) {
         log.debug("Getting user information by userId: {}", userId);
 

@@ -1,4 +1,4 @@
-package co.edu.puj.secchub_backend.admin.dto;
+package co.edu.puj.secchub_backend.admin.contract;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

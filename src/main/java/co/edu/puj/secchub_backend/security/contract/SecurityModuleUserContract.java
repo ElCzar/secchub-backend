@@ -28,4 +28,11 @@ public interface SecurityModuleUserContract {
      * @return UserInformationResponseDTO with user details
      */
     Mono<UserInformationResponseDTO> getUserInformationByEmail(String email);
+
+    /**
+     * Gets user information by user ID including name, lastName, etc.
+     * @param userId user's ID
+     * @return UserInformationResponseDTO with user details
+     */
+    Mono<UserInformationResponseDTO> getUserInformationById(Long userId);
 }

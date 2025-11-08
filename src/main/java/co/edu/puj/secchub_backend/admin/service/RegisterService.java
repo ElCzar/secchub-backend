@@ -3,12 +3,12 @@ package co.edu.puj.secchub_backend.admin.service;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionCreateRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionRegisterRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherCreateRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherRegisterRequestDTO;
-import co.edu.puj.secchub_backend.admin.dto.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.UserRegisterRequestDTO;
 import co.edu.puj.secchub_backend.parametric.contracts.ParametricContract;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;

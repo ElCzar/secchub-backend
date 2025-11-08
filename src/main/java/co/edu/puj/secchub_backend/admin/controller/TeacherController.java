@@ -1,6 +1,6 @@
 package co.edu.puj.secchub_backend.admin.controller;
 
-import co.edu.puj.secchub_backend.admin.dto.TeacherResponseDTO;
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherUpdateRequestDTO;
 import co.edu.puj.secchub_backend.admin.service.TeacherService;
 import lombok.RequiredArgsConstructor;

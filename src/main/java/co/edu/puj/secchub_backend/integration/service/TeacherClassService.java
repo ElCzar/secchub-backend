@@ -3,6 +3,9 @@ package co.edu.puj.secchub_backend.integration.service;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleTeacherContract;
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursRequestDTO;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassResponseDTO;
 import co.edu.puj.secchub_backend.integration.exception.TeacherClassNotFoundException;
@@ -282,6 +285,57 @@ public class TeacherClassService {
                 log.error("Error updating teaching dates: {}", error.getMessage());
                 throw new TeacherClassServerErrorException("Failed to update teaching dates");
             });
+    }
+
+    /**
+     * Gets a teacher-class extra hours warning when assigning work to a teacher.
+     * @param teacherId Teacher ID
+     * @param teacherClassAssignHoursRequestDTO Request body containing hours to assign
+     * @return Mono<TeacherClassAssignHoursResponseDTO> containing the warning details
+     */
+    public Mono<TeacherClassAssignHoursResponseDTO> getTeacherExtraHoursWarning(Long teacherId, TeacherClassAssignHoursRequestDTO teacherClassAssignHoursRequestDTO) {
+        return semesterService.getCurrentSemesterId()
+            .flatMap(currentSemesterId ->
+                Mono.zip(
+                    teacherService.getTeacherById(teacherId),
+                    // Get by teacher id and semester id
+                    repository.findBySemesterIdAndTeacherId(currentSemesterId, teacherId)
+                        .collectList()
+                        .flatMap(teacherClasses -> {
+                            int currentAssignedHours = teacherClasses.stream()
+                                .mapToInt(TeacherClass::getWorkHours)
+                                .sum();
+                            return Mono.just(currentAssignedHours);
+                        })
+                )
+            )
+            .flatMap(tuple -> {
+                TeacherResponseDTO teacher = tuple.getT1();
+                Integer currentAssignedHours = tuple.getT2();
+                int workHoursToAssign = teacherClassAssignHoursRequestDTO.getWorkHoursToAssign() != null ? teacherClassAssignHoursRequestDTO.getWorkHoursToAssign() : 0;
+
+                int total = currentAssignedHours + workHoursToAssign;
+                int excessHours = Math.max(total - teacher.getMaxHours(), 0);
+
+                return userService.getUserInformationById(teacher.getUserId())
+                    .flatMap(userInfo ->
+                        Mono.just(
+                            TeacherClassAssignHoursResponseDTO.builder()
+                            .teacherName(userInfo.getName() + ' ' + userInfo.getLastName())
+                            .maxHours(teacher.getMaxHours())
+                            .totalAssignedHours(currentAssignedHours)
+                            .workHoursToAssign(workHoursToAssign)
+                            .exceedsMaxHours(excessHours)
+                            .build()
+                        )
+                    );
+            })
+            .onErrorMap(
+                error -> {
+                    log.error("Error getting teacher extra hours warning: {}", error.getMessage());
+                    throw new TeacherClassServerErrorException("Failed to get teacher extra hours warning");
+                }
+            );
     }
 
     // =====================================================

@@ -9,4 +9,11 @@ public interface AdminModuleTeacherContract {
      * @return Teacher ID
      */
     Mono<Long> getTeacherIdByUserId(Long userId);
+
+    /**
+     * Obtains TeacherResponseDTO by teacher ID.
+     * @param teacherId Teacher ID
+     * @return TeacherResponseDTO
+     */
+    Mono<TeacherResponseDTO> getTeacherById(Long teacherId);
 }

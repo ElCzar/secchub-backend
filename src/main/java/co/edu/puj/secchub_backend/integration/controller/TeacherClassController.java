@@ -1,5 +1,7 @@
 package co.edu.puj.secchub_backend.integration.controller;
 
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursRequestDTO;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassResponseDTO;
 import co.edu.puj.secchub_backend.integration.service.TeacherClassService;
@@ -178,6 +180,21 @@ public class TeacherClassController {
             @PathVariable Long teacherClassId,
             @RequestBody TeacherClassRequestDTO request) {
         return service.updateTeachingDates(teacherClassId, request.getStartDate(), request.getEndDate())
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Get warning about extra hours when assigning work to a teacher.
+     * @param teacherId Teacher ID
+     * @param teacherClassAssignHoursRequestDTO Request body containing hours to assign
+     * @return
+     */
+    @PostMapping("/{teacherId}/extra-hours-warning")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeacherClassAssignHoursResponseDTO>> getTeacherExtraHoursWarning(
+        @PathVariable Long teacherId, 
+        @RequestBody TeacherClassAssignHoursRequestDTO teacherClassAssignHoursRequestDTO) {
+        return service.getTeacherExtraHoursWarning(teacherId, teacherClassAssignHoursRequestDTO)
                 .map(ResponseEntity::ok);
     }
 }

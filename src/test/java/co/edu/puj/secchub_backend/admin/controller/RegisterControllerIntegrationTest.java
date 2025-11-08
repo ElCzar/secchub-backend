@@ -21,10 +21,10 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
 import co.edu.puj.secchub_backend.R2dbcTestUtils;
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionRegisterRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherRegisterRequestDTO;
-import co.edu.puj.secchub_backend.admin.dto.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.UserRegisterRequestDTO;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
 import io.r2dbc.spi.ConnectionFactory;

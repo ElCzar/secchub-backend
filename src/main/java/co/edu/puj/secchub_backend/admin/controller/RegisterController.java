@@ -8,10 +8,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionRegisterRequestDTO;
 import co.edu.puj.secchub_backend.admin.dto.SectionResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherRegisterRequestDTO;
-import co.edu.puj.secchub_backend.admin.dto.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.UserRegisterRequestDTO;
 import co.edu.puj.secchub_backend.admin.service.RegisterService;
 import lombok.RequiredArgsConstructor;

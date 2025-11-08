@@ -32,6 +32,9 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleTeacherContract;
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursRequestDTO;
+import co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassRequestDTO;
 import co.edu.puj.secchub_backend.integration.dto.TeacherClassResponseDTO;
 import co.edu.puj.secchub_backend.integration.exception.TeacherClassNotFoundException;
@@ -40,6 +43,7 @@ import co.edu.puj.secchub_backend.integration.model.TeacherClass;
 import co.edu.puj.secchub_backend.integration.repository.TeacherClassRepository;
 import co.edu.puj.secchub_backend.planning.contract.PlanningModuleClassContract;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -1076,6 +1080,364 @@ class TeacherClassServiceTest {
         assertThrows(TeacherClassServerErrorException.class, result::block);
         verify(repository).findById(1L);
         verify(repository).save(any(TeacherClass.class));
+    }
+
+    // ==================== GET TEACHER EXTRA HOURS WARNING TESTS ====================
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When teacher has no excess hours returns zero excess")
+    void testGetTeacherExtraHoursWarning_NoExcessHours_ReturnsZero() {
+        // Given
+        Long teacherId = 10L;
+        int currentHours = 10;
+        int maxHours = 40;
+        int hoursToAssign = 20;
+        
+        TeacherResponseDTO teacherDTO = 
+            TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(100L)
+                .maxHours(maxHours)
+                .build();
+
+        UserInformationResponseDTO userInfo = 
+            UserInformationResponseDTO.builder()
+                .name("John Doe")
+                .build();
+
+        TeacherClass existingClass = TeacherClass.builder()
+            .id(1L)
+            .teacherId(teacherId)
+            .workHours(currentHours)
+            .build();
+
+        TeacherClassAssignHoursRequestDTO request = 
+            TeacherClassAssignHoursRequestDTO.builder()
+                .workHoursToAssign(hoursToAssign)
+                .build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(teacherDTO));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId))
+            .thenReturn(Flux.just(existingClass));
+        when(userService.getUserInformationById(100L)).thenReturn(Mono.just(userInfo));
+
+        // Then
+        co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO result = 
+            teacherClassService.getTeacherExtraHoursWarning(teacherId, request).block();
+
+        assertNotNull(result);
+        assertEquals("John Doe", result.getTeacherName());
+        assertEquals(maxHours, result.getMaxHours());
+        assertEquals(currentHours, result.getTotalAssignedHours());
+        assertEquals(hoursToAssign, result.getWorkHoursToAssign());
+        assertEquals(0, result.getExceedsMaxHours()); // 10 + 20 = 30, which is less than 40
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService).getUserInformationById(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When teacher exceeds max hours returns correct excess")
+    void testGetTeacherExtraHoursWarning_ExceedsMaxHours_ReturnsExcess() {
+        // Given
+        Long teacherId = 10L;
+        int currentHours = 30;
+        int maxHours = 40;
+        int hoursToAssign = 20;
+        int expectedExcess = 10; // 30 + 20 - 40 = 10
+        
+        TeacherResponseDTO teacherDTO = 
+            TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(100L)
+                .maxHours(maxHours)
+                .build();
+
+        UserInformationResponseDTO userInfo = 
+            UserInformationResponseDTO.builder()
+                .name("Jane Smith")
+                .build();
+
+        TeacherClass existingClass1 = TeacherClass.builder()
+            .id(1L)
+            .teacherId(teacherId)
+            .workHours(15)
+            .build();
+
+        TeacherClass existingClass2 = TeacherClass.builder()
+            .id(2L)
+            .teacherId(teacherId)
+            .workHours(15)
+            .build();
+
+        TeacherClassAssignHoursRequestDTO request = 
+            TeacherClassAssignHoursRequestDTO.builder()
+                .workHoursToAssign(hoursToAssign)
+                .build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(teacherDTO));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId))
+            .thenReturn(Flux.just(existingClass1, existingClass2));
+        when(userService.getUserInformationById(100L)).thenReturn(Mono.just(userInfo));
+
+        // Then
+        co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO result = 
+            teacherClassService.getTeacherExtraHoursWarning(teacherId, request).block();
+
+        assertNotNull(result);
+        assertEquals("Jane Smith", result.getTeacherName());
+        assertEquals(maxHours, result.getMaxHours());
+        assertEquals(currentHours, result.getTotalAssignedHours());
+        assertEquals(hoursToAssign, result.getWorkHoursToAssign());
+        assertEquals(expectedExcess, result.getExceedsMaxHours());
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService).getUserInformationById(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When teacher has no current assignments returns zero current hours")
+    void testGetTeacherExtraHoursWarning_NoCurrentAssignments_ReturnsZeroCurrentHours() {
+        // Given
+        Long teacherId = 10L;
+        int maxHours = 40;
+        int hoursToAssign = 15;
+        
+        TeacherResponseDTO teacherDTO = 
+            TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(100L)
+                .maxHours(maxHours)
+                .build();
+
+        UserInformationResponseDTO userInfo = 
+            UserInformationResponseDTO.builder()
+                .name("New Teacher")
+                .build();
+
+        TeacherClassAssignHoursRequestDTO request = 
+            TeacherClassAssignHoursRequestDTO.builder()
+                .workHoursToAssign(hoursToAssign)
+                .build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(teacherDTO));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId))
+            .thenReturn(Flux.empty()); // No existing assignments
+        when(userService.getUserInformationById(100L)).thenReturn(Mono.just(userInfo));
+
+        // Then
+        co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO result = 
+            teacherClassService.getTeacherExtraHoursWarning(teacherId, request).block();
+
+        assertNotNull(result);
+        assertEquals("New Teacher", result.getTeacherName());
+        assertEquals(maxHours, result.getMaxHours());
+        assertEquals(0, result.getTotalAssignedHours());
+        assertEquals(hoursToAssign, result.getWorkHoursToAssign());
+        assertEquals(0, result.getExceedsMaxHours());
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService).getUserInformationById(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When workHoursToAssign is null defaults to zero")
+    void testGetTeacherExtraHoursWarning_NullWorkHoursToAssign_DefaultsToZero() {
+        // Given
+        Long teacherId = 10L;
+        int currentHours = 25;
+        int maxHours = 40;
+        
+        TeacherResponseDTO teacherDTO = 
+            TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(100L)
+                .maxHours(maxHours)
+                .build();
+
+        UserInformationResponseDTO userInfo = 
+            UserInformationResponseDTO.builder()
+                .name("Test Teacher")
+                .build();
+
+        TeacherClass existingClass = TeacherClass.builder()
+            .id(1L)
+            .teacherId(teacherId)
+            .workHours(currentHours)
+            .build();
+
+        TeacherClassAssignHoursRequestDTO request = 
+            TeacherClassAssignHoursRequestDTO.builder()
+                .workHoursToAssign(null) // Null hours
+                .build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(teacherDTO));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId))
+            .thenReturn(Flux.just(existingClass));
+        when(userService.getUserInformationById(100L)).thenReturn(Mono.just(userInfo));
+
+        // Then
+        co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO result = 
+            teacherClassService.getTeacherExtraHoursWarning(teacherId, request).block();
+
+        assertNotNull(result);
+        assertEquals("Test Teacher", result.getTeacherName());
+        assertEquals(maxHours, result.getMaxHours());
+        assertEquals(currentHours, result.getTotalAssignedHours());
+        assertEquals(0, result.getWorkHoursToAssign()); // Should default to 0
+        assertEquals(0, result.getExceedsMaxHours());
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService).getUserInformationById(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When teacher exactly reaches max hours returns zero excess")
+    void testGetTeacherExtraHoursWarning_ExactlyMaxHours_ReturnsZeroExcess() {
+        // Given
+        Long teacherId = 10L;
+        int currentHours = 30;
+        int maxHours = 40;
+        int hoursToAssign = 10;
+        
+        TeacherResponseDTO teacherDTO = 
+            TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(100L)
+                .maxHours(maxHours)
+                .build();
+
+        UserInformationResponseDTO userInfo = 
+            UserInformationResponseDTO.builder()
+                .name("Perfect Teacher")
+                .build();
+
+        TeacherClass existingClass = TeacherClass.builder()
+            .id(1L)
+            .teacherId(teacherId)
+            .workHours(currentHours)
+            .build();
+
+        TeacherClassAssignHoursRequestDTO request = 
+            TeacherClassAssignHoursRequestDTO.builder()
+                .workHoursToAssign(hoursToAssign)
+                .build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(teacherDTO));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId))
+            .thenReturn(Flux.just(existingClass));
+        when(userService.getUserInformationById(100L)).thenReturn(Mono.just(userInfo));
+
+        // Then
+        co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO result = 
+            teacherClassService.getTeacherExtraHoursWarning(teacherId, request).block();
+
+        assertNotNull(result);
+        assertEquals("Perfect Teacher", result.getTeacherName());
+        assertEquals(maxHours, result.getMaxHours());
+        assertEquals(currentHours, result.getTotalAssignedHours());
+        assertEquals(hoursToAssign, result.getWorkHoursToAssign());
+        assertEquals(0, result.getExceedsMaxHours()); // 30 + 10 = 40 (exact match)
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService).getUserInformationById(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When multiple existing classes calculates correct total")
+    void testGetTeacherExtraHoursWarning_MultipleClasses_CalculatesCorrectTotal() {
+        // Given
+        Long teacherId = 10L;
+        int maxHours = 40;
+        int hoursToAssign = 5;
+        
+        TeacherResponseDTO teacherDTO = 
+            TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(100L)
+                .maxHours(maxHours)
+                .build();
+
+        UserInformationResponseDTO userInfo = 
+            UserInformationResponseDTO.builder()
+                .name("Busy Teacher")
+                .build();
+
+        TeacherClass class1 = TeacherClass.builder().id(1L).teacherId(teacherId).workHours(8).build();
+        TeacherClass class2 = TeacherClass.builder().id(2L).teacherId(teacherId).workHours(7).build();
+        TeacherClass class3 = TeacherClass.builder().id(3L).teacherId(teacherId).workHours(10).build();
+        TeacherClass class4 = TeacherClass.builder().id(4L).teacherId(teacherId).workHours(12).build();
+        // Total: 8 + 7 + 10 + 12 = 37
+
+        TeacherClassAssignHoursRequestDTO request = 
+            TeacherClassAssignHoursRequestDTO.builder()
+                .workHoursToAssign(hoursToAssign)
+                .build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(teacherDTO));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId))
+            .thenReturn(Flux.just(class1, class2, class3, class4));
+        when(userService.getUserInformationById(100L)).thenReturn(Mono.just(userInfo));
+
+        // Then
+        co.edu.puj.secchub_backend.integration.dto.TeacherClassAssignHoursResponseDTO result = 
+            teacherClassService.getTeacherExtraHoursWarning(teacherId, request).block();
+
+        assertNotNull(result);
+        assertEquals("Busy Teacher", result.getTeacherName());
+        assertEquals(maxHours, result.getMaxHours());
+        assertEquals(37, result.getTotalAssignedHours()); // Sum of all classes
+        assertEquals(hoursToAssign, result.getWorkHoursToAssign());
+        assertEquals(2, result.getExceedsMaxHours()); // 37 + 5 = 42, excess = 2
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService).getUserInformationById(100L);
+    }
+
+    @Test
+    @DisplayName("getTeacherExtraHoursWarning - When repository error throws TeacherClassServerErrorException")
+    void testGetTeacherExtraHoursWarning_RepositoryError_ThrowsTeacherClassServerErrorException() {
+        // Given
+        Long teacherId = 10L;
+        TeacherClassAssignHoursRequestDTO request = TeacherClassAssignHoursRequestDTO.builder().build();
+
+        // When
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(teacherService.getTeacherById(teacherId)).thenReturn(Mono.just(TeacherResponseDTO.builder().id(teacherId).build()));
+        when(repository.findBySemesterIdAndTeacherId(1L, teacherId)).thenReturn(Flux.error(new RuntimeException("Database error")));
+
+        // Then
+        Mono<TeacherClassAssignHoursResponseDTO> result = teacherClassService.getTeacherExtraHoursWarning(teacherId, request);
+        assertThrows(TeacherClassServerErrorException.class, result::block);
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(teacherService).getTeacherById(teacherId);
+        verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
+        verify(userService, never()).getUserInformationById(100L);
     }
 }
 

@@ -1,5 +1,6 @@
 package co.edu.puj.secchub_backend.admin.service;
 
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.*;
 import co.edu.puj.secchub_backend.parametric.contracts.ParametricContract;
 import co.edu.puj.secchub_backend.parametric.contracts.RoleDTO;

@@ -1,8 +1,8 @@
 package co.edu.puj.secchub_backend.admin.service;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleTeacherContract;
+import co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherCreateRequestDTO;
-import co.edu.puj.secchub_backend.admin.dto.TeacherResponseDTO;
 import co.edu.puj.secchub_backend.admin.dto.TeacherUpdateRequestDTO;
 import co.edu.puj.secchub_backend.admin.exception.TeacherNotFoundException;
 import co.edu.puj.secchub_backend.admin.model.Teacher;
@@ -42,6 +42,7 @@ public class TeacherService implements AdminModuleTeacherContract{
      * @param teacherId Teacher ID
      * @return Teacher with the specified ID
      */
+    @Override
     public Mono<TeacherResponseDTO> getTeacherById(Long teacherId) {
         return teacherRepository.findById(teacherId)
                 .switchIfEmpty(Mono.error(new TeacherNotFoundException("Teacher not found with ID: " + teacherId)))

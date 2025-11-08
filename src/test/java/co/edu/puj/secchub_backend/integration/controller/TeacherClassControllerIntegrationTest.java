@@ -885,4 +885,186 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
         assertTrue(secondResponse.getDecision());
         assertEquals(8L, secondResponse.getStatusId());
     }
+
+    // ==========================================
+    // Extra Hours Warning Tests
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("Get teacher extra hours warning - should calculate correctly with no excess")
+    void getTeacherExtraHoursWarning_withNoExcess_shouldReturnCorrectCalculation(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 1L;
+        
+        // Teacher has max 40 hours
+        // Current assignments in test data: 4 + 4 + 6 + 4 = 18 hours (only current semester ID=2)
+        // Adding 15 hours: 18 + 15 = 33 < 40 (no excess)
+        Map<String, Integer> request = Map.of("workHoursToAssign", 15);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.maxHours").isEqualTo(40)
+                .jsonPath("$.totalAssignedHours").isEqualTo(18)
+                .jsonPath("$.workHoursToAssign").isEqualTo(15)
+                .jsonPath("$.exceedsMaxHours").isEqualTo(0);
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("Get teacher extra hours warning - should calculate excess hours correctly")
+    void getTeacherExtraHoursWarning_withExcess_shouldReturnCorrectExcess(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 1L;
+        
+        // Teacher has max 40 hours
+        // Current assignments: 18 hours
+        // Adding 30 hours: 18 + 30 = 48 > 40 (8 hours excess)
+        Map<String, Integer> request = Map.of("workHoursToAssign", 30);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.maxHours").isEqualTo(40)
+                .jsonPath("$.totalAssignedHours").isEqualTo(18)
+                .jsonPath("$.workHoursToAssign").isEqualTo(30)
+                .jsonPath("$.exceedsMaxHours").isEqualTo(8);
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("Get teacher extra hours warning - should handle exact max hours")
+    void getTeacherExtraHoursWarning_exactlyAtMax_shouldReturnZeroExcess(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 1L;
+        
+        // Teacher has max 40 hours
+        // Current assignments: 18 hours
+        // Adding 22 hours: 18 + 22 = 40 (exact match, 0 excess)
+        Map<String, Integer> request = Map.of("workHoursToAssign", 22);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.maxHours").isEqualTo(40)
+                .jsonPath("$.totalAssignedHours").isEqualTo(18)
+                .jsonPath("$.workHoursToAssign").isEqualTo(22)
+                .jsonPath("$.exceedsMaxHours").isEqualTo(0);
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("Get teacher extra hours warning - should handle zero hours to assign")
+    void getTeacherExtraHoursWarning_withZeroHours_shouldReturnCurrentState(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 1L;
+        
+        // Adding 0 hours should just show current state
+        Map<String, Integer> request = Map.of("workHoursToAssign", 0);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.teacherName").isEqualTo("Teacher User")
+                .jsonPath("$.maxHours").isEqualTo(40)
+                .jsonPath("$.totalAssignedHours").isEqualTo(18)
+                .jsonPath("$.workHoursToAssign").isEqualTo(0)
+                .jsonPath("$.exceedsMaxHours").isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Get teacher extra hours warning - should require authentication")
+    void getTeacherExtraHoursWarning_withoutAuth_shouldReturn401() {
+        Long teacherId = 1L;
+        Map<String, Integer> request = Map.of("workHoursToAssign", 10);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("Get teacher extra hours warning - should deny teacher role access")
+    void getTeacherExtraHoursWarning_withTeacherRole_shouldReturn403() {
+        String token = jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER");
+        Long teacherId = 1L;
+        Map<String, Integer> request = Map.of("workHoursToAssign", 10);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("Get teacher extra hours warning - should handle non-existent teacher")
+    void getTeacherExtraHoursWarning_withInvalidTeacher_shouldReturn404(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long nonExistentTeacherId = 999L;
+        Map<String, Integer> request = Map.of("workHoursToAssign", 10);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", nonExistentTeacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().is5xxServerError();
+    }
+
+    @ParameterizedTest
+    @MethodSource("adminAndUserRolesProvider")
+    @DisplayName("Get teacher extra hours warning - should only count current semester hours")
+    void getTeacherExtraHoursWarning_shouldOnlyCountCurrentSemester(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        Long teacherId = 1L;
+        
+        // Teacher has assignments in both current (semester_id=2) and previous (semester_id=1)
+        // Current semester assignments: 4 + 4 + 6 + 4 = 18 hours
+        // Previous semester assignment (3 hours) should NOT be counted
+        Map<String, Integer> request = Map.of("workHoursToAssign", 5);
+
+        webTestClient.post()
+                .uri("/teachers/teachers/{teacherId}/extra-hours-warning", teacherId)
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.totalAssignedHours").isEqualTo(18) // Should be 18, not 21
+                .jsonPath("$.workHoursToAssign").isEqualTo(5)
+                .jsonPath("$.exceedsMaxHours").isEqualTo(0); // 18 + 5 = 23 < 40
+    }
 }
