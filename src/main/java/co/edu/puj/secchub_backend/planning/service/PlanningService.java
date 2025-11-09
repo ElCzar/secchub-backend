@@ -8,6 +8,7 @@ import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.ClassroomScheduleConflictResponseDTO;
 import co.edu.puj.secchub_backend.planning.exception.ClassCreationException;
 import co.edu.puj.secchub_backend.planning.exception.ClassNotFoundException;
 import co.edu.puj.secchub_backend.planning.exception.ClassScheduleNotFoundException;
@@ -31,8 +32,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalTime;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Service class for handling planning-related operations.
@@ -51,6 +55,8 @@ public class PlanningService implements PlanningModuleClassContract {
     private final AdminModuleSectionContract sectionService;
     private final AdminModuleCourseContract courseService;
     private final SecurityModuleUserContract userService;
+
+    private final ClassroomService classroomService;
 
     private final TransactionalOperator transactionalOperator;
 
@@ -590,9 +596,135 @@ public class PlanningService implements PlanningModuleClassContract {
         });
     }
 
+    /**
+     * Obtains schedule conflicts for classrooms in the current semester.
+     * Groups overlapping schedules by classroom and filters based on user permissions.
+     * Creates separate conflict groups for each cluster of overlapping schedules.
+     * @return Flux of classroom schedule conflicts
+     */
+    public Flux<ClassroomScheduleConflictResponseDTO> getClassroomScheduleConflicts() {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            classroomService.getAllClassrooms()
+            .flatMap(classroom ->
+                classScheduleRepository.findClassesWithOverlappingSchedulesInSameClassroom(currentSemesterId, classroom.getId())
+                .collectList()
+                .filter(schedulesWithConflicts -> !schedulesWithConflicts.isEmpty())
+                .flatMapMany(schedulesWithConflicts -> {
+                    // Group schedules into clusters based on overlaps
+                    List<List<ClassSchedule>> clusters = groupSchedulesIntoOverlapClusters(schedulesWithConflicts);
+                    
+                    // Create a conflict DTO for each cluster with at least 2 schedules
+                    return Flux.fromIterable(clusters)
+                    .filter(cluster -> cluster.size() >= 2)
+                    // Filter if none of the schedules in the cluster belong to classes accessible by the user
+                    .filterWhen(cluster ->
+                        Flux.fromIterable(cluster)
+                        .flatMap(schedule ->
+                            classRepository.findById(schedule.getClassId())
+                            .filterWhen(this::filterClassByUserSection)
+                        )
+                        .hasElements()
+                    )
+                    .map(cluster -> {
+                        ClassroomScheduleConflictResponseDTO conflictDTO = new ClassroomScheduleConflictResponseDTO();
+                        conflictDTO.setClassroomId(classroom.getId());
+                        conflictDTO.setClassroomName(classroom.getRoom());
+                        conflictDTO.setConflictingClassesIds(
+                            cluster.stream()
+                            .map(ClassSchedule::getClassId)
+                            .distinct()
+                            .toList()
+                        );
+                        conflictDTO.setConflictStartTime(
+                            cluster.stream()
+                            .map(ClassSchedule::getStartTime)
+                            .min(LocalTime::compareTo)
+                            .orElse(cluster.get(0).getStartTime())
+                        );
+                        conflictDTO.setConflictEndTime(
+                            cluster.stream()
+                            .map(ClassSchedule::getEndTime)
+                            .max(LocalTime::compareTo)
+                            .orElse(cluster.get(0).getEndTime())
+                        );
+                        conflictDTO.setDay(cluster.get(0).getDay());
+                        return conflictDTO;
+                    });
+                })
+            )
+        )
+        .onErrorMap(e -> {
+            log.error("Error retrieving classroom schedule conflicts: {}", e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving classroom schedule conflicts: " + e.getMessage());
+        });
+    }
+
     // ========================================================================
     // Private Methods
     // ========================================================================
+
+    /**
+     * Groups schedules where ALL schedules in each cluster directly overlap with ALL others.
+     * Uses a set to track already-processed schedules to avoid duplicate clusters.
+     * A schedule is only added to a cluster if it overlaps with EVERY existing member.
+     * @param schedules List of schedules to group
+     * @return List of clusters with overlapping schedules
+     */
+    private List<List<ClassSchedule>> groupSchedulesIntoOverlapClusters(List<ClassSchedule> schedules) {
+        List<List<ClassSchedule>> clusters = new ArrayList<>();
+        Set<String> processed = new HashSet<>();
+        
+        for (int i = 0; i < schedules.size()*schedules.size(); i++) {
+            int index = i % schedules.size();
+            List<ClassSchedule> cluster = new ArrayList<>();
+            cluster.add(schedules.get(index));
+
+            for (int j = 0; j < schedules.size(); j++) {
+                if (
+                    j == index || 
+                    processed.contains(schedules.get(j).getId() + "-" + schedules.get(index).getId()) ||
+                    processed.contains(schedules.get(index).getId() + "-" + schedules.get(j).getId())
+                ) {
+                    continue;
+                }
+                
+                final int currentIndex = j;
+                boolean overlapsWithAll = cluster.stream()
+                    .allMatch(s -> schedulesOverlap(s, schedules.get(currentIndex)));
+                
+                if (overlapsWithAll) {
+                    final int finalJ = j;
+                    cluster.stream()
+                        .forEach(s -> 
+                            processed.add(s.getId() + "-" + schedules.get(finalJ).getId())
+                        );
+                    cluster.add(schedules.get(j));
+                }
+            }
+            
+            if (cluster.size() > 1) clusters.add(cluster);
+        }
+        return clusters;
+    }
+
+    
+    /**
+     * Checks if two schedules overlap in time on the same day.
+     * @param schedule1 First schedule
+     * @param schedule2 Second schedule
+     * @return true if schedules overlap, false otherwise
+     */
+    private boolean schedulesOverlap(ClassSchedule schedule1, ClassSchedule schedule2) {
+        // Must be on the same day
+        if (!schedule1.getDay().equals(schedule2.getDay())) {
+            return false;
+        }
+        
+        // Check time overlap: (start1 < end2) AND (end1 > start2)
+        return schedule1.getStartTime().isBefore(schedule2.getEndTime()) && 
+            schedule1.getEndTime().isAfter(schedule2.getStartTime());
+    }
 
     /**
      * Obtains all schedules for a class

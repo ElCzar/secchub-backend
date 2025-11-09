@@ -40,6 +40,8 @@ import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.ClassroomResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.ClassroomScheduleConflictResponseDTO;
 import co.edu.puj.secchub_backend.planning.exception.ClassCreationException;
 import co.edu.puj.secchub_backend.planning.exception.ClassNotFoundException;
 import co.edu.puj.secchub_backend.planning.exception.ClassScheduleNotFoundException;
@@ -74,6 +76,9 @@ class PlanningServiceTest {
 
     @Mock
     private AdminModuleSemesterContract semesterService;
+
+    @Mock
+    private ClassroomService classroomService;
 
     @Mock
     private TransactionalOperator transactionalOperator;
@@ -3399,6 +3404,407 @@ class PlanningServiceTest {
         verify(semesterService).getCurrentSemesterId();
         verify(classRepository).findBySemesterIdAndNoConfirmedTeacherAssigned(currentSemesterId);
         verify(classScheduleRepository).findByClassId(1L);
+    }
+
+    // ========================================================================
+    // getClassroomScheduleConflicts Tests
+    // ========================================================================
+
+    @Test
+    @DisplayName("getClassroomScheduleConflicts - Complex overlapping scenario creates correct clusters")
+    void testGetClassroomScheduleConflicts_ComplexOverlaps_CreatesCorrectClusters() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long classroomId = 100L;
+        
+        ClassroomResponseDTO classroom = ClassroomResponseDTO.builder()
+                .id(classroomId)
+                .room("A-101")
+                .campus("Main Campus")
+                .capacity(30)
+                .build();
+
+        // s1 = 11-13
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(13, 0))
+                .build();
+
+        // s2 = 10-12 (overlaps with s1 and s5)
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // s3 = 12-15 (overlaps with s1 and s4)
+        ClassSchedule s3 = ClassSchedule.builder()
+                .id(3L)
+                .classId(30L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(12, 0))
+                .endTime(LocalTime.of(15, 0))
+                .build();
+
+        // s4 = 14-17 (overlaps with s3)
+        ClassSchedule s4 = ClassSchedule.builder()
+                .id(4L)
+                .classId(40L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(14, 0))
+                .endTime(LocalTime.of(17, 0))
+                .build();
+
+        // s5 = 9-12 (overlaps with s1 and s2)
+        ClassSchedule s5 = ClassSchedule.builder()
+                .id(5L)
+                .classId(50L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        Class class1 = Class.builder().id(10L).section(1L).courseId(100L).semesterId(currentSemesterId).build();
+        Class class2 = Class.builder().id(20L).section(1L).courseId(101L).semesterId(currentSemesterId).build();
+        Class class3 = Class.builder().id(30L).section(1L).courseId(102L).semesterId(currentSemesterId).build();
+        Class class4 = Class.builder().id(40L).section(1L).courseId(103L).semesterId(currentSemesterId).build();
+        Class class5 = Class.builder().id(50L).section(1L).courseId(104L).semesterId(currentSemesterId).build();
+
+        setupSecurityContext("ROLE_ADMIN");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classroomService.getAllClassrooms()).thenReturn(Flux.just(classroom));
+        when(classScheduleRepository.findClassesWithOverlappingSchedulesInSameClassroom(currentSemesterId, classroomId))
+                .thenReturn(Flux.just(s1, s2, s3, s4, s5));
+        lenient().when(classRepository.findById(10L)).thenReturn(Mono.just(class1));
+        lenient().when(classRepository.findById(20L)).thenReturn(Mono.just(class2));
+        lenient().when(classRepository.findById(30L)).thenReturn(Mono.just(class3));
+        lenient().when(classRepository.findById(40L)).thenReturn(Mono.just(class4));
+        lenient().when(classRepository.findById(50L)).thenReturn(Mono.just(class5));
+
+
+        // Act & Assert
+        // Expected clusters:
+        // Cluster 1: s1-s2-s5 (classes 10, 20, 50) - all three overlap with each other
+        // Cluster 2: s1-s3 (classes 10, 30) - both overlap
+        // Cluster 3: s3-s4 (classes 30, 40) - both overlap
+        List<ClassroomScheduleConflictResponseDTO> conflicts = planningService.getClassroomScheduleConflicts()
+                .collectList()
+                .block();
+
+        assertNotNull(conflicts);
+        assertEquals(3, conflicts.size(), "Should have exactly 3 conflict clusters");
+
+        // Verify each cluster
+        List<List<Long>> clusterIds = conflicts.stream()
+                .map(ClassroomScheduleConflictResponseDTO::getConflictingClassesIds)
+                .toList();
+        
+        // Find cluster with 3 classes (s1-s2-s5)
+        ClassroomScheduleConflictResponseDTO cluster3Classes = conflicts.stream()
+                .filter(conflict -> conflict.getConflictingClassesIds().containsAll(Arrays.asList(10L, 20L, 50L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster3Classes, "Should have a cluster with 3 classes");
+        assertTrue(cluster3Classes.getConflictingClassesIds().containsAll(Arrays.asList(10L, 20L, 50L)),
+                "Cluster should contain classes 10, 20, and 50");
+
+        assertNotNull(cluster3Classes, "s1-s2-s5 conflict should exist");
+        assertEquals(LocalTime.of(9, 0), cluster3Classes.getConflictStartTime(), "Min start time should be 09:00");
+        assertEquals(LocalTime.of(13, 0), cluster3Classes.getConflictEndTime(), "Max end time should be 13:00");
+
+        // Find clusters with 2 classes
+        List<List<Long>> cluster2Classes = clusterIds.stream()
+                .filter(ids -> ids.size() == 2)
+                .toList();
+        assertEquals(2, cluster2Classes.size(), "Should have 2 clusters with 2 classes each");
+        
+        // Verify s1-s3 cluster (classes 10, 30)
+        boolean hasS1S3Cluster = cluster2Classes.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(10L, 30L)));
+        assertTrue(hasS1S3Cluster, "Should have cluster with classes 10 and 30");
+
+        // Verify min and max hours are correct for s1-s3 cluster
+        ClassroomScheduleConflictResponseDTO s1s3Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictingClassesIds().containsAll(Arrays.asList(10L, 30L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s1s3Conflict, "s1-s3 conflict should exist");
+        assertEquals(LocalTime.of(11, 0), s1s3Conflict.getConflictStartTime(), "Min start time should be 11:00");
+        assertEquals(LocalTime.of(15, 0), s1s3Conflict.getConflictEndTime(), "Max end time should be 15:00");
+        
+        // Verify s3-s4 cluster (classes 30, 40)
+        boolean hasS3S4Cluster = cluster2Classes.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(30L, 40L)));
+        assertTrue(hasS3S4Cluster, "Should have cluster with classes 30 and 40");
+
+        // Verify min and max hours are correct for s3-s4 cluster
+        ClassroomScheduleConflictResponseDTO s3s4Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictingClassesIds().containsAll(Arrays.asList(30L, 40L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s3s4Conflict, "s3-s4 conflict should exist");
+        assertEquals(LocalTime.of(12, 0), s3s4Conflict.getConflictStartTime(), "Min start time should be 12:00");
+        assertEquals(LocalTime.of(17, 0), s3s4Conflict.getConflictEndTime(), "Max end time should be 17:00");
+
+        // Verify all conflicts have correct classroom info
+        conflicts.forEach(conflict -> {
+            assertEquals(classroomId, conflict.getClassroomId());
+            assertEquals("A-101", conflict.getClassroomName());
+        });
+
+        // Verify all have Monday as the day
+        conflicts.forEach(conflict -> {
+            assertEquals("Monday", conflict.getDay());
+        });
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classroomService).getAllClassrooms();
+        verify(classScheduleRepository).findClassesWithOverlappingSchedulesInSameClassroom(currentSemesterId, classroomId);
+    }
+
+    @Test
+    @DisplayName("getClassroomScheduleConflicts - When schedules don't overlap but database returns them, then service returns empty")
+    void testGetClassroomScheduleConflicts_NoOverlaps_ReturnsEmpty() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long classroomId = 100L;
+        
+        ClassroomResponseDTO classroom = ClassroomResponseDTO.builder()
+                .id(classroomId)
+                .room("A-101")
+                .build();
+
+        // Non-overlapping schedules
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(10, 0))
+                .build();
+
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(11, 0))
+                .build();
+
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classroomService.getAllClassrooms()).thenReturn(Flux.just(classroom));
+        when(classScheduleRepository.findClassesWithOverlappingSchedulesInSameClassroom(currentSemesterId, classroomId))
+                .thenReturn(Flux.just(s1, s2));
+
+        
+        // Act & Assert - Should return empty because schedules don't actually overlap
+        StepVerifier.create(planningService.getClassroomScheduleConflicts())
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classroomService).getAllClassrooms();
+    }
+
+    @Test
+    @DisplayName("getClassroomScheduleConflicts - Different days no overlap")
+    void testGetClassroomScheduleConflicts_DifferentDays_NoConflict() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long classroomId = 100L;
+        
+        ClassroomResponseDTO classroom = ClassroomResponseDTO.builder()
+                .id(classroomId)
+                .room("A-101")
+                .build();
+
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
+                .build();
+
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .classroomId(classroomId)
+                .day("Tuesday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(11, 0))
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classroomService.getAllClassrooms()).thenReturn(Flux.just(classroom));
+        when(classScheduleRepository.findClassesWithOverlappingSchedulesInSameClassroom(currentSemesterId, classroomId))
+                .thenReturn(Flux.just(s1, s2));
+        
+        // Act & Assert - Different days should not create conflicts
+        StepVerifier.create(planningService.getClassroomScheduleConflicts())
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classroomService).getAllClassrooms();
+    }
+
+    @Test
+    @DisplayName("getClassroomScheduleConflicts - ROLE_SECTION filters conflicts by user section")
+    void testGetClassroomScheduleConflicts_RoleSection_FiltersConflicts() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long classroomId = 100L;
+        Long userSectionId = 1L;
+        Long differentSectionId = 2L;
+        
+        ClassroomResponseDTO classroom = ClassroomResponseDTO.builder()
+                .id(classroomId)
+                .room("A-101")
+                .build();
+
+        // s1 = 11-13 (section 2 - not accessible)
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(13, 0))
+                .build();
+
+        // s2 = 10-12 (section 1 - accessible, overlaps with s1 and s5)
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // s3 = 12-15 (section 2 - not accessible, overlaps with s1 and s4)
+        ClassSchedule s3 = ClassSchedule.builder()
+                .id(3L)
+                .classId(30L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(12, 0))
+                .endTime(LocalTime.of(15, 0))
+                .build();
+
+        // s4 = 14-17 (section 1 - accessible, overlaps with s3)
+        ClassSchedule s4 = ClassSchedule.builder()
+                .id(4L)
+                .classId(40L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(14, 0))
+                .endTime(LocalTime.of(17, 0))
+                .build();
+
+        // s5 = 9-12 (section 1 - accessible, overlaps with s1 and s2)
+        ClassSchedule s5 = ClassSchedule.builder()
+                .id(5L)
+                .classId(50L)
+                .classroomId(classroomId)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // Class 10 and 30 belong to section 2 (not accessible)
+        Class class1 = Class.builder()
+                .id(10L)
+                .section(2L)
+                .courseId(100L)
+                .semesterId(currentSemesterId)
+                .build();
+
+        // Classes 20, 40, 50 belong to section 1 (accessible)
+        Class class2 = Class.builder()
+                .id(20L)
+                .section(1L)
+                .courseId(101L)
+                .semesterId(currentSemesterId)
+                .build();
+
+        Class class3 = Class.builder()
+                .id(30L)
+                .section(2L)
+                .courseId(102L)
+                .semesterId(currentSemesterId)
+                .build();
+
+        Class class4 = Class.builder()
+                .id(40L)
+                .section(1L)
+                .courseId(103L)
+                .semesterId(currentSemesterId)
+                .build();
+
+        Class class5 = Class.builder()
+                .id(50L)
+                .section(1L)
+                .courseId(104L)
+                .semesterId(currentSemesterId)
+                .build();
+
+        setupSecurityContext("ROLE_SECTION");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(classroomService.getAllClassrooms()).thenReturn(Flux.just(classroom));
+        when(classScheduleRepository.findClassesWithOverlappingSchedulesInSameClassroom(currentSemesterId, classroomId))
+                .thenReturn(Flux.just(s1, s2, s3, s4, s5));
+        lenient().when(classRepository.findById(10L)).thenReturn(Mono.just(class1));
+        lenient().when(classRepository.findById(20L)).thenReturn(Mono.just(class2));
+        lenient().when(classRepository.findById(30L)).thenReturn(Mono.just(class3));
+        lenient().when(classRepository.findById(40L)).thenReturn(Mono.just(class4));
+        lenient().when(classRepository.findById(50L)).thenReturn(Mono.just(class5));
+        when(userService.getUserIdByEmail("testUser@example.com")).thenReturn(Mono.just(50L));
+
+        lenient().when(sectionService.getSectionIdByUserId(50L)).thenReturn(Mono.just(userSectionId));
+        lenient().when(courseService.getCourseSectionId(100L)).thenReturn(Mono.just(differentSectionId)); // Class 10 - different section
+        lenient().when(courseService.getCourseSectionId(101L)).thenReturn(Mono.just(userSectionId));      // Class 20 - user's section
+        lenient().when(courseService.getCourseSectionId(102L)).thenReturn(Mono.just(differentSectionId)); // Class 30 - different section
+        lenient().when(courseService.getCourseSectionId(103L)).thenReturn(Mono.just(userSectionId));      // Class 40 - user's section
+        lenient().when(courseService.getCourseSectionId(104L)).thenReturn(Mono.just(userSectionId));      // Class 50 - user's section
+
+        // Act
+        List<ClassroomScheduleConflictResponseDTO> conflicts = planningService.getClassroomScheduleConflicts()
+                .collectList()
+                .block();
+
+        // Assert
+        // Expected 3 clusters (classes 10 and 30 should be filtered out):
+        // 1. Should give s1-s2-s5 cluster because s2 and s5 are accessible
+        // 2. Should not include s1-s3 cluster because both s1 (class 10) and s3 (class 30) are filtered out
+        // 3. Should give s3-s4 cluster because s2 is accessible
+        // Only s2-s5 cluster remains with accessible classes
+        assertNotNull(conflicts);
+        assertEquals(2, conflicts.size(), "Should have exactly 2 conflict cluster (only accessible classes)");
+        
+        // Checks for all clusters to not include the pair of classes 10 and 30
+        conflicts.forEach(conflict -> {
+            assertFalse(conflict.getConflictingClassesIds().contains(10L) && conflict.getConflictingClassesIds().contains(30L), "Cluster should not contain class 10 (different section)");
+        });
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(classroomService).getAllClassrooms();
+        verify(userService, atLeastOnce()).getUserIdByEmail("testUser@example.com");
     }
 
     // ==================== PARAMETER PROVIDERS ====================

@@ -72,4 +72,27 @@ public interface ClassScheduleRepository extends R2dbcRepository<ClassSchedule, 
         @Param("startTime") LocalTime startTime,
         @Param("endTime") LocalTime endTime
     );
+
+    /**
+     * Find class schedules overlapping with same classroom in the specified semester.
+     * @param semesterId the semester ID
+     * @param classroomId the classroom ID
+     * @return flux of classes with overlapping schedules in the same classroom
+     */
+    @Query("SELECT DISTINCT cs1.* FROM class_schedule cs1 " +
+        "INNER JOIN class c1 ON cs1.class_id = c1.id " +
+        "INNER JOIN class_schedule cs2 ON cs1.classroom_id = cs2.classroom_id " +
+        "INNER JOIN class c2 ON cs2.class_id = c2.id " +
+        "WHERE c1.semester_id = :semesterId " +
+        "AND c2.semester_id = :semesterId " +
+        "AND c1.id <> c2.id " +
+        "AND cs1.day = cs2.day " + 
+        "AND (cs1.start_time < cs2.end_time) AND (cs1.end_time > cs2.start_time) " +
+        "AND cs1.classroom_id = :classroomId " +
+        "AND cs2.classroom_id = :classroomId " +
+        "AND cs1.classroom_id IS NOT NULL")
+    Flux<ClassSchedule> findClassesWithOverlappingSchedulesInSameClassroom(
+        @Param("semesterId") Long semesterId,
+        @Param("classroomId") Long classroomId
+    );
 }
