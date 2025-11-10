@@ -27,4 +27,6 @@ public interface TeacherClassRepository extends R2dbcRepository<TeacherClass, Lo
     Flux<TeacherClass> findBySemesterIdAndTeacherId(Long semesterId, Long teacherId);
 
     Mono<TeacherClass> findByTeacherIdAndClassId(Long teacherId, Long classId);
+
+    Flux<TeacherClass> findBySemesterIdAndStatusId(Long semesterId, Long statusId);
 }

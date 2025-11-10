@@ -124,6 +124,23 @@ public class TeacherClassService {
     }
 
     /**
+     * Lists all classes pending decision for the current semester.
+     * @return Flux of TeacherClassResponseDTO with pending decision
+     */
+    public Flux<TeacherClassResponseDTO> listPendingDecisionClassesForCurrentSemester() {
+        return semesterService.getCurrentSemesterId()
+            .flatMapMany(currentSemesterId ->
+                repository.findBySemesterIdAndStatusId(currentSemesterId, STATUS_PENDING_ID)
+                    .filterWhen(this::filterTeacherClass)
+                    .map(teacherClass -> modelMapper.map(teacherClass, TeacherClassResponseDTO.class))
+            )
+            .onErrorMap(error -> {
+                log.error("Error listing pending decision classes for current semester: {}", error.getMessage());
+                throw new TeacherClassServerErrorException("Failed to list pending decision classes for current semester");
+            });
+    }
+
+    /**
      * Lists only classes filtered by status.
      * If the current user has ROLE_SECTION, only teacher classes for their section are returned.
      * @param teacherId teacher id

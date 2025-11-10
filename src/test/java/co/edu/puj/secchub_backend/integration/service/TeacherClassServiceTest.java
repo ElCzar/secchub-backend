@@ -1439,5 +1439,209 @@ class TeacherClassServiceTest {
         verify(repository).findBySemesterIdAndTeacherId(1L, teacherId);
         verify(userService, never()).getUserInformationById(100L);
     }
-}
 
+    // ==================== LIST PENDING DECISION CLASSES FOR CURRENT SEMESTER TESTS ====================
+
+    @ParameterizedTest(name = "listPendingDecisionClassesForCurrentSemester - When user has section {0} returns filtered pending classes")
+    @MethodSource("userSectionProvider")
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - Should return pending classes based on user section")
+    void testListPendingDecisionClassesForCurrentSemester_BasedOnUserSection_ReturnsPendingClasses(Long userSection) {
+        setUpUserMocking(userSection);
+
+        TeacherClass pendingClass = TeacherClass.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .build();
+
+        TeacherClassResponseDTO pendingResponseDTO = TeacherClassResponseDTO.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(repository.findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID)).thenReturn(Flux.just(pendingClass));
+        when(classService.isClassInSection(100L, userSection)).thenReturn(Mono.just(true));
+        when(modelMapper.map(pendingClass, TeacherClassResponseDTO.class)).thenReturn(pendingResponseDTO);
+
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .expectNext(pendingResponseDTO)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(repository).findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID);
+    }
+
+    @Test
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - When teacher role returns only their pending classes")
+    void testListPendingDecisionClassesForCurrentSemester_TeacherRole_ReturnsOnlyTheirPendingClasses() {
+        setUpTeacherMocking(10L);
+
+        TeacherClass pendingClass = TeacherClass.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .build();
+
+        TeacherClassResponseDTO pendingResponseDTO = TeacherClassResponseDTO.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(repository.findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID)).thenReturn(Flux.just(pendingClass));
+        when(modelMapper.map(pendingClass, TeacherClassResponseDTO.class)).thenReturn(pendingResponseDTO);
+
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .expectNext(pendingResponseDTO)
+                .verifyComplete();
+
+        verify(userService).getUserIdByEmail("teacher@test.com");
+        verify(teacherService).getTeacherIdByUserId(100L);
+    }
+
+    @Test
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - When teacher role filters out other teacher pending classes")
+    void testListPendingDecisionClassesForCurrentSemester_TeacherRole_FiltersOtherTeachers() {
+        setUpTeacherMocking(99L); // Different teacher ID
+
+        TeacherClass pendingClass = TeacherClass.builder()
+                .id(1L)
+                .teacherId(10L) // Different from mocked teacher ID
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(repository.findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID)).thenReturn(Flux.just(pendingClass));
+        
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .verifyComplete(); // No results expected
+
+        verify(userService).getUserIdByEmail("teacher@test.com");
+        verify(teacherService).getTeacherIdByUserId(100L);
+    }
+
+    @Test
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - When admin returns all pending classes")
+    void testListPendingDecisionClassesForCurrentSemester_AdminRole_ReturnsAllPendingClasses() {
+        setUpUserMocking(null);
+
+        TeacherClass pendingClass1 = TeacherClass.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .build();
+
+        TeacherClass pendingClass2 = TeacherClass.builder()
+                .id(2L)
+                .teacherId(20L)
+                .classId(200L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .decision(null)
+                .build();
+
+        TeacherClassResponseDTO pendingResponseDTO1 = TeacherClassResponseDTO.builder()
+                .id(1L)
+                .teacherId(10L)
+                .classId(100L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .build();
+
+        TeacherClassResponseDTO pendingResponseDTO2 = TeacherClassResponseDTO.builder()
+                .id(2L)
+                .teacherId(20L)
+                .classId(200L)
+                .semesterId(1L)
+                .statusId(STATUS_PENDING_ID)
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(repository.findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID))
+                .thenReturn(Flux.just(pendingClass1, pendingClass2));
+        when(modelMapper.map(pendingClass1, TeacherClassResponseDTO.class)).thenReturn(pendingResponseDTO1);
+        when(modelMapper.map(pendingClass2, TeacherClassResponseDTO.class)).thenReturn(pendingResponseDTO2);
+
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .expectNext(pendingResponseDTO1)
+                .expectNext(pendingResponseDTO2)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(repository).findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID);
+    }
+
+    @Test
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - When no pending classes returns empty")
+    void testListPendingDecisionClassesForCurrentSemester_NoPendingClasses_ReturnsEmpty() {
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(repository.findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID)).thenReturn(Flux.empty());
+
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(repository).findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID);
+    }
+
+    @Test
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - When semester service fails throws TeacherClassServerErrorException")
+    void testListPendingDecisionClassesForCurrentSemester_SemesterServiceFails_ThrowsException() {
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.error(new RuntimeException("Semester error")));
+
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .expectError(TeacherClassServerErrorException.class)
+                .verify();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(repository, never()).findBySemesterIdAndStatusId(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("listPendingDecisionClassesForCurrentSemester - When repository fails throws TeacherClassServerErrorException")
+    void testListPendingDecisionClassesForCurrentSemester_RepositoryFails_ThrowsException() {
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(1L));
+        when(repository.findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID))
+                .thenReturn(Flux.error(new RuntimeException("Repository error")));
+
+        Flux<TeacherClassResponseDTO> result = teacherClassService.listPendingDecisionClassesForCurrentSemester();
+
+        StepVerifier.create(result)
+                .expectError(TeacherClassServerErrorException.class)
+                .verify();
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(repository).findBySemesterIdAndStatusId(1L, STATUS_PENDING_ID);
+    }
+}

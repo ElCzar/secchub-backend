@@ -1067,4 +1067,267 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
                 .jsonPath("$.workHoursToAssign").isEqualTo(5)
                 .jsonPath("$.exceedsMaxHours").isEqualTo(0); // 18 + 5 = 23 < 40
     }
+
+    // ==========================================
+    // GET Pending Decision Classes Tests
+    // ==========================================
+
+    /**
+     * Provides teacher and admin roles that can access pending decision endpoint
+     */
+    private static Stream<Arguments> teacherAndAdminRolesProvider() {
+        return Stream.of(
+            Arguments.of("testTeacher@example.com", "ROLE_TEACHER"),
+            Arguments.of("testAdmin@example.com", "ROLE_ADMIN")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("teacherAndAdminRolesProvider")
+    @DisplayName("GET /teachers/classes/pending-decision - Should return pending classes for current semester")
+    void getPendingDecisionClassesForCurrentSemester_asAuthorizedUser_shouldReturnPendingClasses(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        assertFalse(pendingClasses.isEmpty());
+        // Verify all are pending status (ID 4)
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getStatusId().equals(4L)),
+                "All returned classes should have pending status");
+        // Verify all belong to current semester (ID 2)
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getSemesterId().equals(2L)),
+                "All returned classes should be from current semester");
+        // Verify decision field is null for pending
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getDecision() == null),
+                "All pending classes should have null decision");
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Teacher should only see their own pending classes")
+    void getPendingDecisionClassesForCurrentSemester_asTeacher_shouldReturnOnlyTheirClasses() {
+        String token = jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER");
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        // Verify all belong to teacher ID 1 (testTeacher)
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getTeacherId().equals(1L)),
+                "Teacher should only see their own pending classes");
+        // Verify status is pending
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getStatusId().equals(4L)));
+        // Based on test data: teacher 1 has 2 pending assignments (IDs 1 and 4)
+        assertEquals(2, pendingClasses.size(), "Teacher 1 should have 2 pending assignments");
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Admin should see all pending classes")
+    void getPendingDecisionClassesForCurrentSemester_asAdmin_shouldReturnAllPendingClasses() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        // Admin should see all pending classes regardless of teacher
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getStatusId().equals(4L)));
+        // Based on test data: total 2 pending assignments in current semester
+        assertEquals(2, pendingClasses.size(), "Admin should see all 2 pending assignments");
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should not include accepted classes")
+    void getPendingDecisionClassesForCurrentSemester_shouldNotIncludeAccepted() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        // Verify no accepted classes (status ID 6 or 8)
+        assertFalse(pendingClasses.stream().anyMatch(a -> a.getStatusId().equals(6L) || a.getStatusId().equals(8L)),
+                "Should not include accepted classes");
+        // Verify no class with decision=true
+        assertFalse(pendingClasses.stream().anyMatch(a -> Boolean.TRUE.equals(a.getDecision())),
+                "Should not include classes with accepted decision");
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should not include rejected classes")
+    void getPendingDecisionClassesForCurrentSemester_shouldNotIncludeRejected() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        // Verify no rejected classes (status ID 7 or 9)
+        assertFalse(pendingClasses.stream().anyMatch(a -> a.getStatusId().equals(7L) || a.getStatusId().equals(9L)),
+                "Should not include rejected classes");
+        // Verify no class with decision=false
+        assertFalse(pendingClasses.stream().anyMatch(a -> Boolean.FALSE.equals(a.getDecision())),
+                "Should not include classes with rejected decision");
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should only return current semester")
+    void getPendingDecisionClassesForCurrentSemester_shouldOnlyReturnCurrentSemester() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        // Verify all are from current semester (ID 2)
+        assertTrue(pendingClasses.stream().allMatch(a -> a.getSemesterId().equals(2L)),
+                "Should only return current semester classes");
+        // Verify none from previous semester (ID 1)
+        assertFalse(pendingClasses.stream().anyMatch(a -> a.getSemesterId().equals(1L)),
+                "Should not return previous semester classes");
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should include all required fields")
+    void getPendingDecisionClassesForCurrentSemester_shouldIncludeAllFields() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        assertFalse(pendingClasses.isEmpty());
+        
+        // Verify all pending classes have required fields
+        pendingClasses.forEach(pendingClass -> {
+            assertNotNull(pendingClass.getId(), "ID should not be null");
+            assertNotNull(pendingClass.getTeacherId(), "Teacher ID should not be null");
+            assertNotNull(pendingClass.getClassId(), "Class ID should not be null");
+            assertNotNull(pendingClass.getSemesterId(), "Semester ID should not be null");
+            assertNotNull(pendingClass.getStatusId(), "Status ID should not be null");
+            assertNotNull(pendingClass.getStartDate(), "Start date should not be null");
+            assertNotNull(pendingClass.getEndDate(), "End date should not be null");
+        });
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should deny user role access")
+    void getPendingDecisionClassesForCurrentSemester_asUser_shouldReturn403() {
+        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
+
+        webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should deny student role access")
+    void getPendingDecisionClassesForCurrentSemester_asStudent_shouldReturn403() {
+        String token = jwtTokenProvider.generateToken("testStudent@example.com", "ROLE_STUDENT");
+
+        webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should require authentication")
+    void getPendingDecisionClassesForCurrentSemester_withoutAuth_shouldReturn401() {
+        webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("GET /teachers/classes/pending-decision - Should return empty list when no pending classes")
+    void getPendingDecisionClassesForCurrentSemester_noPendingClasses_shouldReturnEmptyList() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // First, accept all pending classes
+        webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/accept", 1L)
+                .header("Authorization", "Bearer " + jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk();
+
+        webTestClient.patch()
+                .uri("/teachers/classes/{teacherClassId}/accept", 4L)
+                .header("Authorization", "Bearer " + jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk();
+
+        // Now query pending classes - should be empty
+        List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
+                .uri("/teachers/classes/pending-decision")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeacherClassResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(pendingClasses);
+        assertTrue(pendingClasses.isEmpty(), "Should return empty list when no pending classes");
+    }
 }

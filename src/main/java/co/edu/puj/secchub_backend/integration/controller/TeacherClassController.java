@@ -77,6 +77,18 @@ public class TeacherClassController {
     }
 
     /**
+     * Get all classes pending decision for current semester.
+     * @return List of classes pending decision
+     */
+    @GetMapping("/classes/pending-decision")
+    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN')")
+    public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getPendingDecisionClassesForCurrentSemester() {
+        return service.listPendingDecisionClassesForCurrentSemester()
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
      * Get classes assigned to a teacher filtered by status.
      * Status: Based on data in the database.
      * @param teacherId Teacher ID
