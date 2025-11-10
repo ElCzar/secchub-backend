@@ -1,5 +1,6 @@
 package co.edu.puj.secchub_backend.admin.contract;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface AdminModuleTeacherContract {
@@ -16,4 +17,10 @@ public interface AdminModuleTeacherContract {
      * @return TeacherResponseDTO
      */
     Mono<TeacherResponseDTO> getTeacherById(Long teacherId);
+    
+    /**
+     * Obtains all teachers.
+     * @return All teachers
+     */
+    Flux<TeacherResponseDTO> getAllTeachers();
 }

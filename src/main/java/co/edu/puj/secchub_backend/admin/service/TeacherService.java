@@ -31,6 +31,7 @@ public class TeacherService implements AdminModuleTeacherContract{
      * Gets all teachers in the system.
      * @return List of all teachers
      */
+    @Override
     public Flux<TeacherResponseDTO> getAllTeachers() {
         log.debug("Retrieving all teachers");
         return teacherRepository.findAll()

@@ -3,12 +3,14 @@ package co.edu.puj.secchub_backend.planning.service;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleCourseContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleTeacherContract;
 import co.edu.puj.secchub_backend.planning.contract.PlanningModuleClassContract;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassroomScheduleConflictResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO;
 import co.edu.puj.secchub_backend.planning.exception.ClassCreationException;
 import co.edu.puj.secchub_backend.planning.exception.ClassNotFoundException;
 import co.edu.puj.secchub_backend.planning.exception.ClassScheduleNotFoundException;
@@ -54,6 +56,7 @@ public class PlanningService implements PlanningModuleClassContract {
     private final AdminModuleSemesterContract semesterService;
     private final AdminModuleSectionContract sectionService;
     private final AdminModuleCourseContract courseService;
+    private final AdminModuleTeacherContract teacherService;
     private final SecurityModuleUserContract userService;
 
     private final ClassroomService classroomService;
@@ -660,10 +663,80 @@ public class PlanningService implements PlanningModuleClassContract {
         });
     }
 
+    /**
+     * Obtains schedule conflicts for teachers in the current semester.
+     * Groups overlapping schedules by teacher and filters based on user permissions.
+     * Creates separate conflict groups for each cluster of overlapping schedules.
+     * @return Flux of teacher schedule conflicts
+     */
+    public Flux<TeacherScheduleConflictResponseDTO> getTeacherScheduleConflicts() {
+        return semesterService.getCurrentSemesterId()
+        .flatMapMany(currentSemesterId ->
+            teacherService.getAllTeachers()
+            .flatMap(teacher ->
+                classScheduleRepository.findTeacherScheduleConflicts(currentSemesterId, teacher.getId())
+                .collectList()
+                .filter(schedulesWithConflicts -> !schedulesWithConflicts.isEmpty())
+                .flatMapMany(schedulesWithConflicts -> {
+                    // Group schedules into clusters based on overlaps
+                    List<List<ClassSchedule>> clusters = groupSchedulesIntoOverlapClusters(schedulesWithConflicts);
+                    
+                    // Create a conflict DTO for each cluster with at least 2 schedules
+                    return Flux.fromIterable(clusters)
+                    .filter(cluster -> cluster.size() >= 2)
+                    // Filter if none of the schedules in the cluster belong to classes accessible by the user
+                    .filterWhen(cluster ->
+                        Flux.fromIterable(cluster)
+                        .flatMap(schedule ->
+                            classRepository.findById(schedule.getClassId())
+                            .filterWhen(this::filterClassByUserSection)
+                        )
+                        .hasElements()
+                    )
+                    .flatMap(cluster ->
+                        // Get user information for the teacher
+                        userService.getUserInformationById(teacher.getUserId())
+                        .map(user -> {
+                            TeacherScheduleConflictResponseDTO conflictDTO = new TeacherScheduleConflictResponseDTO();
+                            conflictDTO.setUserId(user.getId());
+                            conflictDTO.setUserName(user.getName() + " " + user.getLastName());
+                            conflictDTO.setConflictingClassesIds(
+                                cluster.stream()
+                                .map(ClassSchedule::getClassId)
+                                .distinct()
+                                .toList()
+                            );
+                            
+                            LocalTime minStartTime = cluster.stream()
+                                .map(ClassSchedule::getStartTime)
+                                .min(LocalTime::compareTo)
+                                .orElse(cluster.get(0).getStartTime());
+                            
+                            LocalTime maxEndTime = cluster.stream()
+                                .map(ClassSchedule::getEndTime)
+                                .max(LocalTime::compareTo)
+                                .orElse(cluster.get(0).getEndTime());
+                            
+                            conflictDTO.setConflictStartTime(minStartTime.toString());
+                            conflictDTO.setConflictEndTime(maxEndTime.toString());
+                            conflictDTO.setConflictDay(cluster.get(0).getDay());
+                            
+                            return conflictDTO;
+                        })
+                    );
+                })
+            )
+        )
+        .onErrorMap(e -> {
+            log.error("Error retrieving teacher schedule conflicts: {}", e.getMessage());
+            throw new PlanningServerErrorException("Error retrieving teacher schedule conflicts: " + e.getMessage());
+        });
+    }
+
     // ========================================================================
     // Private Methods
-    // ========================================================================
-
+    // ========================================================================    
+    
     /**
      * Groups schedules where ALL schedules in each cluster directly overlap with ALL others.
      * Uses a set to track already-processed schedules to avoid duplicate clusters.

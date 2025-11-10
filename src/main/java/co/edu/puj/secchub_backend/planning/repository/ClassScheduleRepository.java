@@ -75,6 +75,7 @@ public interface ClassScheduleRepository extends R2dbcRepository<ClassSchedule, 
 
     /**
      * Find class schedules overlapping with same classroom in the specified semester.
+     * For a conflict to exist, both the schedule times AND class dates must overlap.
      * @param semesterId the semester ID
      * @param classroomId the classroom ID
      * @return flux of classes with overlapping schedules in the same classroom
@@ -88,11 +89,39 @@ public interface ClassScheduleRepository extends R2dbcRepository<ClassSchedule, 
         "AND c1.id <> c2.id " +
         "AND cs1.day = cs2.day " + 
         "AND (cs1.start_time < cs2.end_time) AND (cs1.end_time > cs2.start_time) " +
+        "AND (c1.start_date < c2.end_date) AND (c1.end_date > c2.start_date) " +
         "AND cs1.classroom_id = :classroomId " +
         "AND cs2.classroom_id = :classroomId " +
         "AND cs1.classroom_id IS NOT NULL")
     Flux<ClassSchedule> findClassesWithOverlappingSchedulesInSameClassroom(
         @Param("semesterId") Long semesterId,
         @Param("classroomId") Long classroomId
+    );
+
+    /**
+     * Find class schedules with overlapping assignments for a specific teacher.
+     * For a conflict to exist, the teacher must have multiple class assignments with same day of the week,
+     * an overlapping schedule times with overlapping teacher_class assignment dates
+     * and decision must be true (accepted assignments)
+     * @param semesterId the semester ID
+     * @param teacherId the teacher ID
+     * @return flux of class schedules that have conflicts for the teacher
+     */
+    @Query("SELECT DISTINCT cs1.* FROM class_schedule cs1 " +
+        "INNER JOIN teacher_class tc1 ON cs1.class_id = tc1.class_id " +
+        "INNER JOIN class_schedule cs2 ON cs1.day = cs2.day " +
+        "INNER JOIN teacher_class tc2 ON cs2.class_id = tc2.class_id " +
+        "WHERE tc1.semester_id = :semesterId " +
+        "AND tc2.semester_id = :semesterId " +
+        "AND tc1.teacher_id = :teacherId " +
+        "AND tc2.teacher_id = :teacherId " +
+        "AND tc1.decision = TRUE " +
+        "AND tc2.decision = TRUE " +
+        "AND cs1.id <> cs2.id " +
+        "AND (cs1.start_time < cs2.end_time) AND (cs1.end_time > cs2.start_time) " +
+        "AND (tc1.start_date < tc2.end_date) AND (tc1.end_date > tc2.start_date)")
+    Flux<ClassSchedule> findTeacherScheduleConflicts(
+        @Param("semesterId") Long semesterId,
+        @Param("teacherId") Long teacherId
     );
 }

@@ -36,6 +36,7 @@ import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.admin.dto.SemesterResponseDTO;
 import co.edu.puj.secchub_backend.admin.service.CourseService;
 import co.edu.puj.secchub_backend.admin.service.SectionService;
+import co.edu.puj.secchub_backend.admin.service.TeacherService;
 import co.edu.puj.secchub_backend.planning.dto.ClassCreateRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
@@ -73,6 +74,8 @@ class PlanningServiceTest {
     private SectionService sectionService;
     @Mock
     private CourseService courseService;
+    @Mock
+    private TeacherService teacherService;
 
     @Mock
     private AdminModuleSemesterContract semesterService;
@@ -3804,6 +3807,372 @@ class PlanningServiceTest {
 
         verify(semesterService).getCurrentSemesterId();
         verify(classroomService).getAllClassrooms();
+        verify(userService, atLeastOnce()).getUserIdByEmail("testUser@example.com");
+    }
+
+    // ========================================================================
+    // getTeacherScheduleConflicts Tests
+    // ========================================================================
+
+    @Test
+    @DisplayName("getTeacherScheduleConflicts - Complex overlapping scenario creates correct clusters")
+    void testGetTeacherScheduleConflicts_ComplexOverlaps_CreatesCorrectClusters() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long teacherId = 100L;
+        Long userId = 500L;
+        
+        co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO teacher = co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(userId)
+                .maxHours(40)
+                .build();
+
+        co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO userInfo = 
+            co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO.builder()
+                .id(userId)
+                .name("John")
+                .lastName("Doe")
+                .email("john.doe@example.com")
+                .build();
+
+        // Same 5 schedules as classroom conflict tests
+        // s1 = 11-13
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .day("Monday")
+                .startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(13, 0))
+                .build();
+
+        // s2 = 10-12 (overlaps with s1 and s5)
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // s3 = 12-15 (overlaps with s1 and s4)
+        ClassSchedule s3 = ClassSchedule.builder()
+                .id(3L)
+                .classId(30L)
+                .day("Monday")
+                .startTime(LocalTime.of(12, 0))
+                .endTime(LocalTime.of(15, 0))
+                .build();
+
+        // s4 = 14-17 (overlaps with s3)
+        ClassSchedule s4 = ClassSchedule.builder()
+                .id(4L)
+                .classId(40L)
+                .day("Monday")
+                .startTime(LocalTime.of(14, 0))
+                .endTime(LocalTime.of(17, 0))
+                .build();
+
+        // s5 = 9-12 (overlaps with s1 and s2)
+        ClassSchedule s5 = ClassSchedule.builder()
+                .id(5L)
+                .classId(50L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        Class class1 = Class.builder().id(10L).section(1L).courseId(100L).semesterId(currentSemesterId).build();
+        Class class2 = Class.builder().id(20L).section(1L).courseId(101L).semesterId(currentSemesterId).build();
+        Class class3 = Class.builder().id(30L).section(1L).courseId(102L).semesterId(currentSemesterId).build();
+        Class class4 = Class.builder().id(40L).section(1L).courseId(103L).semesterId(currentSemesterId).build();
+        Class class5 = Class.builder().id(50L).section(1L).courseId(104L).semesterId(currentSemesterId).build();
+
+        setupSecurityContext("ROLE_ADMIN");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(teacherService.getAllTeachers()).thenReturn(Flux.just(teacher));
+        when(classScheduleRepository.findTeacherScheduleConflicts(currentSemesterId, teacherId))
+                .thenReturn(Flux.just(s1, s2, s3, s4, s5));
+        when(userService.getUserInformationById(userId)).thenReturn(Mono.just(userInfo));
+        lenient().when(classRepository.findById(10L)).thenReturn(Mono.just(class1));
+        lenient().when(classRepository.findById(20L)).thenReturn(Mono.just(class2));
+        lenient().when(classRepository.findById(30L)).thenReturn(Mono.just(class3));
+        lenient().when(classRepository.findById(40L)).thenReturn(Mono.just(class4));
+        lenient().when(classRepository.findById(50L)).thenReturn(Mono.just(class5));
+
+        // Act & Assert
+        // Expected clusters:
+        // Cluster 1: s1-s2-s5 (classes 10, 20, 50) - all three overlap with each other
+        // Cluster 2: s1-s3 (classes 10, 30) - both overlap
+        // Cluster 3: s3-s4 (classes 30, 40) - both overlap
+        List<co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO> conflicts = 
+                planningService.getTeacherScheduleConflicts()
+                .collectList()
+                .block();
+
+        assertNotNull(conflicts);
+        assertEquals(3, conflicts.size(), "Should have exactly 3 conflict clusters");
+
+        // Verify each cluster
+        List<List<Long>> clusterIds = conflicts.stream()
+                .map(co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO::getConflictingClassesIds)
+                .toList();
+        
+        // Find cluster with 3 classes (s1-s2-s5)
+        co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO cluster3Classes = conflicts.stream()
+                .filter(conflict -> conflict.getConflictingClassesIds().containsAll(Arrays.asList(10L, 20L, 50L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster3Classes, "Should have a cluster with 3 classes");
+        assertTrue(cluster3Classes.getConflictingClassesIds().containsAll(Arrays.asList(10L, 20L, 50L)),
+                "Cluster should contain classes 10, 20, and 50");
+        assertEquals(userId, cluster3Classes.getUserId());
+        assertEquals("John Doe", cluster3Classes.getUserName());
+        assertEquals("09:00", cluster3Classes.getConflictStartTime(), "Min start time should be 09:00");
+        assertEquals("13:00", cluster3Classes.getConflictEndTime(), "Max end time should be 13:00");
+        assertEquals("Monday", cluster3Classes.getConflictDay());
+
+        // Find clusters with 2 classes
+        List<List<Long>> cluster2Classes = clusterIds.stream()
+                .filter(ids -> ids.size() == 2)
+                .toList();
+        assertEquals(2, cluster2Classes.size(), "Should have 2 clusters with 2 classes each");
+        
+        // Verify s1-s3 cluster (classes 10, 30)
+        boolean hasS1S3Cluster = cluster2Classes.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(10L, 30L)));
+        assertTrue(hasS1S3Cluster, "Should have cluster with classes 10 and 30");
+
+        // Verify min and max hours are correct for s1-s3 cluster
+        co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO s1s3Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictingClassesIds().containsAll(Arrays.asList(10L, 30L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s1s3Conflict, "s1-s3 conflict should exist");
+        assertEquals("11:00", s1s3Conflict.getConflictStartTime(), "Min start time should be 11:00");
+        assertEquals("15:00", s1s3Conflict.getConflictEndTime(), "Max end time should be 15:00");
+        
+        // Verify s3-s4 cluster (classes 30, 40)
+        boolean hasS3S4Cluster = cluster2Classes.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(30L, 40L)));
+        assertTrue(hasS3S4Cluster, "Should have cluster with classes 30 and 40");
+
+        // Verify min and max hours are correct for s3-s4 cluster
+        co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO s3s4Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictingClassesIds().containsAll(Arrays.asList(30L, 40L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s3s4Conflict, "s3-s4 conflict should exist");
+        assertEquals("12:00", s3s4Conflict.getConflictStartTime(), "Min start time should be 12:00");
+        assertEquals("17:00", s3s4Conflict.getConflictEndTime(), "Max end time should be 17:00");
+
+        // Verify all have Monday as the day
+        conflicts.forEach(conflict -> {
+            assertEquals("Monday", conflict.getConflictDay());
+            assertEquals(userId, conflict.getUserId());
+            assertEquals("John Doe", conflict.getUserName());
+        });
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(userService, atLeast(1)).getUserInformationById(userId);
+    }
+
+    @Test
+    @DisplayName("getTeacherScheduleConflicts - When schedules don't overlap, returns empty")
+    void testGetTeacherScheduleConflicts_NoOverlaps_ReturnsEmpty() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long teacherId = 100L;
+        
+        co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO teacher = co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(500L)
+                .build();
+
+        // Non-overlapping schedules
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(10, 0))
+                .build();
+
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(11, 0))
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(teacherService.getAllTeachers()).thenReturn(Flux.just(teacher));
+        when(classScheduleRepository.findTeacherScheduleConflicts(currentSemesterId, teacherId))
+                .thenReturn(Flux.just(s1, s2));
+
+        // Act & Assert
+        StepVerifier.create(planningService.getTeacherScheduleConflicts())
+                .expectNextCount(0)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+    }
+
+    @Test
+    @DisplayName("getTeacherScheduleConflicts - Different days no overlap")
+    void testGetTeacherScheduleConflicts_DifferentDays_NoConflict() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long teacherId = 100L;
+        
+        co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO teacher = co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(500L)
+                .build();
+
+        // Same time but different days
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .day("Tuesday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(teacherService.getAllTeachers()).thenReturn(Flux.just(teacher));
+        when(classScheduleRepository.findTeacherScheduleConflicts(currentSemesterId, teacherId))
+                .thenReturn(Flux.just(s1, s2));
+
+        // Act & Assert
+        StepVerifier.create(planningService.getTeacherScheduleConflicts())
+                .expectNextCount(0)
+                .verifyComplete();
+
+        verify(semesterService).getCurrentSemesterId();
+    }
+
+    @Test
+    @DisplayName("getTeacherScheduleConflicts - ROLE_SECTION filters conflicts by user section")
+    void testGetTeacherScheduleConflicts_RoleSection_FiltersConflicts() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long teacherId = 100L;
+        Long userId = 500L;
+        Long userSectionId = 1L;
+        Long differentSectionId = 2L;
+        
+        co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO teacher = co.edu.puj.secchub_backend.admin.contract.TeacherResponseDTO.builder()
+                .id(teacherId)
+                .userId(userId)
+                .build();
+
+        co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO userInfo = 
+            co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO.builder()
+                .id(userId)
+                .name("John")
+                .lastName("Doe")
+                .build();
+
+        // Same 5 schedules
+        ClassSchedule s1 = ClassSchedule.builder()
+                .id(1L)
+                .classId(10L)
+                .day("Monday")
+                .startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(13, 0))
+                .build();
+
+        ClassSchedule s2 = ClassSchedule.builder()
+                .id(2L)
+                .classId(20L)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        ClassSchedule s3 = ClassSchedule.builder()
+                .id(3L)
+                .classId(30L)
+                .day("Monday")
+                .startTime(LocalTime.of(12, 0))
+                .endTime(LocalTime.of(15, 0))
+                .build();
+
+        ClassSchedule s4 = ClassSchedule.builder()
+                .id(4L)
+                .classId(40L)
+                .day("Monday")
+                .startTime(LocalTime.of(14, 0))
+                .endTime(LocalTime.of(17, 0))
+                .build();
+
+        ClassSchedule s5 = ClassSchedule.builder()
+                .id(5L)
+                .classId(50L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // Classes: 10 and 30 are in different section, 20, 40, 50 are in user's section
+        Class class1 = Class.builder().id(10L).section(differentSectionId).courseId(100L).semesterId(currentSemesterId).build();
+        Class class2 = Class.builder().id(20L).section(userSectionId).courseId(101L).semesterId(currentSemesterId).build();
+        Class class3 = Class.builder().id(30L).section(differentSectionId).courseId(102L).semesterId(currentSemesterId).build();
+        Class class4 = Class.builder().id(40L).section(userSectionId).courseId(103L).semesterId(currentSemesterId).build();
+        Class class5 = Class.builder().id(50L).section(userSectionId).courseId(104L).semesterId(currentSemesterId).build();
+
+        setupSecurityContext("ROLE_SECTION");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(teacherService.getAllTeachers()).thenReturn(Flux.just(teacher));
+        when(classScheduleRepository.findTeacherScheduleConflicts(currentSemesterId, teacherId))
+                .thenReturn(Flux.just(s1, s2, s3, s4, s5));
+        when(userService.getUserInformationById(userId)).thenReturn(Mono.just(userInfo));
+        lenient().when(classRepository.findById(10L)).thenReturn(Mono.just(class1));
+        lenient().when(classRepository.findById(20L)).thenReturn(Mono.just(class2));
+        lenient().when(classRepository.findById(30L)).thenReturn(Mono.just(class3));
+        lenient().when(classRepository.findById(40L)).thenReturn(Mono.just(class4));
+        lenient().when(classRepository.findById(50L)).thenReturn(Mono.just(class5));
+        when(userService.getUserIdByEmail("testUser@example.com")).thenReturn(Mono.just(50L));
+
+        lenient().when(sectionService.getSectionIdByUserId(50L)).thenReturn(Mono.just(userSectionId));
+        lenient().when(courseService.getCourseSectionId(100L)).thenReturn(Mono.just(differentSectionId)); // Class 10 - different section
+        lenient().when(courseService.getCourseSectionId(101L)).thenReturn(Mono.just(userSectionId));      // Class 20 - user's section
+        lenient().when(courseService.getCourseSectionId(102L)).thenReturn(Mono.just(differentSectionId)); // Class 30 - different section
+        lenient().when(courseService.getCourseSectionId(103L)).thenReturn(Mono.just(userSectionId));      // Class 40 - user's section
+        lenient().when(courseService.getCourseSectionId(104L)).thenReturn(Mono.just(userSectionId));      // Class 50 - user's section
+
+        // Act
+        List<co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO> conflicts = 
+                planningService.getTeacherScheduleConflicts()
+                .collectList()
+                .block();
+
+        // Assert
+        // Expected 2 clusters (classes 10 and 30 should be filtered out):
+        // 1. s2-s5 cluster (classes 20, 50) because both are accessible
+        // 2. s3-s4 cluster (class 40) because s4 is accessible
+        assertNotNull(conflicts);
+        assertEquals(2, conflicts.size(), "Should have exactly 2 conflict clusters (only accessible classes)");
+        
+        // Verify no cluster contains both classes 10 and 30
+        conflicts.forEach(conflict -> {
+            assertFalse(conflict.getConflictingClassesIds().contains(10L) && conflict.getConflictingClassesIds().contains(30L), 
+                    "Cluster should not contain class 10 (different section)");
+        });
+
+        verify(semesterService).getCurrentSemesterId();
         verify(userService, atLeastOnce()).getUserIdByEmail("testUser@example.com");
     }
 

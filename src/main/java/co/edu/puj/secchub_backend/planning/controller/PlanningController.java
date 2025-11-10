@@ -5,6 +5,7 @@ import co.edu.puj.secchub_backend.planning.dto.ClassResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassScheduleResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.ClassroomScheduleConflictResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.TeacherScheduleConflictResponseDTO;
 import co.edu.puj.secchub_backend.planning.service.PlanningService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -347,6 +348,18 @@ public class PlanningController {
     @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
     public Mono<ResponseEntity<List<ClassroomScheduleConflictResponseDTO>>> getScheduleConflicts() {
         return planningService.getClassroomScheduleConflicts()
+                .collectList()
+                .map(ResponseEntity::ok);
+    }
+
+    /**
+     * Obtains all schedule conflicts for the teachers assigned for the current semester.
+     * @return List of schedule conflicts for teachers
+     */
+    @GetMapping("/conflicts/teachers")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<List<TeacherScheduleConflictResponseDTO>>> getTeacherScheduleConflicts() {
+        return planningService.getTeacherScheduleConflicts()
                 .collectList()
                 .map(ResponseEntity::ok);
     }
