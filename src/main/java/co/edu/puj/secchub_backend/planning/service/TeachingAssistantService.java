@@ -1,6 +1,7 @@
 package co.edu.puj.secchub_backend.planning.service;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.integration.contract.IntegrationModuleStudentApplicationContract;
 import co.edu.puj.secchub_backend.planning.dto.*;
 import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantBadRequestException;
@@ -25,7 +26,10 @@ import reactor.core.publisher.Mono;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @Slf4j
@@ -38,6 +42,7 @@ public class TeachingAssistantService {
     
     private final SecurityModuleUserContract userService;
     private final AdminModuleSectionContract sectionService;
+    private final AdminModuleSemesterContract semesterService;
     private final IntegrationModuleStudentApplicationContract studentApplicationService;
     
     private final TransactionalOperator transactionalOperator;
@@ -291,6 +296,171 @@ public class TeachingAssistantService {
     }
 
     /**
+     * Obtains schedule conflicts for teaching assistants in the current semester.
+     * Groups overlapping schedules by teaching assistants and filters based on user permissions.
+     * Creates separate conflict groups for each cluster of overlapping schedules.
+     * @return Flux of teaching assistant schedule conflicts
+     */
+    public Mono<List<TeachingAssistantScheduleConflictResponseDTO>> getTeachingAssistantScheduleConflicts() {
+        return semesterService.getCurrentSemesterId()
+            .flatMap(currentSemesterId ->
+                scheduleRepository.findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId)
+                .collectList()
+                .flatMap(schedulesWithConflicts ->
+                    Flux.fromIterable(schedulesWithConflicts)
+                    .collectMultimap(TeachingAssistantScheduleWithDetailsDTO::getUserId)
+                    .flatMapMany(groupedByUser ->
+                        Flux.fromIterable(groupedByUser.entrySet())
+                        .filter(entry -> entry.getValue().size() >= 2)
+                        .flatMap(entry -> {
+                            Long userId = entry.getKey();
+                            List<TeachingAssistantScheduleWithDetailsDTO> userSchedules = 
+                                (List<TeachingAssistantScheduleWithDetailsDTO>) entry.getValue();
+                            
+                            // Group schedules into clusters based on overlaps
+                            List<List<TeachingAssistantScheduleWithDetailsDTO>> clusters = 
+                                groupTASchedulesIntoOverlapClusters(userSchedules);
+                            
+                            // Create a conflict DTO for each cluster with at least 2 schedules
+                            return Flux.fromIterable(clusters)
+                                .filter(cluster -> cluster.size() >= 2)
+                                // Filter based on user section permissions - keep cluster if at least one TA belongs to user's section
+                                .filterWhen(cluster -> 
+                                    Flux.fromIterable(cluster)
+                                        .flatMap(schedule -> {
+                                            // Convert DTO to TeachingAssistant model for filtering
+                                            TeachingAssistant ta = new TeachingAssistant();
+                                            ta.setId(schedule.getTeachingAssistantId());
+                                            ta.setStudentApplicationId(schedule.getStudentApplicationId());
+                                            return filterTeachingAssistantsByUserSection(ta);
+                                        })
+                                        .any(isAllowed -> isAllowed)
+                                )
+                                .flatMap(cluster -> {
+                                    TeachingAssistantScheduleWithDetailsDTO firstSchedule = cluster.get(0);
+
+                                    // Get user details
+                                    return userService.getUserInformationById(userId)
+                                        .map(userInfo -> {
+                                            TeachingAssistantScheduleConflictResponseDTO conflictDTO = 
+                                                new TeachingAssistantScheduleConflictResponseDTO();
+                                            conflictDTO.setUserId(userId);
+                                            conflictDTO.setUserName(userInfo.getName());
+                                            conflictDTO.setConflictTeachingAssistants(
+                                                cluster.stream()
+                                                    .map(TeachingAssistantScheduleWithDetailsDTO::getTeachingAssistantId)
+                                                    .distinct()
+                                                    .toList()
+                                            );
+                                            conflictDTO.setDay(firstSchedule.getDay());
+                                            conflictDTO.setConflictStartTime(
+                                                cluster.stream()
+                                                    .map(TeachingAssistantScheduleWithDetailsDTO::getStartTime)
+                                                    .min(LocalTime::compareTo)
+                                                    .orElse(firstSchedule.getStartTime())
+                                            );
+                                            conflictDTO.setConflictEndTime(
+                                                cluster.stream()
+                                                    .map(TeachingAssistantScheduleWithDetailsDTO::getEndTime)
+                                                    .max(LocalTime::compareTo)
+                                                    .orElse(firstSchedule.getEndTime())
+                                            );
+                                            return conflictDTO;
+                                        })
+                                        .onErrorResume(e -> {
+                                            log.warn("Error getting user details for userId {}: {}", 
+                                                userId, e.getMessage());
+                                            return Mono.empty();
+                                        });
+                                });
+                        })
+                    )
+                    .collectList()
+                )
+            )
+            .onErrorMap(e -> {
+                log.error("Error retrieving teaching assistant schedule conflicts: {}", e.getMessage());
+                throw new TeachingAssistantServerErrorException(
+                    "Error retrieving teaching assistant schedule conflicts: " + e.getMessage());
+            });
+    }
+
+    // ========================================================================
+    // Private Methods
+    // ========================================================================
+
+    /**
+     * Groups TA schedules into clusters where schedules that overlap are in the same cluster.
+     * Uses a greedy algorithm to detect overlaps between schedules.
+     * @param schedules List of TA schedules to group
+     * @return List of clusters, where each cluster contains overlapping schedules
+     */
+    private List<List<TeachingAssistantScheduleWithDetailsDTO>> groupTASchedulesIntoOverlapClusters(
+        List<TeachingAssistantScheduleWithDetailsDTO> schedules
+    ) {
+        if (schedules.isEmpty()) {
+            return List.of();
+        }
+        
+        List<List<TeachingAssistantScheduleWithDetailsDTO>> clusters = new ArrayList<>();
+        Set<String> processed = new HashSet<>();
+        
+        for (int i = 0; i < schedules.size()*schedules.size(); i++) {
+            int index = i % schedules.size();
+            List<TeachingAssistantScheduleWithDetailsDTO> cluster = new ArrayList<>();
+            cluster.add(schedules.get(index));
+            
+            for (int j = 0; j < schedules.size(); j++) {
+                if (
+                    j == index || 
+                    processed.contains(schedules.get(j).getScheduleId() + "-" + schedules.get(index).getScheduleId()) ||
+                    processed.contains(schedules.get(index).getScheduleId() + "-" + schedules.get(j).getScheduleId())
+                ) {
+                    continue;
+                }
+                
+                final int currentIndex = j;
+                boolean overlapsWithAll = cluster.stream()
+                    .allMatch(s -> taSchedulesOverlap(s, schedules.get(currentIndex)));
+                
+                if (overlapsWithAll) {
+                    final int finalJ = j;
+                    cluster.stream()
+                    .forEach(s ->
+                        processed.add(s.getScheduleId() + "-" + schedules.get(finalJ).getScheduleId())
+                    );
+                    cluster.add(schedules.get(j));
+                }
+            }
+            
+            if (cluster.size() > 1) {
+                clusters.add(cluster);
+            }
+        }
+        return clusters;
+    }
+    
+    /**
+     * Checks if two TA schedules overlap in time on the same day.
+     * @param schedule1 First schedule
+     * @param schedule2 Second schedule
+     * @return true if schedules overlap, false otherwise
+     */
+    private boolean taSchedulesOverlap(
+        TeachingAssistantScheduleWithDetailsDTO schedule1, 
+        TeachingAssistantScheduleWithDetailsDTO schedule2
+    ) {
+        // Must be on the same day
+        if (!schedule1.getDay().equals(schedule2.getDay())) {
+            return false;
+        }
+        
+        // Check time overlap: (start1 < end2) AND (end1 > start2)
+        return schedule1.getStartTime().isBefore(schedule2.getEndTime()) && 
+            schedule1.getEndTime().isAfter(schedule2.getStartTime());
+    }
+
+    /**
      * Helper method to parse time string (HH:mm:ss) to java.sql.Time
      * @param timeString Time in format "HH:mm:ss"
      * @return java.sql.Time object or null if timeString is null/empty
@@ -306,10 +476,6 @@ public class TeachingAssistantService {
             throw new IllegalArgumentException("Invalid time format: '" + timeString + "'. Expected format: HH:mm:ss", e);
         }
     }
-
-    // ========================================================================
-    // Private Methods
-    // ========================================================================
 
     /**
      * Helper method to convert TeachingAssistant entity to ResponseDTO.

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.LocalTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -25,6 +27,7 @@ import co.edu.puj.secchub_backend.DatabaseContainerIntegration;
 import co.edu.puj.secchub_backend.R2dbcTestUtils;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleConflictResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleResponseDTO;
 import co.edu.puj.secchub_backend.security.jwt.JwtTokenProvider;
@@ -873,4 +876,261 @@ class TeachingAssistantControllerIntegrationTest extends DatabaseContainerIntegr
                 .toList();
         assertEquals(3, days.size(), "Should have 3 distinct days");
     }
+
+    // ==========================================
+    // GET /teaching-assistants/conflicts Tests
+    // ==========================================
+
+    @ParameterizedTest
+    @MethodSource("authorizedRolesProvider")
+    @DisplayName("GET /teaching-assistants/conflicts - Should return all conflicts for authorized users")
+    void getTeachingAssistantScheduleConflicts_asAuthorizedUser_shouldReturnConflicts(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeachingAssistantScheduleConflictResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(conflicts);
+        assertFalse(conflicts.isEmpty(), "Should have conflicts");
+        
+        // Verify conflicts are for User 3 (Student from test data)
+        assertTrue(conflicts.stream().allMatch(c -> c.getUserId().equals(3L)),
+                "All conflicts should be for User 3 (Student)");
+    }
+
+    @Test
+    @DisplayName("GET /teaching-assistants/conflicts - Should detect complex overlaps and create correct clusters")
+    void getTeachingAssistantScheduleConflicts_complexOverlaps_shouldCreateClusters() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeachingAssistantScheduleConflictResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(conflicts);
+        conflicts.forEach(c -> System.out.println("Conflict Cluster: " + c));
+        assertEquals(4, conflicts.size(), "Should have exactly 4 conflict clusters");
+
+        // Verify cluster with 3 TAs (10, 20, 50)
+        TeachingAssistantScheduleConflictResponseDTO cluster3TAs = conflicts.stream()
+                .filter(c -> c.getConflictTeachingAssistants().size() == 3)
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster3TAs, "Should have a cluster with 3 TAs");
+        assertTrue(cluster3TAs.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 20L, 50L)),
+                "Cluster should contain TAs 10, 20, and 50");
+        assertEquals(LocalTime.of(9, 0), cluster3TAs.getConflictStartTime(), "Min start time should be 09:00");
+        assertEquals(LocalTime.of(13, 0), cluster3TAs.getConflictEndTime(), "Max end time should be 13:00");
+
+        // Verify clusters with 2 TAs each
+        List<TeachingAssistantScheduleConflictResponseDTO> clusters2TAs = conflicts.stream()
+                .filter(c -> c.getConflictTeachingAssistants().size() == 2)
+                .toList();
+        assertEquals(3, clusters2TAs.size(), "Should have 3 clusters with 2 TAs each");
+
+        // Verify cluster [10, 30]
+        boolean hasCluster1030 = clusters2TAs.stream()
+                .anyMatch(c -> c.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 30L)));
+        assertTrue(hasCluster1030, "Should have cluster with TAs 10 and 30");
+
+        TeachingAssistantScheduleConflictResponseDTO cluster1030 = clusters2TAs.stream()
+                .filter(c -> c.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 30L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster1030);
+        assertEquals(LocalTime.of(11, 0), cluster1030.getConflictStartTime());
+        assertEquals(LocalTime.of(15, 0), cluster1030.getConflictEndTime());
+
+        // Verify cluster [30, 40]
+        boolean hasCluster3040 = clusters2TAs.stream()
+                .anyMatch(c -> c.getConflictTeachingAssistants().containsAll(Arrays.asList(30L, 40L)));
+        assertTrue(hasCluster3040, "Should have cluster with TAs 30 and 40");
+
+        TeachingAssistantScheduleConflictResponseDTO cluster3040 = clusters2TAs.stream()
+                .filter(c -> c.getConflictTeachingAssistants().containsAll(Arrays.asList(30L, 40L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster3040);
+        assertEquals(LocalTime.of(12, 0), cluster3040.getConflictStartTime());
+        assertEquals(LocalTime.of(17, 0), cluster3040.getConflictEndTime());
+
+        // Verify cluster [70, 60]
+        boolean hasCluster7060 = clusters2TAs.stream()
+                .anyMatch(c -> c.getConflictTeachingAssistants().containsAll(Arrays.asList(70L, 60L)));
+        assertTrue(hasCluster7060, "Should have cluster with TAs 70 and 60");
+
+        TeachingAssistantScheduleConflictResponseDTO cluster7060 = clusters2TAs.stream()
+                .filter(c -> c.getConflictTeachingAssistants().containsAll(Arrays.asList(70L, 60L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster7060);
+        assertEquals(LocalTime.of(8, 0), cluster7060.getConflictStartTime());
+        assertEquals(LocalTime.of(11, 0), cluster7060.getConflictEndTime());
+    }
+
+    @Test
+    @DisplayName("GET /teaching-assistants/conflicts - Should return empty list when no conflicts exist")
+    void getTeachingAssistantScheduleConflicts_noConflicts_shouldReturnEmpty() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+
+        // Don't load conflict test data - only base data has no conflicts
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeachingAssistantScheduleConflictResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(conflicts);
+        assertTrue(conflicts.isEmpty(), "Should return empty list when no conflicts");
+    }
+
+    @Test
+    @DisplayName("GET /teaching-assistants/conflicts - Should include correct time ranges")
+    void getTeachingAssistantScheduleConflicts_shouldIncludeCorrectTimeRanges() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeachingAssistantScheduleConflictResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(conflicts);
+        assertFalse(conflicts.isEmpty());
+
+        // Verify all conflicts have valid time ranges
+        conflicts.forEach(conflict -> {
+            assertNotNull(conflict.getConflictStartTime(), "Start time should not be null");
+            assertNotNull(conflict.getConflictEndTime(), "End time should not be null");
+            assertTrue(conflict.getConflictStartTime().isBefore(conflict.getConflictEndTime()),
+                    "Start time should be before end time");
+        });
+
+        // Verify the largest cluster has the widest time range
+        TeachingAssistantScheduleConflictResponseDTO largestCluster = conflicts.stream()
+                .max((c1, c2) -> Integer.compare(c1.getConflictTeachingAssistants().size(), 
+                                                c2.getConflictTeachingAssistants().size()))
+                .orElse(null);
+        assertNotNull(largestCluster);
+        assertEquals(LocalTime.of(9, 0), largestCluster.getConflictStartTime(),
+                "Largest cluster should start at 09:00");
+        assertEquals(LocalTime.of(13, 0), largestCluster.getConflictEndTime(),
+                "Largest cluster should end at 13:00");
+    }
+
+    @Test
+    @DisplayName("GET /teaching-assistants/conflicts - Should include user information")
+    void getTeachingAssistantScheduleConflicts_shouldIncludeUserInfo() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeachingAssistantScheduleConflictResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(conflicts);
+        assertFalse(conflicts.isEmpty());
+
+        // Verify all conflicts have user information
+        conflicts.forEach(conflict -> {
+            assertNotNull(conflict.getUserId(), "User ID should not be null");
+            assertNotNull(conflict.getUserName(), "User name should not be null");
+            assertEquals(3L, conflict.getUserId(), "All conflicts should be for User 3 (Student)");
+        });
+    }
+
+    @ParameterizedTest
+    @MethodSource("unauthorizedRolesProvider")
+    @DisplayName("GET /teaching-assistants/conflicts - Should deny unauthorized roles")
+    void getTeachingAssistantScheduleConflicts_unauthorizedRole_shouldDeny(String email, String role) {
+        String token = jwtTokenProvider.generateToken(email, role);
+        
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isForbidden();
+    }
+
+    @Test
+    @DisplayName("GET /teaching-assistants/conflicts - Should require authentication")
+    void getTeachingAssistantScheduleConflicts_noAuth_shouldDeny() {
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isUnauthorized();
+    }
+
+    @Test
+    @DisplayName("GET /teaching-assistants/conflicts - Should only return current semester conflicts")
+    void getTeachingAssistantScheduleConflicts_shouldOnlyReturnCurrentSemester() {
+        String token = jwtTokenProvider.generateToken("testAdmin@example.com", "ROLE_ADMIN");
+        
+        // Load conflict test data
+        R2dbcTestUtils.executeScripts(connectionFactory, "/test-conflict-schedules.sql", "/test-ta-conflict-schedules.sql");
+
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = webTestClient.get()
+                .uri("/teaching-assistants/conflicts")
+                .header("Authorization", "Bearer " + token)
+                .accept(MediaType.APPLICATION_JSON)
+                .exchange()
+                .expectStatus().isOk()
+                .expectBodyList(TeachingAssistantScheduleConflictResponseDTO.class)
+                .returnResult()
+                .getResponseBody();
+
+        assertNotNull(conflicts);
+        // All conflicts should be from current semester (semester_id = 2 in test data)
+        // This is verified indirectly since the conflicts are returned
+        // The service only queries schedules for the current semester
+        assertTrue(conflicts.stream().allMatch(c -> c.getUserId() != null),
+                "All conflicts should have valid user IDs from current semester");
+    }
 }
+

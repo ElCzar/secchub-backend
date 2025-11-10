@@ -31,11 +31,14 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.transaction.reactive.TransactionalOperator;
 
 import co.edu.puj.secchub_backend.admin.contract.AdminModuleSectionContract;
+import co.edu.puj.secchub_backend.admin.contract.AdminModuleSemesterContract;
 import co.edu.puj.secchub_backend.integration.contract.IntegrationModuleStudentApplicationContract;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleConflictResponseDTO;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleRequestDTO;
 import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleResponseDTO;
+import co.edu.puj.secchub_backend.planning.dto.TeachingAssistantScheduleWithDetailsDTO;
 import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantBadRequestException;
 import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantNotFoundException;
 import co.edu.puj.secchub_backend.planning.exception.TeachingAssistantServerErrorException;
@@ -44,6 +47,7 @@ import co.edu.puj.secchub_backend.planning.model.TeachingAssistantSchedule;
 import co.edu.puj.secchub_backend.planning.repository.TeachingAssistantRepository;
 import co.edu.puj.secchub_backend.planning.repository.TeachingAssistantScheduleRepository;
 import co.edu.puj.secchub_backend.security.contract.SecurityModuleUserContract;
+import co.edu.puj.secchub_backend.security.contract.UserInformationResponseDTO;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -68,6 +72,9 @@ class TeachingAssistantServiceTest {
 
     @Mock
     private IntegrationModuleStudentApplicationContract studentApplicationService;
+
+    @Mock
+    private AdminModuleSemesterContract semesterService;
 
     @Mock
     private TransactionalOperator transactionalOperator;
@@ -976,5 +983,345 @@ class TeachingAssistantServiceTest {
                 });
 
         return Arrays.asList(testTeachingAssistant1, teachingAssistant2, teachingAssistant3);
+    }
+
+    // ========================================================================
+    // getTeachingAssistantScheduleConflicts Tests
+    // ========================================================================
+
+    @Test
+    @DisplayName("getTeachingAssistantScheduleConflicts - Complex overlapping scenario creates correct clusters")
+    void testGetTeachingAssistantScheduleConflicts_ComplexOverlaps_CreatesCorrectClusters() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long userId = 100L;
+        
+        UserInformationResponseDTO userInfo = UserInformationResponseDTO.builder()
+                .id(userId)
+                .name("John Doe")
+                .email("john.doe@test.com")
+                .build();
+
+        // s1 = 11-13 (TA ID 10, Class ID 110)
+        TeachingAssistantScheduleWithDetailsDTO s1 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(1L)
+                .teachingAssistantId(10L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(110L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(13, 0))
+                .build();
+
+        // s2 = 10-12 (TA ID 20, Class ID 120) - overlaps with s1 and s5
+        TeachingAssistantScheduleWithDetailsDTO s2 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(2L)
+                .teachingAssistantId(20L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(120L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // s3 = 12-15 (TA ID 30, Class ID 130) - overlaps with s1 and s4
+        TeachingAssistantScheduleWithDetailsDTO s3 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(3L)
+                .teachingAssistantId(30L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(130L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(12, 0))
+                .endTime(LocalTime.of(15, 0))
+                .build();
+
+        // s4 = 14-17 (TA ID 40, Class ID 140) - overlaps with s3
+        TeachingAssistantScheduleWithDetailsDTO s4 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(4L)
+                .teachingAssistantId(40L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(140L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(14, 0))
+                .endTime(LocalTime.of(17, 0))
+                .build();
+
+        // s5 = 9-12 (TA ID 50, Class ID 150) - overlaps with s1 and s2
+        TeachingAssistantScheduleWithDetailsDTO s5 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(5L)
+                .teachingAssistantId(50L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(150L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        setupSecurityContext("ROLE_ADMIN");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(scheduleRepository.findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId))
+                .thenReturn(Flux.just(s1, s2, s3, s4, s5));
+        when(userService.getUserInformationById(userId)).thenReturn(Mono.just(userInfo));
+
+        // Act
+        // Expected clusters:
+        // Cluster 1: s1-s2-s5 (TAs 10, 20, 50) - all three overlap with each other
+        // Cluster 2: s1-s3 (TAs 10, 30) - both overlap
+        // Cluster 3: s3-s4 (TAs 30, 40) - both overlap
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = teachingAssistantService.getTeachingAssistantScheduleConflicts()
+                .block();
+
+        // Assert
+        assertNotNull(conflicts);
+        assertEquals(3, conflicts.size(), "Should have exactly 3 conflict clusters");
+
+        // Verify each cluster
+        List<List<Long>> clusterIds = conflicts.stream()
+                .map(TeachingAssistantScheduleConflictResponseDTO::getConflictTeachingAssistants)
+                .toList();
+        
+        // Find cluster with 3 TAs (s1-s2-s5)
+        TeachingAssistantScheduleConflictResponseDTO cluster3TAs = conflicts.stream()
+                .filter(conflict -> conflict.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 20L, 50L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster3TAs, "Should have a cluster with 3 TAs");
+        assertTrue(cluster3TAs.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 20L, 50L)),
+                "Cluster should contain TAs 10, 20, and 50");
+        assertEquals(LocalTime.of(9, 0), cluster3TAs.getConflictStartTime(), "Min start time should be 09:00");
+        assertEquals(LocalTime.of(13, 0), cluster3TAs.getConflictEndTime(), "Max end time should be 13:00");
+
+        // Find clusters with 2 TAs
+        List<List<Long>> cluster2TAs = clusterIds.stream()
+                .filter(ids -> ids.size() == 2)
+                .toList();
+        assertEquals(2, cluster2TAs.size(), "Should have 2 clusters with 2 TAs each");
+        
+        // Verify s1-s3 cluster (TAs 10, 30)
+        boolean hasS1S3Cluster = cluster2TAs.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(10L, 30L)));
+        assertTrue(hasS1S3Cluster, "Should have cluster with TAs 10 and 30");
+
+        TeachingAssistantScheduleConflictResponseDTO s1s3Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 30L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s1s3Conflict, "s1-s3 conflict should exist");
+        assertEquals(LocalTime.of(11, 0), s1s3Conflict.getConflictStartTime(), "Min start time should be 11:00");
+        assertEquals(LocalTime.of(15, 0), s1s3Conflict.getConflictEndTime(), "Max end time should be 15:00");
+        
+        // Verify s3-s4 cluster (TAs 30, 40)
+        boolean hasS3S4Cluster = cluster2TAs.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(30L, 40L)));
+        assertTrue(hasS3S4Cluster, "Should have cluster with TAs 30 and 40");
+
+        TeachingAssistantScheduleConflictResponseDTO s3s4Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictTeachingAssistants().containsAll(Arrays.asList(30L, 40L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s3s4Conflict, "s3-s4 conflict should exist");
+        assertEquals(LocalTime.of(12, 0), s3s4Conflict.getConflictStartTime(), "Min start time should be 12:00");
+        assertEquals(LocalTime.of(17, 0), s3s4Conflict.getConflictEndTime(), "Max end time should be 17:00");
+
+        // Verify all conflicts have correct user info
+        conflicts.forEach(conflict -> {
+            assertEquals(userId, conflict.getUserId());
+            assertEquals("John Doe", conflict.getUserName());
+        });
+
+        // Verify all have Monday as the day
+        conflicts.forEach(conflict -> {
+            assertEquals("Monday", conflict.getDay());
+        });
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(scheduleRepository).findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId);
+        verify(userService, times(3)).getUserInformationById(userId);
+    }
+
+    @Test
+    @DisplayName("getTeachingAssistantScheduleConflicts - Role SECTION filters schedules by section correctly")
+    void testGetTeachingAssistantScheduleConflicts_RoleSection_FiltersSchedules() {
+        // Arrange
+        Long currentSemesterId = 1L;
+        Long userId = 100L;
+        Long userSectionId = 1L;
+        
+        UserInformationResponseDTO userInfo = UserInformationResponseDTO.builder()
+                .id(userId)
+                .name("John Doe")
+                .email("john.doe@test.com")
+                .build();
+
+        // Same 5 schedules, but TAs 10 and 30 have different section (section 2)
+        // s1 = 11-13 (TA ID 10, Section 2) - will be filtered out
+        TeachingAssistantScheduleWithDetailsDTO s1 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(1L)
+                .teachingAssistantId(10L)
+                .studentApplicationId(2L)  // Different section
+                .userId(userId)
+                .classId(110L)
+                .sectionId(2L)  // Different section
+                .day("Monday")
+                .startTime(LocalTime.of(11, 0))
+                .endTime(LocalTime.of(13, 0))
+                .build();
+
+        // s2 = 10-12 (TA ID 20, Section 1)
+        TeachingAssistantScheduleWithDetailsDTO s2 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(2L)
+                .teachingAssistantId(20L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(120L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(10, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        // s3 = 12-15 (TA ID 30, Section 2) - will be filtered out
+        TeachingAssistantScheduleWithDetailsDTO s3 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(3L)
+                .teachingAssistantId(30L)
+                .studentApplicationId(2L)  // Different section
+                .userId(userId)
+                .classId(130L)
+                .sectionId(2L)  // Different section
+                .day("Monday")
+                .startTime(LocalTime.of(12, 0))
+                .endTime(LocalTime.of(15, 0))
+                .build();
+
+        // s4 = 14-17 (TA ID 40, Section 1)
+        TeachingAssistantScheduleWithDetailsDTO s4 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(4L)
+                .teachingAssistantId(40L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(140L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(14, 0))
+                .endTime(LocalTime.of(17, 0))
+                .build();
+
+        // s5 = 9-12 (TA ID 50, Section 1)
+        TeachingAssistantScheduleWithDetailsDTO s5 = TeachingAssistantScheduleWithDetailsDTO.builder()
+                .scheduleId(5L)
+                .teachingAssistantId(50L)
+                .studentApplicationId(1L)
+                .userId(userId)
+                .classId(150L)
+                .sectionId(1L)
+                .day("Monday")
+                .startTime(LocalTime.of(9, 0))
+                .endTime(LocalTime.of(12, 0))
+                .build();
+
+        setupSecurityContext("ROLE_SECTION");
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(scheduleRepository.findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId))
+                .thenReturn(Flux.just(s1, s2, s3, s4, s5));
+        when(userService.getUserIdByEmail(anyString())).thenReturn(Mono.just(1L));
+        when(sectionService.getSectionIdByUserId(1L)).thenReturn(Mono.just(userSectionId));
+        when(studentApplicationService.isApplicationOfSection(1L, userSectionId)).thenReturn(Mono.just(true));
+        when(studentApplicationService.isApplicationOfSection(2L, userSectionId)).thenReturn(Mono.just(false));
+        when(userService.getUserInformationById(userId)).thenReturn(Mono.just(userInfo));
+
+        // Act
+        // Expected: Only 1 cluster with s2-s5 (TAs 20, 50) since they are in section 1 and overlap
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = teachingAssistantService.getTeachingAssistantScheduleConflicts()
+                .block();
+
+        // Assert
+        assertNotNull(conflicts);
+        assertEquals(2, conflicts.size(), "Should have exactly 2 conflict cluster");
+
+        // Verify each cluster
+                // Verify each cluster
+        List<List<Long>> clusterIds = conflicts.stream()
+                .map(TeachingAssistantScheduleConflictResponseDTO::getConflictTeachingAssistants)
+                .toList();
+        
+        // Find cluster with 3 TAs (s1-s2-s5)
+        TeachingAssistantScheduleConflictResponseDTO cluster3TAs = conflicts.stream()
+                .filter(conflict -> conflict.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 20L, 50L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(cluster3TAs, "Should have a cluster with 3 TAs");
+        assertTrue(cluster3TAs.getConflictTeachingAssistants().containsAll(Arrays.asList(10L, 20L, 50L)),
+                "Cluster should contain TAs 10, 20, and 50");
+        assertEquals(LocalTime.of(9, 0), cluster3TAs.getConflictStartTime(), "Min start time should be 09:00");
+        assertEquals(LocalTime.of(13, 0), cluster3TAs.getConflictEndTime(), "Max end time should be 13:00");
+
+        // Find clusters with 2 TAs
+        List<List<Long>> cluster2TAs = clusterIds.stream()
+                .filter(ids -> ids.size() == 2)
+                .toList();
+        assertEquals(1, cluster2TAs.size(), "Should have 1 clusters with 2 TAs each");
+        
+        // Verify s3-s4 cluster (TAs 30, 40)
+        boolean hasS3S4Cluster = cluster2TAs.stream()
+                .anyMatch(ids -> ids.containsAll(Arrays.asList(30L, 40L)));
+        assertTrue(hasS3S4Cluster, "Should have cluster with TAs 30 and 40");
+
+        TeachingAssistantScheduleConflictResponseDTO s3s4Conflict = conflicts.stream()
+                .filter(conflict -> conflict.getConflictTeachingAssistants().containsAll(Arrays.asList(30L, 40L)))
+                .findFirst()
+                .orElse(null);
+        assertNotNull(s3s4Conflict, "s3-s4 conflict should exist");
+        assertEquals(LocalTime.of(12, 0), s3s4Conflict.getConflictStartTime(), "Min start time should be 12:00");
+        assertEquals(LocalTime.of(17, 0), s3s4Conflict.getConflictEndTime(), "Max end time should be 17:00");
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(scheduleRepository).findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId);
+    }
+
+    @Test
+    @DisplayName("getTeachingAssistantScheduleConflicts - No conflicts returns empty list")
+    void testGetTeachingAssistantScheduleConflicts_NoConflicts_ReturnsEmpty() {
+        // Arrange
+        Long currentSemesterId = 1L;
+
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.just(currentSemesterId));
+        when(scheduleRepository.findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId))
+                .thenReturn(Flux.empty());
+
+        // Act
+        List<TeachingAssistantScheduleConflictResponseDTO> conflicts = teachingAssistantService.getTeachingAssistantScheduleConflicts()
+                .block();
+
+        // Assert
+        assertNotNull(conflicts);
+        assertTrue(conflicts.isEmpty(), "Should return empty list when no conflicts");
+
+        verify(semesterService).getCurrentSemesterId();
+        verify(scheduleRepository).findConflictingSchedulesWithDetailsBySemesterId(currentSemesterId);
+    }
+
+    @Test
+    @DisplayName("getTeachingAssistantScheduleConflicts - Semester service fails throws exception")
+    void testGetTeachingAssistantScheduleConflicts_SemesterServiceFails_ThrowsException() {
+        // Arrange
+        when(semesterService.getCurrentSemesterId()).thenReturn(Mono.error(new RuntimeException("Semester service error")));
+
+        // Act & Assert
+        Mono<List<TeachingAssistantScheduleConflictResponseDTO>> resultFlux = teachingAssistantService.getTeachingAssistantScheduleConflicts();
+        assertThrows(TeachingAssistantServerErrorException.class, resultFlux::block);
+
+        verify(semesterService).getCurrentSemesterId();
     }
 }

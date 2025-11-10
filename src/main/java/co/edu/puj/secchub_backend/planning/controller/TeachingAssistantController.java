@@ -22,123 +22,134 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class TeachingAssistantController {
 
-        private final TeachingAssistantService teachingAssistantService;
+    private final TeachingAssistantService teachingAssistantService;
 
-        /**
-         * Creates a new teaching assistant assignment.
-         * @param teachingAssistantRequestDTO DTO with assignment data
-         * @return TeachingAssistantResponseDTO with the created assignment
-         */
-        @PostMapping
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<TeachingAssistantResponseDTO>> createTeachingAssistant(@RequestBody TeachingAssistantRequestDTO teachingAssistantRequestDTO) {
+    /**
+     * Creates a new teaching assistant assignment.
+     * @param teachingAssistantRequestDTO DTO with assignment data
+     * @return TeachingAssistantResponseDTO with the created assignment
+     */
+    @PostMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeachingAssistantResponseDTO>> createTeachingAssistant(@RequestBody TeachingAssistantRequestDTO teachingAssistantRequestDTO) {
         return teachingAssistantService.createTeachingAssistant(teachingAssistantRequestDTO)
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
-        }
+            .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+    }
 
-        /**
-         * Updates an existing teaching assistant assignment.
-         * @param id Teaching assistant ID
-         * @param teachingAssistantRequestDTO DTO with updated data
-         * @return TeachingAssistantResponseDTO with the updated assignment
-         */
-        @PutMapping("/{id}")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<TeachingAssistantResponseDTO>> updateTeachingAssistant(
-                @PathVariable Long id,
-                @RequestBody TeachingAssistantRequestDTO teachingAssistantRequestDTO) {
+    /**
+     * Updates an existing teaching assistant assignment.
+     * @param id Teaching assistant ID
+     * @param teachingAssistantRequestDTO DTO with updated data
+     * @return TeachingAssistantResponseDTO with the updated assignment
+     */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeachingAssistantResponseDTO>> updateTeachingAssistant(
+        @PathVariable Long id,
+        @RequestBody TeachingAssistantRequestDTO teachingAssistantRequestDTO) {
         return teachingAssistantService.updateTeachingAssistant(id, teachingAssistantRequestDTO)
-                .map(ResponseEntity::ok);
-        }
+            .map(ResponseEntity::ok);
+    }
 
-        /**
-         * Deletes a teaching assistant assignment.
-         * @param id Teaching assistant ID
-         * @return Response with ok status
-         */
-        @DeleteMapping("/{id}")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<Void>> deleteTeachingAssistant(@PathVariable Long id) {
+    /**
+     * Deletes a teaching assistant assignment.
+     * @param id Teaching assistant ID
+     * @return Response with ok status
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> deleteTeachingAssistant(@PathVariable Long id) {
         return teachingAssistantService.deleteTeachingAssistant(id)
-                .then(Mono.just(ResponseEntity.ok().<Void>build()));
-        }
+            .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
 
-        /**
-         * Gets a teaching assistant assignment by its ID.
-         * @param id Teaching assistant ID
-         * @return TeachingAssistantResponseDTO with the found assignment
-         */
-        @GetMapping("/{id}")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<TeachingAssistantResponseDTO>> getTeachingAssistantById(@PathVariable Long id) {
+    /**
+     * Gets a teaching assistant assignment by its ID.
+     * @param id Teaching assistant ID
+     * @return TeachingAssistantResponseDTO with the found assignment
+     */
+    @GetMapping("/{id}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeachingAssistantResponseDTO>> getTeachingAssistantById(@PathVariable Long id) {
         return teachingAssistantService.findTeachingAssistantById(id)
-                .map(ResponseEntity::ok);
-        }
+            .map(ResponseEntity::ok);
+    }
 
-        /**
-         * Gets teaching assistant assignments by student application ID.
-         * @param studentApplicationId Student application ID
-         * @return List of TeachingAssistantResponseDTO for the student application
-         */
-        @GetMapping("/student-application/{studentApplicationId}")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<TeachingAssistantResponseDTO>> getTeachingAssistantsByStudentApplication(
-                @PathVariable Long studentApplicationId) {
+    /**
+     * Gets teaching assistant assignments by student application ID.
+     * @param studentApplicationId Student application ID
+     * @return List of TeachingAssistantResponseDTO for the student application
+     */
+    @GetMapping("/student-application/{studentApplicationId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeachingAssistantResponseDTO>> getTeachingAssistantsByStudentApplication(
+        @PathVariable Long studentApplicationId) {
         return teachingAssistantService.findByStudentApplicationId(studentApplicationId)
-                .map(ResponseEntity::ok);
-        }
+            .map(ResponseEntity::ok);
+    }
 
-        /**
-         * Gets all teaching assistant assignments.
-         * @return List of TeachingAssistantResponseDTO
-         */
-        @GetMapping
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<List<TeachingAssistantResponseDTO>>> getAllTeachingAssistants() {
+    /**
+     * Gets all teaching assistant assignments.
+     * @return List of TeachingAssistantResponseDTO
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<List<TeachingAssistantResponseDTO>>> getAllTeachingAssistants() {
         return teachingAssistantService.listAllTeachingAssistants()
-                .collectList()
-                .map(ResponseEntity::ok);
-        }
+            .collectList()
+            .map(ResponseEntity::ok);
+    }
 
-        /**
-         * Creates a new schedule for a teaching assistant.
-         * @param teachingAssistantId Teaching assistant ID
-         * @param scheduleRequestDTO DTO with schedule data
-         * @return TeachingAssistantScheduleResponseDTO with the created schedule
-         */
-        @PostMapping("/{teachingAssistantId}/schedules")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<TeachingAssistantScheduleResponseDTO>> createSchedule(
-                @PathVariable Long teachingAssistantId,
-                @RequestBody TeachingAssistantScheduleRequestDTO scheduleRequestDTO) {
+    /**
+     * Creates a new schedule for a teaching assistant.
+     * @param teachingAssistantId Teaching assistant ID
+     * @param scheduleRequestDTO DTO with schedule data
+     * @return TeachingAssistantScheduleResponseDTO with the created schedule
+     */
+    @PostMapping("/{teachingAssistantId}/schedules")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeachingAssistantScheduleResponseDTO>> createSchedule(
+        @PathVariable Long teachingAssistantId,
+        @RequestBody TeachingAssistantScheduleRequestDTO scheduleRequestDTO) {
         return teachingAssistantService.createSchedule(teachingAssistantId, scheduleRequestDTO)
-                .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
-        }
+            .map(saved -> ResponseEntity.status(HttpStatus.CREATED).body(saved));
+    }
 
-        /**
-         * Updates an existing teaching assistant schedule.
-         * @param scheduleId Schedule ID
-         * @param scheduleRequestDTO DTO with updated schedule data
-         * @return TeachingAssistantScheduleResponseDTO with the updated schedule
-         */
-        @PutMapping("/schedules/{scheduleId}")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<TeachingAssistantScheduleResponseDTO>> updateSchedule(
-                @PathVariable Long scheduleId,
-                @RequestBody TeachingAssistantScheduleRequestDTO scheduleRequestDTO) {
+    /**
+     * Updates an existing teaching assistant schedule.
+     * @param scheduleId Schedule ID
+     * @param scheduleRequestDTO DTO with updated schedule data
+     * @return TeachingAssistantScheduleResponseDTO with the updated schedule
+     */
+    @PutMapping("/schedules/{scheduleId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<TeachingAssistantScheduleResponseDTO>> updateSchedule(
+        @PathVariable Long scheduleId,
+        @RequestBody TeachingAssistantScheduleRequestDTO scheduleRequestDTO) {
         return teachingAssistantService.updateSchedule(scheduleId, scheduleRequestDTO)
-                .map(ResponseEntity::ok);
-        }
+            .map(ResponseEntity::ok);
+    }
 
-        /**
-         * Deletes a teaching assistant schedule.
-         * @param scheduleId Schedule ID
-         * @return Response with ok status
-         */
-        @DeleteMapping("/schedules/{scheduleId}")
-        @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
-        public Mono<ResponseEntity<Void>> deleteSchedule(@PathVariable Long scheduleId) {
+    /**
+     * Deletes a teaching assistant schedule.
+     * @param scheduleId Schedule ID
+     * @return Response with ok status
+     */
+    @DeleteMapping("/schedules/{scheduleId}")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<Void>> deleteSchedule(@PathVariable Long scheduleId) {
         return teachingAssistantService.deleteSchedule(scheduleId)
-                .then(Mono.just(ResponseEntity.ok().<Void>build()));
-        }
+            .then(Mono.just(ResponseEntity.ok().<Void>build()));
+    }
+
+    /**
+     * Gets conflicts for teaching assistant schedules in the current semester.
+     * @return List of TeachingAssistantConflictResponseDTO representing schedule conflicts
+     */
+    @GetMapping("/conflicts")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('ROLE_USER')")
+    public Mono<ResponseEntity<List<TeachingAssistantScheduleConflictResponseDTO>>> getTeachingAssistantScheduleConflicts() {
+        return teachingAssistantService.getTeachingAssistantScheduleConflicts()
+            .map(ResponseEntity::ok);
+    }
 }
