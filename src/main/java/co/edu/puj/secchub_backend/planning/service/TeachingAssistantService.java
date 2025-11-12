@@ -102,6 +102,9 @@ public class TeachingAssistantService {
             .filterWhen(this::filterTeachingAssistantsByUserSection)
             .switchIfEmpty(Mono.error(new TeachingAssistantNotFoundException("TeachingAssistant not found for update: " + id)))
             .flatMap(existingTeachingAssistant -> {
+                // Store the original ID to prevent it from being overwritten
+                Long originalId = existingTeachingAssistant.getId();
+                
                 // Configure ModelMapper to skip null values
                 ModelMapper updateMapper = new ModelMapper();
                 updateMapper.getConfiguration()
@@ -109,6 +112,9 @@ public class TeachingAssistantService {
                 
                 // Map non-null values from DTO to existing entity
                 updateMapper.map(teachingAssistantRequestDTO, existingTeachingAssistant);
+                
+                // Restore the original ID (prevent ModelMapper from overwriting it with classId or other field)
+                existingTeachingAssistant.setId(originalId);
                 
                 return teachingAssistantRepository.save(existingTeachingAssistant);
             })

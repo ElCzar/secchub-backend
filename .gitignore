@@ -39,3 +39,4 @@ logs/
 ### SeccHub ###
 logs/
 logs/secchub-backend.log
+reports/
