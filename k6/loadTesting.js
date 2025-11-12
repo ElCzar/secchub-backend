@@ -18,11 +18,11 @@ const BASE_URL = __ENV.BASE_URL || 'http://localhost:8080';
 // Load test configuration
 export const options = {
   stages: [
-    { duration: '10s', target: 10 },  // Ramp up to 10 users
-    { duration: '20s', target: 30 },  // Ramp up to 30 users
-    { duration: '30s', target: 50 },  // Ramp up to 50 users (max)
-    { duration: '20s', target: 50 },  // Maintain 50 users for 5 minutes
-    { duration: '5s', target: 0 },   // Ramp down
+    { duration: '30s', target: 10 },  // Ramp up to 10 users
+    { duration: '30s', target: 30 },  // Ramp up to 30 users
+    { duration: '1m', target: 50 },  // Ramp up to 50 users (max)
+    { duration: '5m', target: 50 },  // Maintain 50 users for 5 minutes
+    { duration: '1m', target: 0 },   // Ramp down
   ],
   thresholds: {
     'errors': ['rate<0.05'],                           // Error rate < 5%
@@ -68,7 +68,7 @@ function authenticate() {
   });
   
   if (!success) {
-    console.error(`❌ Authentication failed: ${response.status} - ${response.body}`);
+    console.error(`Authentication failed: ${response.status} - ${response.body}`);
     return null;
   }
   
@@ -80,9 +80,9 @@ function authenticate() {
  * Authenticates admin user and prepares test data
  */
 export function setup() {
-  console.log('🚀 Starting SecHub Backend Load Test');
-  console.log(`📍 Base URL: ${BASE_URL}`);
-  console.log('👤 Authenticating admin user...');
+  console.log('Starting SecHub Backend Load Test');
+  console.log(`Base URL: ${BASE_URL}`);
+  console.log('Authenticating admin user...');
   
   const token = authenticate();
   
@@ -90,10 +90,10 @@ export function setup() {
     throw new Error('Failed to authenticate admin user');
   }
   
-  console.log('✅ Admin authentication successful');
-  console.log('⏱️  Test duration: 10 minutes (1m ramp-up + 5m sustained + 1m ramp-down)');
-  console.log('👥 Max Virtual Users: 50');
-  console.log('📊 Module weights: Admin(14%), Security(10%), Parametric(5%), Notification(5%), Log(1%), Integration(30%), Planning(30%)');
+  console.log('Admin authentication successful');
+  console.log('⏱Test duration: 10 minutes (2m ramp-up + 5m sustained + 1m ramp-down)');
+  console.log('Max Virtual Users: 50');
+  console.log('Module weights: Admin(14%), Security(10%), Parametric(5%), Notification(5%), Log(1%), Integration(30%), Planning(30%)');
   
   return { 
     token,
@@ -117,7 +117,7 @@ export default function (data) {
   const { token, baseUrl } = data;
   
   if (!token) {
-    console.error('❌ No authentication token available');
+    console.error('No authentication token available');
     return;
   }
 
@@ -148,13 +148,13 @@ export default function (data) {
  * @param {Object} data - Shared data from setup()
  */
 export function teardown(data) {
-  console.log('\n🏁 Load Test Complete');
-  console.log('📊 Summary:');
+  console.log('\nLoad Test Complete');
+  console.log('Summary:');
   console.log(`   - Created Courses: ${data.createdResourceIds.courses.length}`);
   console.log(`   - Created Teachers: ${data.createdResourceIds.teachers.length}`);
   console.log(`   - Created Students: ${data.createdResourceIds.students.length}`);
   console.log(`   - Created Admins: ${data.createdResourceIds.admins.length}`);
   console.log(`   - Created Programs: ${data.createdResourceIds.programs.length}`);
   console.log(`   - Created Sections: ${data.createdResourceIds.sections.length}`);
-  console.log('\n✨ Test execution finished successfully');
+  console.log('\nTest execution finished successfully');
 }
