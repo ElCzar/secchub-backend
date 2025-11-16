@@ -20,7 +20,6 @@ public class ClassResponseDTO {
     private Long id;
     private Long section;
     private Long courseId;
-    private String courseName;  // Name of the course
     private Long semesterId;
     private LocalDate startDate;
     private LocalDate endDate;

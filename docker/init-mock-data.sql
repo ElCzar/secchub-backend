@@ -96,7 +96,8 @@ INSERT INTO classroom (classroom_type_id, campus, location, room, capacity) VALU
 -- Additional specialized rooms
 (1, 'North Campus', 'Building E', 'E501', 60),
 (2, 'North Campus', 'Building E', 'E502', 35),
-(1, 'South Campus', 'Building F', 'F601', 55);
+(1, 'South Campus', 'Building F', 'F601', 55),
+(1, 'Main Campus', 'Building G', 'G701', 30);
 
 -- Classes data for current semester --
 INSERT INTO class (id, section, course_id, semester_id, start_date, end_date, observation, capacity, status_id) VALUES

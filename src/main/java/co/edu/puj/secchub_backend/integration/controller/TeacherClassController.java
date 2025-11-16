@@ -81,7 +81,7 @@ public class TeacherClassController {
      * @return List of classes pending decision
      */
     @GetMapping("/classes/pending-decision")
-    @PreAuthorize("hasRole('ROLE_TEACHER') or hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
     public Mono<ResponseEntity<List<TeacherClassResponseDTO>>> getPendingDecisionClassesForCurrentSemester() {
         return service.listPendingDecisionClassesForCurrentSemester()
                 .collectList()
