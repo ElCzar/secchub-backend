@@ -1072,18 +1072,8 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
     // GET Pending Decision Classes Tests
     // ==========================================
 
-    /**
-     * Provides teacher and admin roles that can access pending decision endpoint
-     */
-    private static Stream<Arguments> teacherAndAdminRolesProvider() {
-        return Stream.of(
-            Arguments.of("testTeacher@example.com", "ROLE_TEACHER"),
-            Arguments.of("testAdmin@example.com", "ROLE_ADMIN")
-        );
-    }
-
     @ParameterizedTest
-    @MethodSource("teacherAndAdminRolesProvider")
+    @MethodSource("adminAndUserRolesProvider")
     @DisplayName("GET /teachers/classes/pending-decision - Should return pending classes for current semester")
     void getPendingDecisionClassesForCurrentSemester_asAuthorizedUser_shouldReturnPendingClasses(String email, String role) {
         String token = jwtTokenProvider.generateToken(email, role);
@@ -1112,9 +1102,9 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
     }
 
     @Test
-    @DisplayName("GET /teachers/classes/pending-decision - Teacher should only see their own pending classes")
-    void getPendingDecisionClassesForCurrentSemester_asTeacher_shouldReturnOnlyTheirClasses() {
-        String token = jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER");
+    @DisplayName("GET /teachers/classes/pending-decision - User should only see their own pending classes")
+    void getPendingDecisionClassesForCurrentSemester_asUser_shouldReturnOnlyTheirClasses() {
+        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
 
         List<TeacherClassResponseDTO> pendingClasses = webTestClient.get()
                 .uri("/teachers/classes/pending-decision")
@@ -1261,9 +1251,9 @@ class TeacherClassControllerIntegrationTest extends DatabaseContainerIntegration
     }
 
     @Test
-    @DisplayName("GET /teachers/classes/pending-decision - Should deny user role access")
-    void getPendingDecisionClassesForCurrentSemester_asUser_shouldReturn403() {
-        String token = jwtTokenProvider.generateToken("testUser@example.com", "ROLE_USER");
+    @DisplayName("GET /teachers/classes/pending-decision - Should deny teacher role access")
+    void getPendingDecisionClassesForCurrentSemester_asTeacher_shouldReturn403() {
+        String token = jwtTokenProvider.generateToken("testTeacher@example.com", "ROLE_TEACHER");
 
         webTestClient.get()
                 .uri("/teachers/classes/pending-decision")

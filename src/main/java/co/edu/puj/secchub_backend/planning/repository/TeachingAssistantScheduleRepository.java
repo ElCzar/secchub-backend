@@ -44,16 +44,17 @@ public interface TeachingAssistantScheduleRepository extends R2dbcRepository<Tea
         FROM teaching_assistant_schedule tas1
         INNER JOIN teaching_assistant ta1 ON tas1.teaching_assistant_id = ta1.id
         INNER JOIN student_application sa1 ON ta1.student_application_id = sa1.id
-        INNER JOIN class c1 ON ta1.class_id = c1.id
+        LEFT JOIN class c1 ON ta1.class_id = c1.id
         INNER JOIN teaching_assistant_schedule tas2 ON tas1.day = tas2.day
-            AND tas1.id != tas2.id  -- Changed from tas1.id < tas2.id
+            AND tas1.id != tas2.id
             AND tas1.start_time < tas2.end_time
             AND tas1.end_time > tas2.start_time
         INNER JOIN teaching_assistant ta2 ON tas2.teaching_assistant_id = ta2.id
         INNER JOIN student_application sa2 ON ta2.student_application_id = sa2.id
-        INNER JOIN class c2 ON ta2.class_id = c2.id
-        WHERE c1.semester_id = :semesterId
-        AND c2.semester_id = :semesterId
+        LEFT JOIN class c2 ON ta2.class_id = c2.id
+        WHERE (c1.semester_id = :semesterId OR c1.id IS NULL)
+        AND (c2.semester_id = :semesterId OR c2.id IS NULL)
+        AND (c1.id IS NOT NULL OR c2.id IS NOT NULL OR sa1.section_id IS NOT NULL)
         AND sa1.user_id = sa2.user_id
         AND sa1.status_id = 8
         AND sa2.status_id = 8
