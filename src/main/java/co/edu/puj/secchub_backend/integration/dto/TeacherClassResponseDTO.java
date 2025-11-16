@@ -28,11 +28,4 @@ public class TeacherClassResponseDTO {
     private Long statusId;
     private LocalDate startDate;
     private LocalDate endDate;
-    
-    // Teacher information fields
-    private String teacherName;
-    private String teacherLastName;
-    private String teacherEmail;
-    private Integer teacherMaxHours;
-    private String teacherContractType;
 }
