@@ -178,6 +178,10 @@ class AcademicRequestControllerIntegrationTest extends DatabaseContainerIntegrat
         assertFalse(response.getCombined(), "Should not be combined initially");
         assertNotNull(response.getSchedules(), "Schedules should not be null");
         assertEquals(2, response.getSchedules().size(), "Should have 2 schedules");
+        RequestScheduleResponseDTO respSchedule1 = response.getSchedules().get(0);
+        assertEquals("Monday", respSchedule1.getDay(), "Day of first schedule should match");
+        assertEquals("08:00", respSchedule1.getStartTime(), "Start time of first schedule should match");
+        assertEquals("10:00", respSchedule1.getEndTime(), "End time of first schedule should match");
 
         // Verify in database
         Long count = databaseClient.sql("SELECT COUNT(*) FROM academic_request WHERE course_id = :courseId")

@@ -85,6 +85,8 @@ public class AcademicRequestService {
                                 .flatMap(scheduleDTO -> {
                                     RequestSchedule schedule = modelMapper.map(scheduleDTO, RequestSchedule.class);
                                     schedule.setAcademicRequestId(savedRequest.getId());
+                                    schedule.setStartTime(LocalTime.parse(scheduleDTO.getStartTime()));
+                                    schedule.setEndTime(LocalTime.parse(scheduleDTO.getEndTime()));
                                     return requestScheduleRepository.save(schedule);
                                 })
                                 .collectList()
